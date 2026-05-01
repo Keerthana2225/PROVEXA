@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  email         String   @unique
+  password_hash String
+  created_at    DateTime @default(now())
+}
+
+model Employee {
+  id                   String               @id @default(auto()) @map("_id") @db.ObjectId
+  emp_code             String               @unique
+  name                 String
+  department           String
+  designation          String
+  status               String               @default("active")
+  created_at           DateTime             @default(now())
+  issue_records        IssueRecord[]
+  replacement_requests ReplacementRequest[]
+}
+
+model ItemCategory {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  name  String @unique
+  items Item[]
+}
+
+model Item {
+  id                   String               @id @default(auto()) @map("_id") @db.ObjectId
+  name                 String
+  category_id          String               @db.ObjectId
+  frequency_days       Int
+  description          String?
+  category             ItemCategory         @relation(fields: [category_id], references: [id])
+  issue_records        IssueRecord[]
+  replacement_requests ReplacementRequest[]
+}
+
+model IssueRecord {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  employee_id   String   @db.ObjectId
+  item_id       String   @db.ObjectId
+  issued_date   DateTime
+  next_due_date DateTime
+  quantity      Int      @default(1)
+  issued_by     String   @db.ObjectId
+  notes         String?
+  created_at    DateTime @default(now())
+  employee      Employee @relation(fields: [employee_id], references: [id])
+  item          Item     @relation(fields: [item_id], references: [id])
+}
+
+model ReplacementRequest {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  employee_id    String    @db.ObjectId
+  item_id        String    @db.ObjectId
+  reason         String
+  status         String    @default("pending")
+  requested_date DateTime  @default(now())
+  resolved_date  DateTime?
+  resolved_by    String?   @db.ObjectId
+  notes          String?
+  employee       Employee  @relation(fields: [employee_id], references: [id])
+  item           Item      @relation(fields: [item_id], references: [id])
+}
