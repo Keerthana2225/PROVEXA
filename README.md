@@ -6,7 +6,6 @@
 [![Express](https://img.shields.io/badge/Express-5.x-000000?style=flat-square&logo=express)](https://expressjs.com/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=flat-square&logo=vite)](https://vitejs.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
 ---
 
@@ -31,24 +30,24 @@
 
 ## 1. Project Overview
 
-**PROVEXA** is a professional, full-stack enterprise web application designed for HR departments, store managers, and administrators to digitally manage the complete lifecycle of employee assets. It replaces traditional paper-based asset registers with a modern, secure, and auditable digital system.
+**PROVEXA** is a full-stack enterprise web application built to digitally manage the complete lifecycle of employee assets. Organizations — especially those in manufacturing, construction, security, and hospitality — distribute physical items like uniforms, safety helmets, PPE kits, and tools to their employees. Traditionally this is tracked using paper registers which are easy to lose, impossible to audit, and offer no proof of handover.
 
-The system handles everything from issuing assets to multiple employees at once, capturing their digital signatures as proof of receipt, tracking overdue returns, managing replacement requests, and generating professional Excel and PDF reports — all in a single unified platform.
+PROVEXA replaces all of that with a professional, secure, web-based system that:
+- Records every single asset issued to every employee
+- Captures a legal digital signature from each employee as proof of receipt
+- Tracks when items are due for return or renewal
+- Manages replacement requests when items are damaged
+- Generates styled Excel reports — with actual signature images inside the spreadsheet cells
 
-### Why PROVEXA?
+### Who Uses It?
+| Role | What They Do |
+|------|-------------|
+| HR Administrator | Issues assets, collects signatures, manages employees |
+| Store Manager | Manages item inventory, handles replacement requests |
+| Compliance Officer | Downloads Excel/PDF reports for audits and legal records |
 
-In most organizations, asset distribution (uniforms, safety helmets, tools, PPE kits) is tracked in paper registers. These are easy to lose, difficult to audit, and provide no way to verify who received what and when. PROVEXA eliminates these problems by:
-
-- Creating a permanent, tamper-proof digital record of every asset issued
-- Capturing a digital signature from each employee as legal proof of receipt
-- Generating branded Excel reports with actual signature images embedded in cells
-- Archiving old records non-destructively so the audit trail is always intact
-- Sending daily automated checks to flag overdue asset returns
-
-### Target Users
-- **HR Administrators** — Manage employees, issue assets, collect signatures
-- **Store Managers** — Track item inventory, handle replacement requests
-- **Compliance Officers** — Download Excel/PDF reports for audits
+### For Interviews — One Paragraph Summary
+> "PROVEXA is a MERN-stack enterprise application that digitises employee asset management. The most technically complex feature is the two-stage digital signature workflow — the admin bulk-issues assets, the employee draws a signature on a digital canvas, and the backend converts that canvas drawing from Base64 to a real PNG image file stored on the server. That image path is then saved in MongoDB, and when generating the Excel report with ExcelJS, the actual PNG image is embedded directly inside the spreadsheet cells. Records are never deleted — they are soft-archived with a reason and timestamp, preserving a complete audit trail."
 
 ---
 
@@ -56,137 +55,148 @@ In most organizations, asset distribution (uniforms, safety helmets, tools, PPE 
 
 ### 🔐 Authentication & Security
 - Secure admin login with email and password
-- Passwords hashed using bcryptjs (industry-standard, irreversible)
-- JWT (JSON Web Token) based stateless authentication
-- Protected routes — all API endpoints require a valid Bearer token
-- Token stored in localStorage; auto-attached via Axios interceptor
+- Password stored as a bcrypt hash — original password is never saved anywhere
+- JWT (JSON Web Token) issued on login, stored in an **HTTP-only cookie** (not localStorage — more secure, not accessible by JavaScript)
+- Every API route protected — request without a valid cookie is rejected with 401 Unauthorized
+- Cookie expires automatically after 24 hours
 
 ### 👷 Employee Management
-- Add, view, and manage employee records
-- Unique employee code (emp_code) per employee — prevents duplicates
-- Fields: Employee Code, Full Name, Department, Designation, Status
-- Search and filter employees by name or department
-- Active/Inactive status management
+- Add employees with: Employee Code (unique), Full Name, Department, Designation
+- Unique employee code enforced at database level — no duplicates possible
+- Status field: `active` or `inactive`
+- View all employees in a searchable table
 
 ### 📦 Item & Category Management
-- Create and manage item categories (e.g., Uniforms, Safety Gear, PPE Kits)
-- Add items under categories with full description
-- Two scheduling modes per item:
-  - **Frequency Mode**: Item is due every X days (e.g., every 365 days)
-  - **Fixed Date Mode**: Item is due on a specific calendar date (e.g., 31 Dec 2025)
-- Auto-calculation of next_due_date at time of issuance
+- Create item categories: e.g., "Uniforms", "Safety Gear", "PPE Kits", "Tools"
+- Create items under categories with optional description
+- **Two scheduling modes** per item:
+  - **Frequency Mode**: Enter a number of days (e.g., 365) → item due every year from issue date
+  - **Fixed Date Mode**: Enter a specific date (e.g., 31-Dec-2025) → same due date for everyone
 
-### 📋 Issue Management (Core Feature)
-- **Bulk Issuance**: Issue one item to multiple employees simultaneously in a single operation
-- Automatic due date calculation based on item scheduling configuration
-- Records created instantly with status "Pending Acknowledgement"
-- View all active (non-archived) issue records in a sortable table
-- Filter by employee, item, department, and date range
-- Color-coded status badges (Pending = yellow, Acknowledged = green, Overdue = red)
+### 📋 Issue Management (Core)
+- Issue one or more items to one or more employees in a **single bulk operation**
+- Duplicate check: warns if an employee already has an active record for the same item
+- Auto-calculates `next_due_date` from the item's scheduling configuration
+- Records saved with status `Pending Acknowledgement`
+- Filter issues by: employee, item, status (overdue / pending / acknowledged), date range
+- Color-coded status: yellow = Pending, green = Acknowledged, red = Overdue
 
 ### ✍️ Digital Signature Acknowledgement (Unique Feature)
-- Two-stage workflow: Issue → Acknowledge
-- Employee draws signature on a digital canvas (react-signature-canvas)
-- One signature covers ALL pending items for that employee in one submission
-- Signature saved as PNG file on the server filesystem
-- Timestamp recorded at exact moment of signing
-- "View Proof" button shows the saved signature image for any acknowledged record
+- Employee draws signature on a digital canvas pad
+- **One signature covers ALL pending items** for that employee simultaneously
+- Signature saved as a real PNG image file on the server
+- Timestamp recorded at the exact moment of signing
+- "View Proof" button displays the saved signature for any acknowledged record
+- Individual record acknowledgement also supported
 
-### 🏛️ Archive System (Non-Destructive Reset)
-- "Reset Current Issues" button archives all active issue records
-- Records are NOT deleted — archived flag set to true (soft delete)
-- Active dashboard only shows non-archived records
-- Issue History page shows all archived records with archive reason and date
-- Ensures 100% audit trail preservation across distribution cycles
+### 🏛️ Archive System — Soft Delete (Non-Destructive Reset)
+- "Reset Current Issues" button allows admin to archive records:
+  - All records → `scope: 'all'`
+  - Records for one employee → `scope: 'employee'`
+  - Specific selected records → `scope: 'selected'`
+- Archived records are **never deleted** — the `archived` flag is set to `true`
+- Active view shows only `archived: false` records
+- Issue History view shows all `archived: true` records
+- Archive reason, timestamp, and the admin who archived are all saved
 
-### 📊 Excel Reporting (Advanced)
-- Export complete issue records as styled Excel (.xlsx) file
-- Header row with corporate blue background and white bold text
-- Acknowledged column color-coded: Green = Acknowledged, Yellow = Pending
-- Actual PNG signature image embedded inside spreadsheet cells
-- Row height auto-adjusted to 130px for signature rows
-- Date range and department filters applied before export
-- First row frozen for easy scrolling
+### 📊 Advanced Excel Reporting (ExcelJS)
+- Export all issue records as a styled `.xlsx` file
+- Header row: corporate blue background, white bold text
+- `Acknowledged` column: green fill = Yes, yellow fill = No
+- Actual PNG signature image embedded inside the spreadsheet cell
+- Row height: 130px for rows with signatures, 22px for rows without
+- Date range and department filters supported before export
+- First row frozen for easy scrolling through large datasets
 
-### 📄 PDF Reporting
-- Export issue records as PDF document
-- Employee name, code, department, item details, dates
-- Acknowledgement status and timestamp included
-- Portable format for email sharing and printing
+### 📄 PDF Reporting (PDFKit)
+- Export issue records as a PDF document
+- Employee name, code, department, item, issued date, due date, status
+- Portable format for email sharing, printing, or filing
 
 ### 🔄 Replacement Request Management
-- Employees (via admin) can submit replacement requests for damaged/worn-out assets
-- Request includes reason for replacement
+- Admin submits a replacement request on behalf of an employee
+- Includes reason: e.g., "Helmet cracked in site incident"
 - Admin can Approve or Reject with notes
-- Status tracking: Pending → Approved / Rejected
-- Resolved date and resolved-by admin recorded
+- Status flow: `pending` → `approved` / `rejected`
+- Resolved date and which admin resolved it — both saved
 
 ### 📈 Dashboard & Analytics
-- Real-time statistics: Total Employees, Total Items, Active Issues
-- Pending Acknowledgements count with quick navigation
-- Overdue Items alert count
-- Pending Replacement Requests count
-- Visual charts using Recharts
+- Active employee count
+- Items issued this month
+- Items due in next 7 days (early warning)
+- Overdue items count (past due date)
+- Pending replacement requests count
+- Bar chart showing issue activity over last 6 months (Recharts)
 
-### 🕐 Automated Overdue Monitoring
-- node-cron background job runs daily
-- Automatically checks all active IssueRecords where next_due_date < today
-- Flags overdue records — visible on dashboard and Due Tracking page
+### 🕐 Automated Overdue Monitoring (node-cron)
+- Background scheduler runs **every day at 8:00 AM** automatically
+- Queries all IssueRecords where `next_due_date < today`
+- Logs overdue items to console (can be extended to send email/SMS alerts)
+- Runs without any admin action — completely automatic
 
-### 🌐 CORS & Network Security
-- Strict CORS policy — only whitelisted origins accepted
-- Supports local network IPs (192.168.x.x, 10.x.x.x) for LAN deployment
-- Preflight OPTIONS requests handled for all routes
+### 🌐 Network & Security
+- CORS configured to allow specific origins only (localhost + local network IPs)
+- Supports LAN deployment: 192.168.x.x, 10.x.x.x addresses allowed
+- HTTP-only cookie prevents XSS token theft
+- `sameSite: strict` prevents CSRF attacks
 
 ---
 
 ## 3. Technology Stack Used
 
-### Frontend
-| Technology | Version | Why Used |
-|-----------|---------|----------|
-| React | 18.3 | Component-based UI, virtual DOM for fast rendering |
-| Vite | 5.4 | Ultra-fast build tool with Hot Module Replacement (HMR) |
-| Tailwind CSS | 3.4 | Utility-first CSS — rapid, consistent styling |
-| TanStack React Query | 5.99 | Server state management with auto caching and refetch |
-| React Router DOM | 6.30 | Client-side routing for SPA navigation |
-| Axios | 1.15 | HTTP client with interceptor support for JWT headers |
-| react-signature-canvas | 1.1 | Touch/mouse digital signature capture as Base64 PNG |
-| Recharts | 3.8 | Declarative charting library for dashboard analytics |
-| lucide-react | 1.8 | Consistent, modern icon set |
-| dayjs | 1.11 | Lightweight date formatting and manipulation |
-| clsx + tailwind-merge | latest | Dynamic, conflict-free Tailwind class composition |
-| class-variance-authority | 0.7 | Type-safe component variant management |
+### Why MERN Stack?
+MERN stands for MongoDB, Express, React, Node.js. All components use JavaScript — the same language on both frontend and backend. This means:
+- No context switching between languages
+- Shared data structures (JSON) work identically everywhere
+- Large community and ecosystem of libraries
 
-### Backend
-| Technology | Version | Why Used |
-|-----------|---------|----------|
-| Node.js | 18+ | JavaScript runtime — same language as frontend |
-| Express | 5.x | Minimalist web framework for REST API |
-| MongoDB | 6+ | NoSQL document database — flexible schemas |
-| Mongoose | 8.23 | MongoDB ODM with schema validation and population |
-| bcryptjs | 3.0 | Secure, irreversible password hashing |
-| jsonwebtoken | 9.0 | Stateless JWT generation and verification |
-| ExcelJS | 4.4 | Advanced Excel generation with image embedding |
-| PDFKit | 0.18 | Programmatic PDF document generation |
-| node-cron | 4.2 | Cron-style scheduled background jobs |
-| dayjs | 1.11 | Date arithmetic for due date calculations |
-| cookie-parser | 1.4 | HTTP cookie parsing middleware |
-| cors | 2.8 | Cross-Origin Resource Sharing configuration |
-| dotenv | 17.4 | Environment variable loading from .env file |
-| nodemon | 3.1 | Auto-restart server on file changes (dev only) |
+### Frontend Technologies
+
+| Technology | Version | What It Is | Why We Use It |
+|-----------|---------|-----------|---------------|
+| **React** | 18.3 | JavaScript library for building user interfaces | Lets us build interactive UI from small reusable pieces called components |
+| **Vite** | 5.4 | Frontend build tool | Starts the dev server in under 1 second; much faster than older tools like webpack |
+| **Tailwind CSS** | 3.4 | CSS framework | Pre-built style classes applied directly in HTML/JSX — no need to write custom CSS |
+| **TanStack React Query** | 5.99 | Server state management library | Handles all API calls, caching, loading states, and auto-refresh automatically |
+| **React Router DOM** | 6.30 | Client-side routing | Allows navigation between pages without full page reload |
+| **Axios** | 1.15 | HTTP client | Sends API requests to backend; has interceptors to auto-attach cookies |
+| **react-signature-canvas** | 1.1 | Signature drawing library | Renders a canvas where user can draw; exports as Base64 PNG |
+| **Recharts** | 3.8 | Charting library | Draws the bar charts on the dashboard |
+| **lucide-react** | 1.8 | Icon library | Clean, consistent icons throughout the UI |
+| **dayjs** | 1.11 | Date utility library | Formats and calculates dates (much smaller than moment.js) |
+| **clsx + tailwind-merge** | latest | CSS class utilities | Safely combines Tailwind classes without conflicts |
+
+### Backend Technologies
+
+| Technology | Version | What It Is | Why We Use It |
+|-----------|---------|-----------|---------------|
+| **Node.js** | 18+ | JavaScript runtime for server | Run JavaScript outside the browser on the server |
+| **Express** | 5.x | Web framework for Node.js | Handles incoming HTTP requests and routes them to the right handler |
+| **MongoDB** | 6+ | NoSQL document database | Stores data as JSON-like documents; flexible, no rigid table structure |
+| **Mongoose** | 8.23 | MongoDB ODM (Object Document Mapper) | Adds schema validation, type checking, and relationship linking on top of MongoDB |
+| **bcryptjs** | 3.0 | Password hashing library | Converts passwords to irreversible hashes — even we cannot recover the original |
+| **jsonwebtoken** | 9.0 | JWT library | Creates and verifies secure login tokens |
+| **cookie-parser** | 1.4 | Cookie reading middleware | Parses HTTP cookies so we can read the JWT token from requests |
+| **ExcelJS** | 4.4 | Excel file generator | Creates `.xlsx` files with styling and image embedding |
+| **PDFKit** | 0.18 | PDF generator | Creates PDF documents programmatically |
+| **node-cron** | 4.2 | Task scheduler | Runs background jobs on a schedule (like "every day at 8 AM") |
+| **dayjs** | 1.11 | Date utility | Calculates due dates and formats timestamps |
+| **cors** | 2.8 | CORS middleware | Controls which websites are allowed to call our API |
+| **dotenv** | 17.4 | Environment variable loader | Reads secret keys from `.env` file so they stay out of the code |
+| **nodemon** | 3.1 | Dev auto-restart | Automatically restarts the server when we save a file (dev only) |
+
+> ⚠️ **Note about Prisma**: You will see a `prisma/` folder and `prisma.config.ts` file in older versions of this project. These were from an early prototype and are **NOT used** in the application. The actual database layer uses **Mongoose only**. Those Prisma files have been removed.
 
 ---
 
 ## 4. Installation and Setup Instructions
 
-### Prerequisites
-| Software | Version | Download |
-|---------|---------|----------|
-| Node.js | v18+ | https://nodejs.org |
-| MongoDB | v6+ | https://www.mongodb.com/try/download/community |
-| Git | Latest | https://git-scm.com |
-| VS Code | Latest | https://code.visualstudio.com (recommended) |
+### Prerequisites — Install These First
+| Software | Why You Need It | Download |
+|---------|----------------|----------|
+| Node.js v18+ | Runs the backend server and frontend build tool | https://nodejs.org |
+| MongoDB Community | The database where all data is stored | https://www.mongodb.com/try/download/community |
+| Git | Version control — used to clone and push code | https://git-scm.com |
 
 ### Step 1 — Clone the Repository
 ```bash
@@ -194,43 +204,50 @@ git clone https://github.com/Keerthana2225/PROVEXA.git
 cd PROVEXA
 ```
 
-### Step 2 — Backend Setup
+### Step 2 — Set Up the Backend (Server)
 ```bash
 cd server
 npm install
 ```
 
-Create `.env` file inside `server/` folder:
+Now create a file called `.env` inside the `server/` folder and paste this:
 ```env
 PORT=5000
 DATABASE_URL=mongodb://localhost:27017/ProvexaDB
-JWT_SECRET=your_super_secret_key_change_in_production
+JWT_SECRET=any_long_random_secret_string_here
 ```
 
-Seed the database (creates default admin account + sample data):
+What these mean:
+- `PORT=5000` → The backend server will run on port 5000
+- `DATABASE_URL` → Where MongoDB is running and the name of the database (ProvexaDB)
+- `JWT_SECRET` → A secret key used to sign login tokens. Keep this private.
+
+Seed the database (this clears the database and creates a fresh admin account):
 ```bash
 npm run seed
 ```
 
-Start the backend development server:
+Start the backend:
 ```bash
 npm run dev
 ```
-Server runs at: **http://localhost:5000**
+✅ Server is now running at: **http://localhost:5000**
 
-### Step 3 — Frontend Setup
+### Step 3 — Set Up the Frontend (Client)
+Open a **second terminal window** and run:
 ```bash
-cd ../client
+cd client
 npm install
 npm run dev
 ```
-Frontend runs at: **http://localhost:5173**
+✅ Frontend is now running at: **http://localhost:5173**
 
-### Default Login Credentials
-| Field | Value |
-|-------|-------|
-| Email | admin@provexa.com |
-| Password | admin123 |
+Open your browser and go to: **http://localhost:5173**
+
+### Default Login
+| Email | Password |
+|-------|----------|
+| admin@provexa.com | admin123 |
 
 ---
 
@@ -239,81 +256,82 @@ Frontend runs at: **http://localhost:5173**
 ```
 PROVEXA/
 │
-├── README.md                          ← This documentation file
+├── README.md                           ← This documentation file
 │
-├── client/                            ← React Frontend (Vite)
-│   ├── index.html                     ← HTML entry point
-│   ├── vite.config.js                 ← Vite build configuration
-│   ├── tailwind.config.js             ← Tailwind CSS configuration
-│   ├── postcss.config.js              ← PostCSS config (required for Tailwind)
-│   ├── eslint.config.js               ← ESLint code quality rules
-│   ├── jsconfig.json                  ← JS path aliases
-│   ├── package.json                   ← Frontend dependencies
+├── client/                             ← Everything the user SEES (Frontend)
+│   ├── index.html                      ← The single HTML page (React loads inside here)
+│   ├── vite.config.js                  ← Vite configuration: port, plugins, path aliases
+│   ├── tailwind.config.js              ← Tailwind: custom colors, fonts, screen sizes
+│   ├── postcss.config.js               ← PostCSS: required to process Tailwind CSS
+│   ├── eslint.config.js                ← Code quality rules (catches common mistakes)
+│   ├── jsconfig.json                   ← Tells VS Code about path aliases (@/ = src/)
+│   ├── package.json                    ← List of all frontend libraries and npm scripts
 │   │
 │   └── src/
-│       ├── main.jsx                   ← React root, mounts QueryClientProvider
-│       ├── App.jsx                    ← Router configuration, protected routes
-│       ├── index.css                  ← Global CSS, Tailwind directives
+│       ├── main.jsx                    ← Entry point: mounts React app, sets up React Query
+│       ├── App.jsx                     ← Defines all routes (which URL shows which page)
+│       ├── index.css                   ← Global CSS and Tailwind @tailwind directives
 │       │
 │       ├── lib/
-│       │   ├── api.js                 ← Axios instance with JWT interceptor
-│       │   └── utils.js               ← Helper functions (cn, formatDate)
+│       │   ├── api.js                  ← Axios instance with base URL and credentials config
+│       │   └── utils.js                ← Helper functions: cn() for class merging, date formatters
 │       │
 │       ├── components/
 │       │   ├── layout/
-│       │   │   └── Layout.jsx         ← Sidebar + Header wrapper
+│       │   │   └── Layout.jsx          ← Sidebar navigation + top header wrapper
 │       │   └── ui/
-│       │       ├── Modal.jsx          ← Reusable modal component
-│       │       ├── Toast.jsx          ← Notification toast
-│       │       ├── EmployeeForm.jsx   ← Add/Edit employee form
-│       │       ├── EmployeeSignatureModal.jsx  ← Signature capture modal
-│       │       ├── IssueForm.jsx      ← Bulk issue form
-│       │       ├── ItemForm.jsx       ← Add/Edit item form
-│       │       └── ReplacementForm.jsx ← Replacement request form
+│       │       ├── Modal.jsx           ← Reusable popup/dialog component
+│       │       ├── Toast.jsx           ← Success/Error notification that appears briefly
+│       │       ├── EmployeeForm.jsx    ← Form to add/edit an employee
+│       │       ├── EmployeeSignatureModal.jsx  ← The digital signature capture popup
+│       │       ├── IssueForm.jsx       ← Bulk issue form: select employees + items
+│       │       ├── ItemForm.jsx        ← Form to add/edit an item
+│       │       └── ReplacementForm.jsx ← Form to submit a replacement request
 │       │
 │       └── pages/
-│           ├── Login.jsx              ← Admin login page
-│           ├── Dashboard.jsx          ← Stats + charts overview
-│           ├── Employees.jsx          ← Employee CRUD
-│           ├── Items.jsx              ← Item + Category management
-│           ├── Issues.jsx             ← Bulk issue + signature workflow
-│           ├── DueTracking.jsx        ← Overdue items tracker
-│           ├── Replacements.jsx       ← Replacement request management
-│           └── Reports.jsx            ← Excel/PDF download page
+│           ├── Login.jsx               ← Login page with email/password form
+│           ├── Dashboard.jsx           ← Home: statistics cards + bar chart
+│           ├── Employees.jsx           ← Employee list + add/edit
+│           ├── Items.jsx               ← Item categories + items management
+│           ├── Issues.jsx              ← Issue records table + bulk issue + signature
+│           ├── DueTracking.jsx         ← Overdue / due soon items tracker
+│           ├── Replacements.jsx        ← Replacement requests management
+│           └── Reports.jsx             ← Download Excel / PDF reports
 │
-└── server/                            ← Node.js + Express Backend
-    ├── index.js                       ← App entry point, server start
-    ├── seed.js                        ← Database seed script
-    ├── package.json                   ← Backend dependencies
-    ├── .env                           ← Environment variables (not committed)
-    ├── .env.example                   ← Template for .env
+└── server/                             ← Everything that runs on the SERVER (Backend)
+    ├── index.js                        ← App entry: MongoDB connect, middleware, routes, start
+    ├── seed.js                         ← Script to populate DB with admin + sample data
+    ├── package.json                    ← Backend libraries and scripts
+    ├── .env                            ← Secret config (NEVER commit this to GitHub)
+    ├── .env.example                    ← Template showing what .env should look like
     │
-    ├── models/                        ← Mongoose database schemas
-    │   ├── Admin.js                   ← Admin user schema
-    │   ├── Employee.js                ← Employee schema
-    │   ├── Item.js                    ← Asset item schema
-    │   ├── ItemCategory.js            ← Category lookup schema
-    │   ├── IssueRecord.js             ← Core issue + archive + signature schema
-    │   └── ReplacementRequest.js      ← Replacement request schema
+    ├── models/                         ← Database table definitions (called Schemas in MongoDB)
+    │   ├── Admin.js                    ← Admin user: name, email, password_hash
+    │   ├── Employee.js                 ← Employee: emp_code, name, dept, designation
+    │   ├── Item.js                     ← Asset item: name, category, frequency_days, fixed_date
+    │   ├── ItemCategory.js             ← Category: just a name (e.g. "Uniforms")
+    │   ├── IssueRecord.js              ← Core: links employee+item, tracks signature+archive
+    │   └── ReplacementRequest.js       ← Replacement: employee+item+reason+status
     │
-    ├── routes/                        ← Express API route handlers
-    │   ├── auth.js                    ← Login, token verification
-    │   ├── employees.js               ← Employee CRUD routes
-    │   ├── items.js                   ← Item + Category routes
-    │   ├── issues.js                  ← Issue, sign, archive routes
-    │   ├── replacements.js            ← Replacement request routes
-    │   ├── dashboard.js               ← Stats and analytics routes
-    │   └── reports.js                 ← Excel and PDF generation routes
+    ├── routes/                         ← API endpoints — URLs the frontend calls
+    │   ├── auth.js                     ← POST /login, POST /logout, GET /me
+    │   ├── employees.js                ← GET / POST employees
+    │   ├── items.js                    ← GET / POST items and categories
+    │   ├── issues.js                   ← GET / POST issues, PUT acknowledge, PUT archive-reset
+    │   ├── replacements.js             ← GET / POST / PATCH replacements
+    │   ├── dashboard.js                ← GET /stats, GET /chart-data
+    │   └── reports.js                  ← GET /issues?format=xlsx or pdf
     │
     ├── middleware/
-    │   └── auth.js                    ← JWT verification middleware
+    │   └── auth.js                     ← Checks every request for a valid login cookie
     │
     ├── jobs/
-    │   └── cron.js                    ← node-cron daily overdue check
+    │   └── cron.js                     ← Runs at 8 AM daily — checks for overdue items
     │
     └── public/
-        └── signatures/                ← PNG signature files stored here
-            └── sig_*.png
+        └── signatures/                 ← PNG signature image files saved here
+            └── sig_emp_*.png
+            └── sig_rec_*.png
 ```
 
 ---
@@ -321,177 +339,318 @@ PROVEXA/
 ## 6. Full Project Documentation
 
 ### Introduction
-
-PROVEXA is developed to solve a real-world problem faced by organizations that distribute physical assets to employees. The name "PROVEXA" reflects its core purpose: **Proven Excellence in Asset Management**. It is built using the MERN stack (MongoDB, Express, React, Node.js) with a strong focus on user experience, data integrity, and legal accountability.
+PROVEXA was built to solve a real and common problem in organizations that distribute physical assets to employees. Traditional paper-based systems are unreliable, difficult to audit, and provide no legal proof of handover. This system creates a fully digital, auditable, and legally verifiable asset management workflow.
 
 ### Problem Statement
-
-Organizations that distribute uniforms, safety equipment, tools, and PPE kits face serious challenges:
-- Paper registers are lost, damaged, or tampered with
-- No way to prove an employee received an item
-- No automated alerts for overdue returns
-- Generating audit reports takes hours of manual effort
-- No process for handling replacement requests
+Organizations that distribute uniforms, safety gear, and tools face these issues every day:
+1. Paper registers get lost, damaged, or tampered with
+2. There is no proof that a specific employee received a specific item
+3. No automated system to know when items are overdue for return
+4. Generating reports takes hours of manual data entry
+5. When an item is damaged, there is no formal process to request a replacement
+6. After a distribution cycle ends, old data cannot be deleted (auditors need it) but also cannot stay visible alongside new data
 
 ### Need for the System
-
-- **Legal Protection**: Organizations need proof that safety equipment was issued. Digital signatures serve as legal evidence.
-- **Audit Compliance**: HR and compliance departments require complete records of what was issued, to whom, and when.
-- **Efficiency**: Manual paper registers require hours of data entry. PROVEXA automates the entire workflow.
-- **Accountability**: Without a proper system, employees can claim they never received items. Digital signatures eliminate this ambiguity.
-- **Reporting**: Management needs regular reports on asset distribution status. PROVEXA generates these in seconds.
+- **Legal Proof**: In industries governed by safety regulations (factories, construction sites), employers must prove safety equipment was issued. A digital signature on record serves as legal evidence.
+- **Audit Readiness**: Compliance audits require complete records. PROVEXA generates detailed reports in seconds.
+- **Efficiency**: One admin can bulk-issue assets to 50 employees in a few clicks instead of hours of paperwork.
+- **Accountability**: With digital signatures, employees cannot claim they never received items.
+- **Archive vs Delete**: You cannot delete records (auditors need old data), but you also need a clean workspace for new cycles. The archive system solves this perfectly.
 
 ### Objectives
-
-1. Replace paper-based asset registers with a secure digital system
-2. Implement a legally verifiable digital signature acknowledgement workflow
-3. Enable bulk issuance of assets to multiple employees simultaneously
-4. Automate due date tracking and overdue alerts
+1. Replace paper registers with a secure digital system
+2. Implement a two-stage digital acknowledgement workflow with legal signature capture
+3. Enable bulk asset issuance to multiple employees simultaneously
+4. Automatically calculate and track due dates for asset returns
 5. Generate professional Excel reports with embedded signature images
-6. Maintain a complete, non-destructive audit trail via soft archiving
-7. Provide a user-friendly dashboard with real-time analytics
-8. Handle replacement requests from submission to resolution
+6. Preserve complete audit trail via non-destructive archiving (soft delete)
+7. Provide real-time analytics dashboard with chart visualizations
+8. Manage asset replacement requests from submission to resolution
 
 ---
 
 ## 7. System Architecture
 
+### What is Architecture?
+Architecture describes how different parts of the system are organized and how they talk to each other. Think of it like a restaurant: the customer (browser) orders food, the waiter (API) takes the order to the kitchen (backend), which fetches ingredients from the pantry (database) and returns the dish.
+
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    FRONTEND (React + Vite)                      │
-│                                                                 │
-│  Browser → React Components → React Query → Axios HTTP Client  │
-│                                    ↓                            │
-│         JWT Token auto-attached via Axios Request Interceptor   │
-└─────────────────────────────────────┬───────────────────────────┘
-                                      │ HTTP REST API
-                                      ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                  BACKEND (Node.js + Express 5)                  │
-│                                                                 │
-│  Request → CORS Middleware → Auth Middleware (JWT verify)       │
-│                                    ↓                            │
-│              Express Router → Route Handler                     │
-│                                    ↓                            │
-│         Mongoose Model → MongoDB Query → Response JSON          │
-│                                                                 │
-│  Parallel: node-cron (daily) → Overdue check → DB update       │
-│  Reports:  ExcelJS / PDFKit → File Stream → Response           │
-│  Uploads:  Base64 PNG → fs.writeFile → /public/signatures/     │
-└─────────────────────────────────────┬───────────────────────────┘
-                                      │
-                                      ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                     MONGODB DATABASE                            │
-│                                                                 │
-│  Collections: admins, employees, items, itemcategories,         │
-│               issuerecords, replacementrequests                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                 BROWSER — What the user sees                     │
+│                                                                  │
+│  React Components render the UI                                  │
+│  React Query manages what data to fetch and when                │
+│  Axios sends HTTP requests with cookies automatically            │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │ HTTP Request (with cookie)
+                               ↓
+┌──────────────────────────────────────────────────────────────────┐
+│              NODE.JS + EXPRESS SERVER (Port 5000)                │
+│                                                                  │
+│  1. cookie-parser reads the JWT cookie from every request        │
+│  2. CORS middleware checks if the request origin is allowed      │
+│  3. auth middleware verifies the JWT token is valid              │
+│  4. Express router directs request to the right route handler    │
+│  5. Route handler uses Mongoose to query or update MongoDB       │
+│  6. Response sent back as JSON                                   │
+│                                                                  │
+│  Background: node-cron runs daily at 8 AM (checks overdue)      │
+│  Reports: ExcelJS / PDFKit stream files to the browser           │
+│  Signatures: fs.writeFileSync saves PNG to /public/signatures/   │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │ Mongoose queries
+                               ↓
+┌──────────────────────────────────────────────────────────────────┐
+│                    MONGODB DATABASE                              │
+│                                                                  │
+│  Collections (like database tables):                             │
+│  admins | employees | items | itemcategories                     │
+│  issuerecords | replacementrequests                              │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow for Signature Acknowledgement
+### How a Typical Request Works (Example: Admin views Issue Records)
 ```
-Employee draws signature on canvas (react-signature-canvas)
-        ↓
-Canvas exported as Base64 PNG string (data:image/png;base64,...)
-        ↓
-POST /api/issues/sign/:employeeId { signature: "base64..." }
-        ↓
-Backend strips "data:image/png;base64," prefix
-        ↓
-Buffer.from(base64, 'base64') → fs.writeFile → /public/signatures/sig_*.png
-        ↓
-IssueRecord.updateMany({ employee: id, acknowledged: false })
-  → { acknowledged: true, issue_status: "Acknowledged",
-      signature_path: "/public/signatures/sig_*.png",
-      acknowledgement_time: new Date() }
-        ↓
-Frontend React Query invalidates cache → UI refreshes automatically
+Step 1: Admin opens "Issues" page in browser
+Step 2: React Query calls useQuery('issues', fetchIssues)
+Step 3: Axios sends: GET http://localhost:5000/api/issues
+         — The HTTP cookie with JWT is automatically included
+Step 4: Express receives the request
+Step 5: cookie-parser extracts the JWT from the cookie
+Step 6: auth middleware runs: jwt.verify(token, JWT_SECRET)
+         — If valid: attaches admin info to req.admin, calls next()
+         — If invalid: returns 401 Unauthorized immediately
+Step 7: Route handler runs: IssueRecord.find({ archived: false })
+         .populate('employee')         ← replaces employee ID with full employee data
+         .populate({ path: 'item', populate: 'category' })  ← and item data too
+Step 8: MongoDB returns matching documents
+Step 9: Express sends JSON array to the browser
+Step 10: React Query updates its cache
+Step 11: React re-renders the table with the new data
 ```
 
 ---
 
 ## 8. Modules Description
 
-### Module 1: Authentication Module
+### Module 1 — Authentication (Login System)
 **Files:** `server/routes/auth.js`, `server/middleware/auth.js`, `client/src/pages/Login.jsx`
 
-This module handles all aspects of admin identity verification. When an admin submits their email and password, the backend queries the Admin collection, compares the submitted password against the stored bcrypt hash using `bcrypt.compare()`. On success, it signs a JWT token containing the admin's ID using a secret key. This token is returned to the frontend and stored in localStorage. Every subsequent request includes this token in the `Authorization: Bearer` header, which the `auth.js` middleware verifies before allowing access to protected routes.
+**How it works, step by step:**
 
-### Module 2: Employee Management Module
+When the admin types their email and password and clicks Login:
+1. The frontend sends a POST request to `/api/auth/login` with `{ email, password }`
+2. The backend finds the admin record with that email in MongoDB
+3. `bcrypt.compare(password, admin.password_hash)` — this checks the entered password against the stored hash **without ever decrypting it**. BCrypt is one-way.
+4. If they match, the server calls `jwt.sign({ id, name, email }, JWT_SECRET, { expiresIn: '1d' })` — this creates a digitally signed token that expires in 24 hours
+5. The token is placed in an **HTTP-only cookie**: `res.cookie('token', token, { httpOnly: true })`
+   - HTTP-only means JavaScript in the browser CANNOT read this cookie — protects against XSS attacks
+   - The browser automatically sends this cookie with every future request
+6. On logout: `res.clearCookie('token')` — removes the cookie from the browser
+
+**What is Middleware? (auth.js)**
+
+Middleware is a function that runs BETWEEN receiving a request and sending a response. Think of it as a security guard at a door. Every request must pass through the guard before reaching the actual data.
+
+The `auth.js` middleware:
+```javascript
+const authMiddleware = (req, res, next) => {
+    const token = req.cookies.token;           // Read the cookie
+    if (!token) return res.status(401)...      // No cookie? Reject.
+    const decoded = jwt.verify(token, secret); // Verify it's authentic
+    req.admin = decoded;                        // Attach admin info to request
+    next();                                     // Allow request to continue
+};
+```
+Every route file starts with `router.use(authMiddleware)` — this protects ALL routes in that file automatically.
+
+---
+
+### Module 2 — Employee Management
 **Files:** `server/routes/employees.js`, `server/models/Employee.js`, `client/src/pages/Employees.jsx`
 
-Manages the lifecycle of employee records. Each employee is assigned a unique `emp_code` — Mongoose's `unique: true` constraint ensures no duplicates at the database level. The frontend uses a modal-based form for adding employees. React Query's `useMutation` hook handles the POST request and automatically refreshes the employee list on success via `invalidateQueries`.
+The Employee model defines what fields every employee record must have:
+- `emp_code`: unique employee identifier (e.g., EMP001). `unique: true` at DB level means MongoDB will reject any attempt to save a duplicate code.
+- `name`, `department`, `designation`: basic info
+- `status`: `active` or `inactive`
 
-### Module 3: Item & Category Module
+The routes file handles:
+- `GET /api/employees` → returns all employees from MongoDB
+- `POST /api/employees` → validates and saves a new employee
+
+On the frontend, `Employees.jsx` uses `useQuery('employees', getEmployees)` from React Query. When a new employee is added via the form, `useMutation` calls the POST endpoint, and on success `queryClient.invalidateQueries('employees')` tells React Query to re-fetch and update the table automatically.
+
+---
+
+### Module 3 — Item & Category Management
 **Files:** `server/routes/items.js`, `server/models/Item.js`, `server/models/ItemCategory.js`, `client/src/pages/Items.jsx`
 
-A two-tier hierarchy: Categories contain Items. Each Item has a scheduling mode — either frequency-based (X days) or fixed-date based. This scheduling information is used at issuance time to automatically calculate when the item must be returned. The frontend allows toggling between modes and previews the calculated due date.
+Items belong to Categories. This is a one-to-many relationship:
+- One Category (e.g., "Safety Gear") can have many Items (e.g., "Helmet", "Gloves", "Boots")
+- In MongoDB, Item documents store the Category's `_id` as a reference field
 
-### Module 4: Issue Management Module (Core)
+The Item model has two scheduling fields:
+- `frequency_days: Number` — if set, the due date = issue_date + frequency_days
+- `fixed_date: Date` — if set, the due date = this specific date regardless of when issued
+
+At issuance time, this logic calculates `next_due_date`:
+```javascript
+const next_due_date = item.fixed_date
+    ? new Date(item.fixed_date)
+    : dayjs(issuedDateObj).add(item.frequency_days, 'day').toDate();
+```
+
+---
+
+### Module 4 — Issue Management (The Core)
 **Files:** `server/routes/issues.js`, `server/models/IssueRecord.js`, `client/src/pages/Issues.jsx`
 
-The heart of PROVEXA. This module handles:
-- **Bulk Issuance**: A single API call creates multiple IssueRecord documents, one per employee-item pair
-- **Status Tracking**: Records progress through "Pending Acknowledgement" → "Acknowledged"
-- **Archive/Reset**: POST to `/archive` sets `archived: true` on all active records (soft delete)
-- **Signature Collection**: POST to `/sign/:employeeId` saves PNG and updates all pending records for that employee
+This is the heart of the application. The issues route file handles 5 endpoints:
 
-### Module 5: Digital Signature Module
-**Files:** `server/routes/issues.js` (sign endpoint), `client/src/components/ui/EmployeeSignatureModal.jsx`
+**GET `/api/issues`** — Fetch records with filters
+```javascript
+query.archived = archived === 'true' ? true : { $ne: true };
+// $ne: true means "not equal to true" — so only non-archived by default
+if (status === 'overdue')      query.next_due_date = { $lt: today };
+if (status === 'due_soon')     query.next_due_date = { $gte: today, $lte: nextWeek };
+if (status === 'pending_ack')  query.acknowledged = { $ne: true };
+if (status === 'acknowledged') query.acknowledged = true;
+```
+After filtering, `.populate('employee')` replaces the stored employee ObjectId with the full employee document. Same for `.populate({ path: 'item', populate: { path: 'category' } })` which also populates the item's category.
 
-Uses `react-signature-canvas` to render a drawing canvas. When submitted, the canvas calls `.toDataURL('image/png')` to export the drawing as a Base64 string. The backend receives this, converts it to a binary Buffer, and writes it to disk as a PNG file. The file path is stored in the IssueRecord.
+**GET `/api/issues/due`** — Due Tracking page
+Runs 3 database queries in parallel using `Promise.all()` (faster than running them one by one):
+- Overdue: `next_due_date < today`
+- Due this week: `today <= next_due_date <= nextWeek`
+- Upcoming: `nextWeek < next_due_date <= nextMonth`
 
-### Module 6: Reporting Module
+**POST `/api/issues`** — Bulk Issue
+Accepts either `employee_id` (single) or `employee_ids` (array) and an `items` array:
+```javascript
+for (const empId of targetEmployeeIds) {
+    for (const targetItem of targetItems) {
+        // Check for existing active record (duplicate prevention)
+        const activeIssue = await IssueRecord.findOne({
+            employee: empId, item: itId,
+            next_due_date: { $gte: today }
+        });
+        if (activeIssue && !req.body.override) continue; // skip silently in bulk
+
+        // Calculate due date from item config
+        const next_due_date = item.fixed_date
+            ? new Date(item.fixed_date)
+            : dayjs(issuedDateObj).add(item.frequency_days, 'day').toDate();
+
+        const record = new IssueRecord({ employee: empId, item: itId, ... });
+        await record.save();
+    }
+}
+```
+
+**PUT `/api/issues/acknowledge/employee/:employeeId`** — Bulk Signature (all pending for employee)
+**PUT `/api/issues/acknowledge/:id`** — Single record acknowledgement
+(Detailed in Section 11 — Code Workflow)
+
+**PUT `/api/issues/archive-reset`** — Archive (Soft Delete)
+Supports three scopes:
+- `scope: 'all'` → archives every non-archived record
+- `scope: 'employee'` → archives all records for one specific employee
+- `scope: 'selected'` → archives only the provided `issue_ids` array
+```javascript
+await IssueRecord.updateMany(filter, {
+    $set: { archived: true, archived_at: new Date(),
+            archived_by: req.admin.id, archive_reason: 'Reset for new issuance' }
+});
+```
+
+---
+
+### Module 5 — Dashboard & Analytics
+**Files:** `server/routes/dashboard.js`, `client/src/pages/Dashboard.jsx`
+
+**GET `/api/dashboard/stats`**
+Runs 5 database count queries simultaneously using `Promise.all()`:
+```javascript
+const [totalEmployees, itemsIssuedThisMonth, pendingReplacements,
+       itemsDueNext7Days, overdueItems] = await Promise.all([
+    Employee.countDocuments({ status: 'active' }),
+    IssueRecord.countDocuments({ issued_date: { $gte: startOfMonth, $lte: endOfMonth } }),
+    ReplacementRequest.countDocuments({ status: 'pending' }),
+    IssueRecord.countDocuments({ next_due_date: { $gte: today, $lte: nextWeek } }),
+    IssueRecord.countDocuments({ next_due_date: { $lt: today } })
+]);
+```
+
+**GET `/api/dashboard/chart-data`**
+Fetches issue records from the past 6 months. Groups them by month name, counts how many were issued each month, and returns an array that Recharts uses to draw the bar chart.
+
+---
+
+### Module 6 — Reporting (Excel + PDF)
 **Files:** `server/routes/reports.js`, `client/src/pages/Reports.jsx`
 
-Two export formats:
-- **Excel (ExcelJS)**: Styled workbook with corporate header, conditional cell coloring, and embedded PNG images for signatures. Uses `worksheet.addImage()` with pixel-exact coordinates.
-- **PDF (PDFKit)**: Streamed PDF document with employee and item details, issued/due dates, and acknowledgement status.
+The report endpoint receives `?format=xlsx` or `?format=pdf`. Optional filters: `startDate`, `endDate`, `department`.
 
-### Module 7: Replacement Request Module
-**Files:** `server/routes/replacements.js`, `server/models/ReplacementRequest.js`, `client/src/pages/Replacements.jsx`
+For **Excel**: ExcelJS builds the workbook entirely in memory, then streams it directly to the HTTP response. The browser receives it as a file download. No temporary file is saved on disk.
 
-Employees (through the admin interface) can request replacements for damaged assets. Requests start as "pending" and are either "approved" or "rejected" by the admin with optional notes. All state transitions are recorded with timestamps and the resolving admin's ID.
+For **PDF**: PDFKit pipes a stream directly to `res`. The PDF is generated on-the-fly and downloaded simultaneously.
 
-### Module 8: Dashboard & Due Tracking Module
-**Files:** `server/routes/dashboard.js`, `client/src/pages/Dashboard.jsx`, `client/src/pages/DueTracking.jsx`, `server/jobs/cron.js`
+---
 
-The dashboard aggregates counts from all collections in a single API call. The Due Tracking page specifically shows records where `next_due_date` is in the past and `archived: false`. The `node-cron` job runs at midnight daily to update any newly overdue records.
+### Module 7 — Automated Overdue Check (Background Job)
+**File:** `server/jobs/cron.js`
+
+```javascript
+cron.schedule('0 8 * * *', async () => {
+    // 0 8 * * * means: minute=0, hour=8, every day, every month, every weekday
+    const today = dayjs().startOf('day').toDate();
+    const overdueIssues = await IssueRecord.find({
+        next_due_date: { $lt: today }
+    }).populate('employee item');
+    console.log(`Found ${overdueIssues.length} overdue items`);
+});
+```
+This runs automatically every morning when the server is running. No admin action required.
 
 ---
 
 ## 9. Database Design
 
-### Entity Relationship Diagram
+### What is a Database Collection?
+In MongoDB, data is stored in **Collections** (similar to tables in Excel or SQL). Each row is called a **Document** and is stored in JSON format. There are no rigid column definitions — each document can have its own fields. However, we enforce structure using **Mongoose Schemas**.
+
+### Why MongoDB Instead of SQL?
+- Our data is JSON from frontend to backend to database — everything stays consistent
+- MongoDB handles nested objects naturally (e.g., embedding signature paths inside issue records)
+- Flexible schema lets us add new fields (like `archived`, `fixed_date`) without complex database migrations
+
+### Relationships Between Collections
 ```
-ItemCategory (1) ──────────────< Item (many)
-                                   │
-                                   │ (item ref)
-                                   ▼
-Admin (1) >──────── IssueRecord (many) ──────────< Employee (1)
-  │ (issued_by)         │
-  │ (archived_by)       │ signature_path → /public/signatures/*.png
-  │                     │ archived: Boolean
-  │                     │ acknowledged: Boolean
-  │
-  └──── ReplacementRequest (many) ──────────────< Employee (1)
-                                  │
-                                  └── (item ref) → Item
+ItemCategory (1) ────── has many ──────> Item (many)
+     "Safety Gear"                    "Helmet", "Gloves"
+
+Item          (many) <──── referenced in ──── IssueRecord
+Employee      (many) <──── referenced in ──── IssueRecord
+Admin         (1)    <──── issued_by     ──── IssueRecord
+Admin         (1)    <──── archived_by   ──── IssueRecord
+
+Employee (many) <──── referenced in ──── ReplacementRequest
+Item     (many) <──── referenced in ──── ReplacementRequest
+Admin    (1)    <──── resolved_by   ──── ReplacementRequest
 ```
 
-### Collection: `admins`
+### Collection: admins
 ```json
 {
-  "_id": "ObjectId",
+  "_id": "ObjectId (auto-generated)",
   "name": "Admin",
   "email": "admin@provexa.com",
-  "password_hash": "$2b$10$...",
-  "created_at": "ISODate"
+  "password_hash": "$2b$10$xyz...",
+  "created_at": "2025-05-01T00:00:00.000Z"
 }
 ```
 
-### Collection: `employees`
+### Collection: employees
 ```json
 {
   "_id": "ObjectId",
@@ -500,69 +659,69 @@ Admin (1) >──────── IssueRecord (many) ────────�
   "department": "Security",
   "designation": "Guard",
   "status": "active",
-  "created_at": "ISODate"
+  "created_at": "2025-01-01T00:00:00.000Z"
 }
 ```
 
-### Collection: `itemcategories`
+### Collection: itemcategories
 ```json
-{
-  "_id": "ObjectId",
-  "name": "Safety Gear"
-}
+{ "_id": "ObjectId", "name": "Safety Gear" }
 ```
 
-### Collection: `items`
+### Collection: items
 ```json
 {
   "_id": "ObjectId",
   "name": "Safety Helmet",
-  "category": "ObjectId → itemcategories",
+  "category": "ObjectId → references itemcategories._id",
   "frequency_days": 365,
   "fixed_date": null,
   "description": "ISI certified hard hat"
 }
 ```
 
-### Collection: `issuerecords` (Core)
+### Collection: issuerecords (THE CORE TABLE)
 ```json
 {
   "_id": "ObjectId",
-  "employee": "ObjectId → employees",
+  "employee": "ObjectId → employees._id",
   "employee_name": "Ravi Kumar",
-  "item": "ObjectId → items",
+  "item": "ObjectId → items._id",
   "item_name": "Safety Helmet",
-  "issued_date": "ISODate",
-  "next_due_date": "ISODate",
+  "issued_date": "2025-01-01T00:00:00.000Z",
+  "next_due_date": "2026-01-01T00:00:00.000Z",
   "quantity": 1,
-  "issued_by": "ObjectId → admins",
+  "issued_by": "ObjectId → admins._id",
   "issue_status": "Acknowledged",
-  "signature_path": "/public/signatures/sig_1714567890_emp001.png",
+  "signature_path": "/public/signatures/sig_emp_1714567890_empid.png",
   "acknowledged": true,
-  "acknowledgement_time": "ISODate",
-  "notes": "",
+  "acknowledgement_time": "2025-01-02T10:30:00.000Z",
+  "notes": "Annual issue",
   "archived": false,
   "archived_at": null,
   "archived_by": null,
   "archive_reason": null,
-  "created_at": "ISODate"
+  "created_at": "2025-01-01T00:00:00.000Z"
 }
 ```
 
-### Collection: `replacementrequests`
+> Why are `employee_name` and `item_name` stored directly even though we have references?
+> This is called **denormalization**. It allows MongoDB Compass to show readable names instead of cryptic ObjectIds. It also speeds up report generation slightly since we don't need to populate for display purposes.
+
+### Collection: replacementrequests
 ```json
 {
   "_id": "ObjectId",
-  "employee": "ObjectId → employees",
+  "employee": "ObjectId → employees._id",
   "employee_name": "Ravi Kumar",
-  "item": "ObjectId → items",
+  "item": "ObjectId → items._id",
   "item_name": "Safety Helmet",
   "reason": "Helmet cracked during site incident",
   "status": "approved",
-  "requested_date": "ISODate",
-  "resolved_date": "ISODate",
-  "resolved_by": "ObjectId → admins",
-  "notes": "New helmet issued from store"
+  "requested_date": "2025-04-15T00:00:00.000Z",
+  "resolved_date": "2025-04-16T00:00:00.000Z",
+  "resolved_by": "ObjectId → admins._id",
+  "notes": "New helmet issued from store on 16-Apr"
 }
 ```
 
@@ -571,502 +730,842 @@ Admin (1) >──────── IssueRecord (many) ────────�
 ## 10. API Documentation
 
 > **Base URL:** `http://localhost:5000`
-> **Authentication:** All endpoints except `/api/auth/login` require:
-> `Authorization: Bearer <your_jwt_token>`
+> **Authentication:** Uses HTTP-only cookie set on login. No manual token needed — the browser sends it automatically with every request.
+> **Important:** All endpoints except `/api/auth/login` require the admin to be logged in.
 
-### Authentication
+---
 
-**POST** `/api/auth/login`
+### 🔐 Authentication Routes — `/api/auth`
+
+#### POST `/api/auth/login` — Login
 ```
-Request Body:
-{ "email": "admin@provexa.com", "password": "admin123" }
+What it does: Verifies email + password, creates JWT, sets it in an HTTP-only cookie.
 
-Success (200):
-{ "token": "eyJhbGci...", "admin": { "id": "...", "name": "Admin", "email": "admin@provexa.com" } }
+Request Body (JSON):
+{
+  "email": "admin@provexa.com",
+  "password": "admin123"
+}
 
-Error (401):
-{ "message": "Invalid credentials" }
-```
+Success Response (200):
+{
+  "message": "Logged in successfully",
+  "user": { "id": "...", "name": "Admin", "email": "admin@provexa.com" }
+}
 
-**GET** `/api/auth/me`
-```
-Response (200):
-{ "id": "...", "name": "Admin", "email": "admin@provexa.com" }
-```
-
-### Employees
-
-**GET** `/api/employees`
-```
-Response (200): Array of all employees
-[{ "id":"...", "emp_code":"EMP001", "name":"Ravi Kumar", "department":"Security", "designation":"Guard", "status":"active" }]
+Error (401): { "message": "Invalid credentials" }
+Error (500): { "message": "Server error" }
 ```
 
-**POST** `/api/employees`
+#### POST `/api/auth/logout` — Logout
 ```
-Request: { "emp_code":"EMP010", "name":"Anitha", "department":"HR", "designation":"Executive" }
-Response (201): Created employee object
+What it does: Clears the JWT cookie from the browser.
+Response: { "message": "Logged out successfully" }
+```
+
+#### GET `/api/auth/me` — Check Login Status
+```
+What it does: Returns the current logged-in admin's info from the cookie.
+Response: { "user": { "id": "...", "name": "Admin", "email": "..." } }
+```
+
+---
+
+### 👷 Employee Routes — `/api/employees`
+
+#### GET `/api/employees`
+```
+What it does: Returns all employees from the database.
+Response (200): Array of employee objects
+[
+  { "id":"...", "emp_code":"EMP001", "name":"Ravi Kumar",
+    "department":"Security", "designation":"Guard", "status":"active" }
+]
+```
+
+#### POST `/api/employees`
+```
+What it does: Creates a new employee. emp_code must be unique.
+Request Body: { "emp_code":"EMP010", "name":"Anitha Raj", "department":"HR", "designation":"Executive" }
+Response (201): The created employee object
 Error (400): { "message": "Employee code already exists" }
 ```
 
-### Categories
+---
 
-**GET** `/api/categories`
+### 📦 Item & Category Routes — `/api/items`, `/api/categories`
+
+#### GET `/api/categories`
 ```
 Response: [{ "id":"...", "name":"Safety Gear" }, { "id":"...", "name":"Uniforms" }]
 ```
 
-**POST** `/api/categories`
+#### POST `/api/categories`
 ```
 Request: { "name": "PPE Kits" }
 Response (201): Created category object
 ```
 
-### Items
+#### GET `/api/items`
+```
+Response: Items with category fully populated
+[{
+  "id":"...", "name":"Safety Helmet",
+  "category": { "id":"...", "name":"Safety Gear" },
+  "frequency_days": 365,
+  "fixed_date": null
+}]
+```
 
-**GET** `/api/items`
+#### POST `/api/items`
 ```
-Response: [{ "id":"...", "name":"Safety Helmet", "category":{"id":"...","name":"Safety Gear"}, "frequency_days":365, "fixed_date":null }]
-```
-
-**POST** `/api/items`
-```
-Frequency Mode: { "name":"Work Shirt", "category":"cat_id", "frequency_days":180 }
-Fixed Date Mode: { "name":"Annual Jacket", "category":"cat_id", "fixed_date":"2025-12-31" }
+Frequency Mode:  { "name":"Work Shirt", "category":"category_id", "frequency_days":180 }
+Fixed Date Mode: { "name":"Annual Jacket", "category":"category_id", "fixed_date":"2025-12-31" }
 Response (201): Created item object
 ```
 
-### Issue Records
+---
 
-**GET** `/api/issues`
+### 📋 Issue Routes — `/api/issues`
+
+#### GET `/api/issues` — Get Issue Records
 ```
-Response: All active (non-archived) issue records with populated employee and item fields
+Query Parameters (all optional):
+  ?archived=true          → show archived records (Issue History)
+  ?archived=false         → show active records (default)
+  ?status=overdue         → only records where next_due_date < today
+  ?status=due_soon        → due within the next 7 days
+  ?status=pending_ack     → not yet acknowledged
+  ?status=acknowledged    → already acknowledged
+  ?employee_id=...        → filter by specific employee
+  ?item_id=...            → filter by specific item
+
+Response: Array of issue records with employee and item details fully populated
 ```
 
-**POST** `/api/issues` — Bulk Issue
+#### GET `/api/issues/due` — Due Tracking Data
 ```
-Request:
+What it does: Returns three categories of due records simultaneously.
+Response:
 {
-  "items": [
-    { "employee_id":"...", "item_id":"...", "issued_date":"2025-05-01", "next_due_date":"2026-05-01", "quantity":1, "notes":"Annual issue" },
-    { "employee_id":"...", "item_id":"...", "issued_date":"2025-05-01", "next_due_date":"2026-05-01", "quantity":1 }
-  ]
+  "overdue": [...],        // next_due_date < today
+  "dueThisWeek": [...],   // due in next 0-7 days
+  "upcoming": [...]        // due in 8-30 days
 }
-Response (201): { "message": "2 records created successfully" }
 ```
 
-**POST** `/api/issues/sign/:employeeId` — Collect Digital Signature
+#### POST `/api/issues` — Bulk Issue Assets
 ```
-Request: { "signature": "data:image/png;base64,iVBORw0KGgo..." }
-Response (200): { "message": "Signature saved. 3 records acknowledged.", "signature_path": "/public/signatures/sig_*.png" }
+What it does: Creates multiple IssueRecord documents in one call.
+Can target one employee (employee_id) or many (employee_ids array).
+Can issue one or many items (items array).
+
+Request Body:
+{
+  "employee_ids": ["empId1", "empId2"],
+  "items": [
+    { "item_id": "itemId1", "quantity": 1 },
+    { "item_id": "itemId2", "quantity": 2 }
+  ],
+  "issued_date": "2025-05-01",
+  "notes": "Annual safety gear distribution",
+  "override": false
+}
+
+What happens internally:
+- Loops through every employee × every item combination
+- Checks if active record already exists (skip if override=false)
+- Calculates next_due_date from item config
+- Saves IssueRecord with issue_status: "Pending Acknowledgement"
+
+Response (201): { "count": 4, "records": [...] }
+Error (400): { "message": "No employees selected" }
 ```
 
-**POST** `/api/issues/archive` — Archive All Active Issues
+#### PUT `/api/issues/acknowledge/employee/:employeeId` — Bulk Acknowledge (All Pending)
 ```
-Request: { "archive_reason": "Annual cycle reset FY 2025-26" }
-Response (200): { "message": "42 records archived successfully." }
+What it does: Signs ALL pending items for one employee with a single signature.
+
+Request Body: { "signature": "data:image/png;base64,iVBORw0KGgo..." }
+
+What happens internally:
+1. Find all IssueRecords where employee = employeeId AND issue_status = "Pending Acknowledgement"
+2. Strip the Base64 header: signature.replace(/^data:image\/\w+;base64,/, "")
+3. Convert to binary: Buffer.from(base64Data, 'base64')
+4. Save to disk: fs.writeFileSync(path.join(dir, filename), buffer)
+   → File saved as: /public/signatures/sig_emp_{timestamp}_{employeeId}.png
+5. Update ALL pending records:
+   IssueRecord.updateMany(
+     { employee: employeeId, issue_status: "Pending Acknowledgement" },
+     { $set: { issue_status:"Acknowledged", acknowledged:true,
+               signature_path:"/public/signatures/...", acknowledgement_time:now } }
+   )
+
+Response (200): { "message": "Successfully acknowledged 3 items.", "count": 3 }
+Error (400): { "message": "Signature is required" }
+Error (404): { "message": "No pending issues found for this employee" }
 ```
 
-### Replacements
+#### PUT `/api/issues/acknowledge/:id` — Single Record Acknowledge
+```
+What it does: Acknowledges one specific IssueRecord by its ID.
+Same signature save + update logic, but only updates that one record.
+Response (200): { "message": "Successfully acknowledged receipt.", "issue": {...} }
+```
 
-**GET** `/api/replacements`
+#### PUT `/api/issues/archive-reset` — Archive Issues (Soft Delete)
+```
+What it does: Moves active issue records to archive WITHOUT deleting them.
+Supports three modes:
+
+Mode 1 - Archive everything:
+{ "scope": "all" }
+
+Mode 2 - Archive one employee's records:
+{ "scope": "employee", "employee_id": "empId1" }
+
+Mode 3 - Archive specific records:
+{ "scope": "selected", "issue_ids": ["id1", "id2", "id3"] }
+
+What happens:
+IssueRecord.updateMany(filter, {
+  $set: {
+    archived: true,
+    archived_at: <current datetime>,
+    archived_by: <admin who clicked it>,
+    archive_reason: "Reset for new issuance"
+  }
+})
+
+Response (200): { "message": "42 issue record(s) archived successfully.", "count": 42 }
+```
+
+---
+
+### 🔄 Replacement Routes — `/api/replacements`
+
+#### GET `/api/replacements`
 ```
 Response: All replacement requests with employee and item details
+[{
+  "id":"...", "employee_name":"Ravi Kumar", "item_name":"Safety Helmet",
+  "reason":"Cracked", "status":"pending", "requested_date":"..."
+}]
 ```
 
-**POST** `/api/replacements`
+#### POST `/api/replacements`
 ```
-Request: { "employee_id":"...", "item_id":"...", "reason":"Helmet cracked" }
+Request: { "employee_id":"...", "item_id":"...", "reason":"Helmet cracked in incident" }
 Response (201): Created replacement request
 ```
 
-**PATCH** `/api/replacements/:id`
+#### PATCH `/api/replacements/:id`
 ```
-Request: { "status":"approved", "notes":"New helmet issued from store." }
-Response (200): Updated replacement request
+What it does: Admin approves or rejects a request.
+Request: { "status": "approved", "notes": "New helmet issued from Store Room B" }
+Response (200): Updated replacement request with resolved_date and resolved_by saved
 ```
 
-### Dashboard
+---
 
-**GET** `/api/dashboard/stats`
+### 📈 Dashboard Routes — `/api/dashboard`
+
+#### GET `/api/dashboard/stats`
 ```
 Response:
 {
   "totalEmployees": 45,
-  "totalItems": 12,
-  "totalActiveIssues": 120,
-  "pendingAcknowledgements": 8,
-  "overdueItems": 5,
-  "pendingReplacements": 2
+  "itemsIssuedThisMonth": 32,
+  "pendingReplacements": 3,
+  "itemsDueNext7Days": 8,
+  "overdueItems": 5
 }
 ```
 
-### Reports
-
-**GET** `/api/reports/issues?format=xlsx`
+#### GET `/api/dashboard/chart-data`
 ```
-Query Params:
-  format = xlsx | pdf
-  startDate = YYYY-MM-DD (optional)
-  endDate = YYYY-MM-DD (optional)
-  department = "Security" (optional)
+Response: Array of 6 months with issue counts for Recharts bar chart
+[
+  { "name": "Dec 2024", "issues": 12 },
+  { "name": "Jan 2025", "issues": 28 },
+  { "name": "Feb 2025", "issues": 8 },
+  ...
+]
+```
 
-Response: File download stream
-  - Excel: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-  - PDF: application/pdf
+---
+
+### 📊 Report Routes — `/api/reports`
+
+#### GET `/api/reports/issues?format=xlsx`
+```
+Query Parameters:
+  format=xlsx   → Download Excel file with embedded signatures
+  format=pdf    → Download PDF report
+
+Optional Filters:
+  ?startDate=2025-01-01
+  ?endDate=2025-12-31
+  ?department=Security
+
+Excel Response Headers:
+  Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  Content-Disposition: attachment; filename="issue_records.xlsx"
+  → Browser automatically downloads the file
+
+PDF Response Headers:
+  Content-Type: application/pdf
+  Content-Disposition: attachment; filename="issue_records.pdf"
 ```
 
 ---
 
 ## 11. Code Workflow Explanation
 
-### Server Startup (`server/index.js`)
-1. `dotenv.config()` loads `.env` variables into `process.env`
-2. Global Mongoose plugin registered — transforms `_id` to `id` in all JSON responses, removes `__v`
-3. All route files imported and registered under `/api/*`
-4. `node-cron` job imported (auto-starts the scheduler)
-5. `mongoose.connect()` establishes MongoDB connection
-6. `app.listen()` starts the Express server on PORT 5000
+### How the Entire System Starts (server/index.js)
+```javascript
+// 1. Load .env file into process.env
+dotenv.config();
 
-### How JWT Authentication Works
-```
-1. POST /api/auth/login
-   → Admin.findOne({ email }) → bcrypt.compare(password, hash)
-   → jwt.sign({ id: admin._id }, JWT_SECRET, { expiresIn: '7d' })
-   → Returns token to client
+// 2. Apply global Mongoose plugin BEFORE importing models
+// This transforms _id → id and removes __v from all JSON responses
+mongoose.plugin(schema => {
+    schema.set('toJSON', {
+        transform: (doc, ret) => { ret.id = ret._id; delete ret._id; }
+    });
+});
 
-2. Frontend stores token in localStorage
+// 3. Import all route files
+const authRoutes = require('./routes/auth');
+const issueRoutes = require('./routes/issues');
+// ... etc
 
-3. Axios interceptor (client/src/lib/api.js):
-   → Before every request: config.headers.Authorization = "Bearer " + token
+// 4. Import cron job (auto-starts the scheduler)
+require('./jobs/cron');
 
-4. Backend middleware (server/middleware/auth.js):
-   → jwt.verify(token, JWT_SECRET) → sets req.admin = decoded payload
-   → If invalid/expired → 401 Unauthorized
-```
+// 5. Set up Express app
+const app = express();
+app.use(express.json({ limit: '10mb' }));  // Parse JSON bodies (10MB for signature data)
+app.use(cookieParser());                   // Parse cookies
+app.use('/public', express.static(...));   // Serve signature images publicly
 
-### How Bulk Issue Works
-```
-1. Admin selects employees + item in IssueForm modal
-2. Frontend sends POST /api/issues with array of records
-3. Backend loops through array:
-   - Creates IssueRecord for each employee-item pair
-   - Stores employee_name and item_name for readability in MongoDB Compass
-   - Sets issue_status: "Pending Acknowledgement", acknowledged: false
-4. React Query invalidates "issues" cache → table refreshes
-```
+// 6. Configure CORS (which origins can call the API)
+app.options(/(.*)/,  cors(corsOptions));   // Handle preflight
+app.use(cors(corsOptions));
 
-### How Signature Capture Works
-```
-1. Admin clicks ✏️ icon for an employee
-2. EmployeeSignatureModal opens with react-signature-canvas
-3. Employee draws signature on canvas
-4. Admin clicks Submit
-5. signatureCanvasRef.current.toDataURL('image/png') → Base64 string
-6. POST /api/issues/sign/:employeeId { signature: "data:image/png;base64,..." }
-7. Backend:
-   a. Strips "data:image/png;base64," prefix
-   b. Buffer.from(base64str, 'base64')
-   c. fs.writeFileSync(path.join(__dirname, '../public/signatures', filename), buffer)
-   d. IssueRecord.updateMany(
-        { employee: employeeId, acknowledged: false, archived: false },
-        { $set: { acknowledged: true, issue_status: "Acknowledged",
-                  signature_path: filePath, acknowledgement_time: new Date() }}
-      )
-8. Response sent → React Query invalidates cache → rows turn green
+// 7. Connect to MongoDB
+mongoose.connect(process.env.DATABASE_URL);
+
+// 8. Register all routes
+app.use('/api/auth', authRoutes);
+app.use('/api/issues', issueRoutes);
+
+// 9. Start listening
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 ```
 
-### How Excel Report Generation Works
+---
+
+### How Digital Signature Capture Works (Complete Flow)
+
+This is the most unique and technically interesting feature. Here is exactly what happens from the moment an employee touches the screen to when the signature appears in an Excel file:
+
+**Step 1 — The Canvas (Frontend: EmployeeSignatureModal.jsx)**
+```javascript
+// react-signature-canvas renders an HTML5 Canvas element
+<SignatureCanvas
+  ref={signatureCanvasRef}
+  penColor="black"
+  canvasProps={{ className: "signature-canvas" }}
+/>
 ```
-1. GET /api/reports/issues?format=xlsx
-2. IssueRecord.find({ archived: false }).populate('employee').populate({ path:'item', populate:'category' })
-3. ExcelJS.Workbook created
-4. Columns defined with headers, keys, widths
-5. Header row styled: bold white text, corporate blue background (#3B4A9A)
-6. For each issue record:
-   a. Row added with employee, item, dates, status data
-   b. Row height = 130px if has signature, 22px otherwise
-   c. Acknowledged cell: green fill if acknowledged, yellow if not
-   d. If signature_path exists:
-      - workbook.addImage({ filename: sigFilePath, extension: 'png' })
-      - worksheet.addImage(imageId, { tl: {col:13, row:rowIndex-1}, ext:{width:320,height:110} })
-7. worksheet.views = [{ state:'frozen', ySplit:1 }]
-8. res.setHeader('Content-Type', '...xlsx')
-9. workbook.xlsx.write(res) → streams file to browser → download starts
+The HTML5 Canvas is like a drawing board on the screen. The `react-signature-canvas` library listens to mouse/touch events and draws smooth curves as the user moves their finger or mouse.
+
+**Step 2 — Export to Base64 (Frontend)**
+```javascript
+// When admin clicks "Submit Signature":
+const base64String = signatureCanvasRef.current.toDataURL('image/png');
+// Result looks like: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA..."
+// This is the ENTIRE image encoded as text characters
 ```
+`toDataURL('image/png')` converts everything drawn on the canvas into a PNG image, then encodes that image as a Base64 text string. Base64 is a way to represent binary data (like image bytes) using only text characters so it can be safely sent in JSON.
+
+**Step 3 — Send to Backend (Frontend: Axios)**
+```javascript
+await axios.put(`/api/issues/acknowledge/employee/${employeeId}`, {
+    signature: base64String
+});
+```
+
+**Step 4 — Strip the Header (Backend: routes/issues.js)**
+```javascript
+// The Base64 string starts with: "data:image/png;base64,"
+// We only need the actual data part after the comma
+const base64Data = signature.replace(/^data:image\/\w+;base64,/, "");
+// Now base64Data = "iVBORw0KGgoAAAANSUhEUgAAA..."
+```
+
+**Step 5 — Convert Base64 to Binary Buffer (Backend)**
+```javascript
+const buffer = Buffer.from(base64Data, 'base64');
+// Buffer is Node.js's way of handling raw binary data (bytes)
+// This buffer contains the actual PNG image bytes
+```
+
+**Step 6 — Write to Disk as PNG File (Backend)**
+```javascript
+const filename = `sig_emp_${Date.now()}_${employeeId}.png`;
+// Date.now() gives milliseconds since 1970 — guarantees unique filename
+
+const dir = path.join(__dirname, '..', 'public', 'signatures');
+if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+const filepath = path.join(dir, filename);
+fs.writeFileSync(filepath, buffer);
+// The PNG file now exists on the server's hard drive
+```
+
+**Step 7 — Save Path and Update Database (Backend)**
+```javascript
+const signature_path = `/public/signatures/${filename}`;
+
+await IssueRecord.updateMany(
+    { employee: employeeId, issue_status: 'Pending Acknowledgement' },
+    { $set: {
+        issue_status: 'Acknowledged',
+        acknowledged: true,
+        signature_path: signature_path,    // e.g. "/public/signatures/sig_emp_1714567890_abc.png"
+        acknowledgement_time: new Date()
+    }}
+);
+```
+
+**Step 8 — Serve the Image (server/index.js)**
+```javascript
+app.use('/public', express.static(path.join(__dirname, 'public')));
+// This line makes any file in /public/ accessible via HTTP
+// So http://localhost:5000/public/signatures/sig_emp_*.png will return the image
+```
+
+**Step 9 — Embed in Excel Report (routes/reports.js)**
+```javascript
+// When generating the Excel report:
+if (issue.signature_path) {
+    const sigFilePath = path.join(__dirname, '..', issue.signature_path.replace(/^\//, ''));
+
+    if (fs.existsSync(sigFilePath)) {
+        const imageId = workbook.addImage({
+            filename: sigFilePath,
+            extension: 'png',
+        });
+        worksheet.addImage(imageId, {
+            tl: { col: 13, row: rowIndex - 1 },   // top-left corner: column 14, this row
+            ext: { width: 320, height: 110 },       // pixel dimensions (320×110px)
+            editAs: 'oneCell',
+        });
+    }
+    row.height = 130;  // Make row tall enough to display the image
+}
+```
+The signature image is physically embedded inside the `.xlsx` file — it is not a link. When you open the Excel file, the signature is visible even without internet connection.
+
+---
 
 ### How Archive (Soft Delete) Works
-```
-1. Admin clicks "Reset Current Issues" button
-2. Frontend shows confirmation dialog with reason input
-3. POST /api/issues/archive { archive_reason: "Annual reset" }
-4. Backend:
-   IssueRecord.updateMany(
-     { archived: false },
-     { $set: { archived: true, archived_at: new Date(),
-               archived_by: req.admin.id, archive_reason: reason }}
-   )
-5. Active issues view (GET /api/issues) only queries { archived: false }
-6. Issue History view queries { archived: true }
-7. Zero data lost — complete audit trail preserved
+
+**What is Soft Delete?**
+In a normal delete, data is permanently removed from the database. In a soft delete, the record stays in the database but gets a flag (`archived: true`) that hides it from normal views. This is like moving a file to the Recycle Bin instead of permanently deleting it.
+
+**Why use soft delete here?**
+- HR auditors need access to old distribution records
+- Legal requirements may mandate keeping asset records for years
+- Admins need a clean view for the current cycle without old records cluttering it
+
+**How it works:**
+```javascript
+// Before archive: IssueRecord in DB
+{ archived: false, issue_status: "Acknowledged", employee: "Ravi", item: "Helmet" }
+
+// After clicking "Reset Current Issues":
+PUT /api/issues/archive-reset  { scope: "all" }
+
+// Backend runs:
+IssueRecord.updateMany(
+    { archived: { $ne: true } },           // only non-archived records
+    { $set: {
+        archived: true,                    // hidden from active views
+        archived_at: new Date(),           // when it was archived
+        archived_by: req.admin.id,         // who archived it
+        archive_reason: "Reset for new issuance"
+    }}
+)
+
+// Active issues page queries: { archived: false } → shows 0 results now
+// Issue History page queries: { archived: true }  → shows all old records
 ```
 
 ---
 
 ## 12. Tools and Technologies Explanation
 
-### React 18
-React is a JavaScript library for building user interfaces using a component-based architecture. Each UI element (table row, modal, form) is an isolated, reusable component. React's virtual DOM efficiently updates only the parts of the screen that changed, making it very fast. We use React 18 which includes automatic batching and concurrent features.
+### What is React and Why Use It?
+React is a JavaScript library developed by Facebook for building user interfaces. Traditional websites reload the entire page every time something changes. React uses a **Virtual DOM** — it keeps a copy of the page in memory, compares what changed, and only updates those specific parts. This makes the UI feel instant.
 
-### Vite
-Vite is a modern frontend build tool that replaces webpack. It uses native ES modules in the browser during development, making the dev server start in under a second. When building for production, it uses Rollup to bundle and optimize all files. The `npm run dev` command starts the Vite dev server with Hot Module Replacement (HMR) — changes appear in the browser instantly without a full page reload.
+In PROVEXA, the entire application is a **Single Page Application (SPA)** — there is only one HTML file (`index.html`). React dynamically updates the content without ever loading a new page.
 
-### TanStack React Query
-React Query is a server state management library. Instead of managing loading/error/data states manually with useState and useEffect, React Query provides `useQuery` and `useMutation` hooks. It automatically caches API responses, refetches stale data in the background, and provides loading and error states. When we call `invalidateQueries('issues')` after a mutation, React Query automatically refetches the issues list and updates the UI.
+### What is Vite and Why Not webpack?
+Vite is the build tool that takes our React code and prepares it for the browser. During development, Vite uses the browser's native ES Module support — it serves files directly without bundling. This means the dev server starts in under 1 second. Older tools like Create React App use webpack which can take 30-60 seconds to start.
 
-### Tailwind CSS
-Tailwind is a utility-first CSS framework. Instead of writing custom CSS classes, you apply pre-defined utilities directly in JSX: `className="flex items-center bg-blue-600 text-white rounded-lg px-4 py-2"`. This approach eliminates the need for separate CSS files for most components. PostCSS and Autoprefixer work behind the scenes to process Tailwind's directives.
+When you run `npm run build`, Vite uses **Rollup** to bundle everything into optimized static files (HTML, CSS, JS) that any web server can serve.
 
-### react-signature-canvas
-This library renders an HTML5 Canvas element that responds to mouse and touch events, allowing users to draw freehand. The `.toDataURL('image/png')` method exports the canvas content as a Base64-encoded PNG string, which can be transmitted via HTTP and stored as an image file.
+### What is Tailwind CSS?
+Tailwind is a "utility-first" CSS framework. Instead of writing CSS in a separate file like this:
+```css
+.button { background-color: blue; color: white; padding: 8px 16px; border-radius: 4px; }
+```
+You write the styles directly in the JSX using class names:
+```jsx
+<button className="bg-blue-600 text-white px-4 py-2 rounded">Click</button>
+```
+Tailwind provides hundreds of tiny, single-purpose classes. The `tailwind.config.js` file lets us define custom colors, fonts, and breakpoints. `postcss.config.js` is required because Tailwind uses PostCSS to process and generate the final CSS at build time.
 
-### Mongoose
-Mongoose is an Object Document Mapper (ODM) for MongoDB. It adds schema validation, type casting, middleware (pre/post hooks), and population (joining documents across collections) on top of the MongoDB driver. The `ref` field in schemas enables `.populate()` to replace ObjectId references with the actual document data.
+### What is React Query (TanStack Query)?
+Without React Query, fetching data requires a lot of manual code:
+```javascript
+const [data, setData] = useState([]);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState(null);
 
-### bcryptjs
-bcryptjs implements the bcrypt password hashing algorithm. It is computationally expensive by design — this makes brute-force attacks impractical. `bcrypt.hash(password, 10)` creates a salted hash with 10 rounds of processing. `bcrypt.compare(plaintext, hash)` verifies passwords without ever decrypting the hash.
+useEffect(() => {
+    setLoading(true);
+    fetch('/api/employees').then(r => r.json()).then(d => { setData(d); setLoading(false); });
+}, []);
+```
+React Query replaces ALL of this with one line:
+```javascript
+const { data, isLoading, error } = useQuery('employees', () => axios.get('/api/employees'));
+```
+Additionally, React Query **caches** the response. If you navigate away and come back, the cached data shows instantly while it re-fetches in the background. When you add/edit data using `useMutation`, calling `queryClient.invalidateQueries('employees')` automatically triggers a re-fetch and UI update.
 
-### JSON Web Tokens (JWT)
-JWT is an open standard for creating access tokens. A token consists of three Base64-encoded parts: Header (algorithm), Payload (claims like user ID and expiry), and Signature. The server signs tokens with a secret key. Any tampering with the payload invalidates the signature, making JWTs secure for authentication.
+### What is Axios?
+Axios is an HTTP client that sends requests from the browser to the backend. In `client/src/lib/api.js`, we create a configured Axios instance:
+```javascript
+const api = axios.create({
+    baseURL: 'http://localhost:5000',
+    withCredentials: true   // ← This is CRITICAL: sends the HTTP-only cookie with every request
+});
+```
+`withCredentials: true` ensures the JWT cookie (set by the server on login) is automatically included in every API call. Without this, the cookie would not be sent and every request would return 401 Unauthorized.
 
-### ExcelJS
-ExcelJS is a Node.js library for creating and manipulating Excel files (.xlsx). Unlike the simpler `xlsx` library, ExcelJS supports image embedding, cell-level styling, merged cells, and streaming writes. It was chosen specifically because it can embed PNG images directly into spreadsheet cells — a critical requirement for the signature report.
+### What is Express and How Does Routing Work?
+Express is a minimal web framework for Node.js. It receives HTTP requests and routes them to the appropriate handler function.
 
-### PDFKit
-PDFKit is a JavaScript library for generating PDF documents programmatically. It supports text, images, shapes, and multi-page documents. PDFKit pipes the output as a stream directly to the HTTP response, so the PDF is generated and downloaded simultaneously without storing it on disk.
+In `server/index.js`:
+```javascript
+app.use('/api/auth', authRoutes);     // Any request to /api/auth/* goes to routes/auth.js
+app.use('/api/issues', issueRoutes);  // Any request to /api/issues/* goes to routes/issues.js
+```
 
-### node-cron
-node-cron is a task scheduler for Node.js that uses cron syntax. The expression `0 0 * * *` means "run at midnight every day". This is used to automatically check for overdue IssueRecords (where `next_due_date < today`) and update their status without any admin intervention.
+Inside `routes/issues.js`:
+```javascript
+const router = express.Router();
+router.get('/', handler);                            // GET /api/issues/
+router.post('/', handler);                           // POST /api/issues/
+router.put('/acknowledge/employee/:employeeId', h);  // PUT /api/issues/acknowledge/employee/abc123
+router.put('/archive-reset', handler);               // PUT /api/issues/archive-reset
+```
 
-### dotenv
-dotenv loads environment variables from a `.env` file into `process.env`. This allows sensitive configuration (database URL, JWT secret) to be kept out of source code. The `.env` file is listed in `.gitignore` so it is never committed to GitHub.
+The `:employeeId` part is a **URL parameter** — it captures whatever is in that position. `req.params.employeeId` gives us the value.
+
+### What is Mongoose and How Does It Help?
+MongoDB itself has no schema — you can store any shape of data. Mongoose adds a schema layer:
+```javascript
+const issueRecordSchema = new mongoose.Schema({
+    employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    acknowledged: { type: Boolean, default: false },
+    issue_status: { type: String, enum: ['Pending Acknowledgement', 'Acknowledged'] }
+});
+```
+- `required: true` → MongoDB will reject documents missing this field
+- `enum` → only allows those specific string values
+- `default` → automatically sets the value if not provided
+- `ref: 'Employee'` → enables `.populate('employee')` to replace the ObjectId with the full Employee document
+
+### What is JWT and How Does It Work?
+A JWT (JSON Web Token) is a self-contained token that proves identity. It has three parts separated by dots:
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.    ← Header (algorithm info)
+eyJpZCI6IjY2NGFiYzEyMyIsIm5hbWUiOiJBZG1pbiJ9.    ← Payload (data: id, name)
+SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c    ← Signature (tamper-proof hash)
+```
+The server signs the token with `JWT_SECRET`. If anyone modifies the payload, the signature becomes invalid. `jwt.verify()` checks this automatically.
+
+### What is bcryptjs?
+BCrypt is a password hashing function designed to be slow (computationally expensive). This is intentional — it makes brute-force attacks impractical.
+
+```javascript
+// When admin is created:
+const hash = await bcrypt.hash('admin123', 10);  // 10 = work factor (rounds)
+// Stored in DB: "$2b$10$XDXMSBfwz0BIZ4ZEEJkVge..."
+
+// When admin logs in:
+const isMatch = await bcrypt.compare('admin123', storedHash);
+// Returns true if they match — original password is NEVER recovered
+```
+
+### What is node-cron?
+node-cron uses cron syntax to schedule tasks. The format is: `minute hour day month weekday`
+```
+0 8 * * *
+│ │ │ │ └── Any weekday (Mon-Sun)
+│ │ │ └──── Any month
+│ │ └────── Any day of month
+│ └──────── Hour 8 (8 AM)
+└────────── Minute 0 (at the start of the hour)
+```
+So `0 8 * * *` = "Run at 8:00 AM every day".
+
+### What is ExcelJS and Why Not Just CSV?
+CSV is a plain text format — it cannot contain formatting or images. ExcelJS creates real `.xlsx` files with:
+- Styled cells (background colors, bold text, borders)
+- Column widths and row heights
+- Frozen rows (first row stays visible when scrolling)
+- **Embedded images** — PNG files are converted to Base64 and embedded inside the Excel binary format
+
+This is why ExcelJS was chosen over simpler alternatives like the `xlsx` npm package — only ExcelJS supports proper image embedding.
 
 ---
 
 ## 13. Setup and Execution Guide
 
-### Development Mode (Full Stack)
+### Starting the Full Application (Development Mode)
 
-**Terminal 1 — Backend:**
+You need **two terminal windows** open at the same time:
+
+**Terminal Window 1 — Backend:**
 ```bash
 cd e:\PROVEXA\server
-npm install
-# Create .env file with your config
-npm run seed          # Seeds DB with admin and sample data
-npm run dev           # Starts nodemon on port 5000
+npm install              # Install all backend packages (only needed first time)
+npm run seed             # Creates admin account and sample data in MongoDB
+npm run dev              # Starts server with nodemon (auto-restart on changes)
+```
+You should see:
+```
+Connected to MongoDB
+Server running on port 5000
+[Cron Job] Scheduler started
 ```
 
-**Terminal 2 — Frontend:**
+**Terminal Window 2 — Frontend:**
 ```bash
 cd e:\PROVEXA\client
-npm install
-npm run dev           # Starts Vite on port 5173
+npm install              # Install all frontend packages (only needed first time)
+npm run dev              # Starts Vite development server
+```
+You should see:
+```
+VITE v5.4.x ready
+➜ Local:   http://localhost:5173/
 ```
 
-Open browser: **http://localhost:5173**
+Now open **http://localhost:5173** in your browser.
 
 ### Environment Variables Reference
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `PORT` | Which port the backend listens on | `5000` |
+| `DATABASE_URL` | MongoDB connection string | `mongodb://localhost:27017/ProvexaDB` |
+| `JWT_SECRET` | Secret key to sign JWT tokens — keep this private! | `any_random_long_string` |
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| PORT | Backend server port | 5000 |
-| DATABASE_URL | MongoDB connection string | mongodb://localhost:27017/ProvexaDB |
-| JWT_SECRET | Secret key for JWT signing | any_long_random_string |
+### Available npm Commands
 
-### Available npm Scripts
-
-**Backend (server/):**
-| Command | Description |
+**Backend (`server/` folder):**
+| Command | What It Does |
 |---------|-------------|
-| `npm run dev` | Start with nodemon (auto-restart on changes) |
-| `npm start` | Start without nodemon (production) |
-| `npm run seed` | Clear DB and create admin + sample data |
+| `npm run dev` | Start with nodemon (restarts server on file save) |
+| `npm start` | Start without nodemon (for production) |
+| `npm run seed` | **WARNING: Clears database** and creates admin@provexa.com |
 
-**Frontend (client/):**
-| Command | Description |
+**Frontend (`client/` folder):**
+| Command | What It Does |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server with HMR |
-| `npm run build` | Build production bundle to /dist |
-| `npm run preview` | Preview production build locally |
-| `npm run lint` | Run ESLint checks |
-
-### Testing the API
-
-Using curl:
-```bash
-# Login
-curl -X POST http://localhost:5000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@provexa.com","password":"admin123"}'
-
-# Get employees (replace TOKEN with actual token)
-curl http://localhost:5000/api/employees \
-  -H "Authorization: Bearer TOKEN"
-```
+| `npm run dev` | Start Vite dev server with hot reload |
+| `npm run build` | Build optimized production files into `/dist` |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Check code for errors using ESLint |
 
 ---
 
 ## 14. GitHub Usage Section
 
-### Initial Push (Run These Commands Manually in Terminal)
+### What is Git and GitHub?
+- **Git** is a version control tool installed on your computer. It tracks changes to files.
+- **GitHub** is a website that hosts your Git repository online so others (or you from another computer) can access it.
+- Think of Git like a save-game system — every `commit` is a save point you can go back to.
+
+### Complete Commands to Push to GitHub (Run These Manually)
+
+Open a terminal in the PROVEXA folder:
 
 ```bash
-# 1. Navigate to project root
+# Navigate to project root
 cd e:\PROVEXA
 
-# 2. Initialize git repository
+# Step 1: Initialize a git repository (only needed if not already done)
 git init
 
-# 3. Stage all files
+# Step 2: Stage ALL files for commit (the dot means "everything")
 git add .
 
-# 4. Create your first commit
+# Step 3: Create a commit (snapshot) with a message describing what you did
 git commit -m "Initial commit: Complete Provexa System"
 
-# 5. Add GitHub remote repository
+# Step 4: Connect to your GitHub repository
 git remote add origin https://github.com/Keerthana2225/PROVEXA.git
 
-# 6. Rename branch to main
+# Step 5: Rename the default branch to "main"
 git branch -M main
 
-# 7. Push to GitHub
+# Step 6: Push your code to GitHub (-u sets upstream so future "git push" works without arguments)
 git push -u origin main
 ```
 
-### Daily Development Commands
+### After the Initial Push — Daily Commands
 
+Every time you make changes and want to save them to GitHub:
 ```bash
-# Check which files have changed
+# Check which files changed
 git status
-
-# See what exactly changed in files
-git diff
 
 # Stage all changes
 git add .
 
-# Stage a specific file only
-git add server/routes/issues.js
-
-# Commit with message
-git commit -m "feat: add bulk issue validation"
+# Commit with a descriptive message
+git commit -m "feat: add department filter to reports"
 
 # Push to GitHub
 git push
+```
 
-# Pull latest changes from GitHub
+### Pulling Changes from GitHub
+If you work on another computer or someone else made changes:
+```bash
 git pull origin main
 ```
 
-### Branching Workflow
-
+### Working with Branches (Feature Development)
 ```bash
-# Create new branch for a feature
-git checkout -b feature/pdf-watermark
+# Create a new branch for a feature
+git checkout -b feature/email-notifications
 
-# See all branches
-git branch
+# Work on your code... then commit
+git add .
+git commit -m "feat: add email notification for overdue items"
 
-# Push the new branch to GitHub
-git push -u origin feature/pdf-watermark
+# Push the branch to GitHub
+git push -u origin feature/email-notifications
 
-# After feature is complete — switch back to main
+# When feature is done, switch back to main
 git checkout main
 
-# Merge feature into main
-git merge feature/pdf-watermark
+# Merge your feature into main
+git merge feature/email-notifications
 
-# Delete the feature branch (cleanup)
-git branch -d feature/pdf-watermark
+# Push the merged main to GitHub
+git push
+
+# Clean up: delete the feature branch
+git branch -d feature/email-notifications
 ```
 
 ### Undoing Mistakes
-
 ```bash
-# Undo changes to a file (before staging)
+# Undo changes to a file before staging
 git checkout -- server/routes/issues.js
 
-# Unstage a file (after git add, before commit)
+# Unstage a file (you ran git add but want to undo)
 git reset HEAD server/routes/issues.js
 
-# Undo last commit (keeps changes in working directory)
+# Undo the last commit but keep the changes
 git reset --soft HEAD~1
 
-# View commit history
+# See last 10 commits
 git log --oneline -10
 ```
 
-### Commit Message Best Practices
+### .gitignore — What is NOT Pushed to GitHub
+The `.gitignore` files already in the project tell Git to ignore:
+- `node_modules/` → Contains thousands of downloaded packages. They are reinstalled with `npm install`
+- `.env` → Contains secret keys. **NEVER commit this.** Use `.env.example` as a template instead
+- `dist/` → Built files. Regenerated with `npm run build`
 
-| Prefix | Use When |
-|--------|----------|
-| `feat:` | Adding a new feature |
-| `fix:` | Fixing a bug |
-| `docs:` | Documentation changes |
-| `style:` | UI styling changes |
-| `refactor:` | Code restructuring |
-| `chore:` | Dependency updates, config |
-
-**Examples:**
+### Good Commit Message Format
 ```bash
-git commit -m "feat: add digital signature to issue acknowledgement"
-git commit -m "fix: resolve duplicate emp_code validation error"
-git commit -m "docs: update API documentation in README"
-git commit -m "style: improve dashboard card hover animations"
+feat: add feature      # New functionality
+fix: resolve bug       # Bug fix
+docs: update readme    # Documentation change
+style: fix alignment   # UI/CSS change
+refactor: clean code   # Code restructuring without changing behavior
+chore: update deps     # Dependency updates
 ```
-
-### .gitignore (Already configured)
-The project already has `.gitignore` files that exclude:
-- `node_modules/` — reinstalled via npm install
-- `.env` — contains secrets, never commit this
-- `dist/` — built files, regenerated by npm run build
 
 ---
 
 ## 15. Conclusion
 
-PROVEXA is a complete, production-ready enterprise asset management system that demonstrates proficiency across the full web development stack:
+PROVEXA is a production-ready, full-stack enterprise system that demonstrates real engineering solutions to real business problems.
 
-**Technical Skills Demonstrated:**
-- Full-stack JavaScript development (React + Node.js)
-- NoSQL database design with relational patterns (MongoDB + Mongoose)
-- Secure stateless authentication (JWT + bcrypt)
-- Advanced file processing (ExcelJS with image embedding, PDFKit)
-- Digital signature capture and storage workflow
-- Background job scheduling (node-cron)
-- RESTful API design with proper HTTP status codes
-- Server state management with React Query
-- Utility-first CSS design with Tailwind
-- Non-destructive data management (soft delete / archive pattern)
+### What This Project Demonstrates
 
-**Real-World Problems Solved:**
-- Eliminated paper-based asset registers
-- Created legally verifiable digital proof of asset handover
-- Automated overdue return tracking
-- Generated professional reports with embedded signature images
-- Preserved complete audit trails through non-destructive archiving
+**Backend Engineering:**
+- REST API design with proper HTTP methods (GET, POST, PUT, PATCH)
+- JWT + HTTP-only cookie authentication (more secure than localStorage)
+- Mongoose schema design with relationships across 6 collections
+- Soft delete pattern (archived flag) for non-destructive data management
+- Bulk database operations with `updateMany` for performance
+- Parallel database queries with `Promise.all()` for speed
+- Binary file operations: converting Base64 → Buffer → PNG file
+- Scheduled background jobs with cron syntax
+- Dynamic file generation: ExcelJS with embedded images, PDFKit streaming
 
-**Future Enhancements:**
-- Employee self-service portal
-- Mobile app for field workers
-- AWS S3 integration for signature storage (cloud deployment)
-- Email notifications for overdue assets
-- Multi-tenant support for multiple organizations
+**Frontend Engineering:**
+- React SPA with component-based architecture
+- Server state management with React Query (caching, mutations, invalidation)
+- HTTP-only cookie authentication with `withCredentials: true`
+- Digital signature capture using HTML5 Canvas API
+- Tailwind CSS utility-first responsive design
+- React Router v6 for client-side navigation with protected routes
+- Recharts integration for dashboard analytics
+
+**Database Engineering:**
+- MongoDB document design with references (ObjectId)
+- Query filtering with MongoDB operators: `$lt`, `$gt`, `$gte`, `$lte`, `$ne`, `$in`
+- Population (joining) across multiple collections
+- Denormalization for performance (storing `employee_name` in `IssueRecord`)
+- Index utilization through Mongoose schema constraints
+
+### Problems Solved
+| Problem | Solution |
+|---------|---------|
+| Paper registers get lost | Digital records in MongoDB — permanent and searchable |
+| No proof of handover | Digital signature captured as PNG + timestamp |
+| Manual overdue tracking | Automated daily cron job at 8 AM |
+| Slow manual reports | Excel/PDF generated in seconds via API |
+| Data deleted after distribution cycle | Archive (soft delete) — data preserved forever |
+| Security of login tokens | HTTP-only cookie — inaccessible to JavaScript/XSS |
+
+### Future Enhancements
+- Email/SMS notifications for overdue items
+- Employee self-service portal (employees log in to view their own records)
 - Barcode/QR code scanning for asset identification
+- AWS S3 integration for signature image storage in cloud deployments
+- Multi-tenant support for multiple organizations
+- Mobile app version with React Native
 
 ---
 
 <div align="center">
-  <p>Built with dedication by <strong>Keerthana</strong> | Full Stack Developer</p>
-  <a href="https://github.com/Keerthana2225">GitHub Profile</a>
+  <p>Built with dedication by <strong>Keerthana</strong></p>
+  <p>Full Stack Developer | MERN Stack | Enterprise Systems</p>
+  <a href="https://github.com/Keerthana2225">GitHub: Keerthana2225</a>
 </div>
