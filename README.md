@@ -87,6 +87,14 @@ To provide a complete understanding, here is a breakdown of every specific tool 
     *   *Why?* Used to make HTTP requests to the backend. It automatically transforms JSON data and makes it easy to attach Authorization headers globally.
 *   **React Signature Canvas**: A React wrapper around HTML5 Canvas.
     *   *Why?* Allows employees to physically sign their names on a touchscreen or with a mouse, converting the drawing into digital data.
+*   **Lucide React**: An open-source icon library.
+    *   *Why?* Provides clean, customizable vector icons used throughout the UI for navigation menus, buttons, and status indicators.
+*   **TanStack React Table**: A headless UI framework for building tables.
+    *   *Why?* Allows for building highly performant, paginated, sortable, and filterable data grids (used for the massive employee and asset lists).
+*   **Day.js**: A minimalist JavaScript date library.
+    *   *Why?* Used to easily parse, validate, and format complex date/time strings (like formatting `returnDate` for human readability) in both frontend and backend.
+*   **clsx & Tailwind-Merge**: Utility libraries.
+    *   *Why?* Used together to conditionally join Tailwind CSS classes dynamically without style conflicts (critical for building reusable UI components).
 
 ### Backend Technologies
 *   **Node.js**: A JavaScript runtime environment.
@@ -107,6 +115,12 @@ To provide a complete understanding, here is a breakdown of every specific tool 
     *   *Why?* Used to generate non-editable, printable PDF receipts or audit reports directly from the server.
 *   **Node-Cron**: A task scheduler in pure JavaScript.
     *   *Why?* Used to automate recurring backend tasks, such as scanning the database daily at midnight to flag items that have exceeded their replacement due date automatically.
+*   **CORS**: Cross-Origin Resource Sharing middleware.
+    *   *Why?* Allows the React frontend (running on a different port like 5173) to safely make HTTP requests to the Express backend (running on port 5000) without browser security blocks.
+*   **Dotenv**: Environment variable loader.
+    *   *Why?* Loads variables from a `.env` file into `process.env`, keeping secrets (like database connection strings and JWT keys) safely out of the public source code.
+*   **Cookie-Parser**: Middleware for handling cookies.
+    *   *Why?* Parses cookies attached to the client request object, which is essential if JWTs or session IDs are stored and transmitted via cookies instead of LocalStorage headers.
 
 ---
 
