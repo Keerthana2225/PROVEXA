@@ -39,11 +39,7 @@ Generate detailed reports in Excel or PDF format. The Excel reports are professi
 ### 🔄 Replacement Requests
 If an item is damaged, an employee can request a replacement. Admins can review these requests and approve or reject them with notes.
 
-### 📈 Dashboard
-A simple home screen showing important stats, like how many items were given out this month and how many are overdue for return.
-
 ---
-
 
 ## 3. Key Abbreviations (Glossary)
 To make things easy to understand, here are some common terms used in this project:
@@ -53,53 +49,81 @@ To make things easy to understand, here are some common terms used in this proje
 *   **API**: **Application Programming Interface** — A bridge that allows the website to talk to the database.
 *   **UI**: **User Interface** — The actual screens, buttons, and menus that you interact with.
 *   **DB**: **Database** — The digital storage where all employee and item records are kept.
-*   **HMR**: **Hot Module Replacement** — A technology that lets developers see changes instantly without refreshing the page.
 
 ---
 
-## 4. How the System Works (Simple Explanation)
+## 4. Technology Stack (Simplified)
 
-### The Digital Signature
-Instead of signing on a piece of paper that can get lost, employees sign on a screen. 
-1. The signature is turned into a **PNG image**.
-2. This image is stored in a special folder on the server.
-3. The system "links" this image to the employee's record so you can see it anytime.
+### Frontend (What the user sees)
+*   **React**: The foundation used to build a smooth and interactive user interface.
+*   **Vite**: A tool that makes the website load very fast during development.
+*   **Tailwind CSS**: A modern way to style the website so it looks professional and clean.
+*   **Lucide React**: A collection of clear and simple icons used throughout the app.
+
+### Backend (The "Brain" behind the scenes)
+*   **Node.js & Express**: The engine that handles all the logic, such as logging in and saving data.
+*   **MongoDB**: A modern database that stores all records securely.
+*   **ExcelJS**: A specialized tool used to create high-quality Excel files with images.
+
+---
+
+## 5. How the System Works (Simple Explanation)
+
+### The Digital Signature Process
+When an employee signs for an item:
+1. They draw their signature on a digital pad.
+2. The system converts that drawing into a real **PNG image**.
+3. This image is stored safely on the server and linked to the employee's record.
 
 ### Data Security (Middleware)
-We use a "Security Guard" called **Middleware**. It checks if a user is logged in before letting them see any sensitive information. If they aren't authorized, they are blocked.
+Think of middleware as a **Security Guard**. Every time someone asks the system for data, the "guard" checks if they are logged in. If they aren't, they are turned away. This keeps your data safe.
 
 ---
 
-## 5. API Testing & Database (How to see Output)
+## 6. API Testing & Database (How to see Output)
 
 ### 🧪 Using Postman (Testing the "Brain")
-Postman allows you to see how the backend (the "brain") responds to requests.
+Postman allows you to see how the backend responds to requests without using the website.
 1.  Open **Postman**.
 2.  Type the address: `http://localhost:5000/api/auth/login` (or any other path).
 3.  Choose the method (like **GET** to see data or **POST** to login).
-4.  Click **Send** to see the result. If successful, you will see a "200 OK" message and some data.
+4.  Click **Send** to see the result.
 
 ### 🗄️ Using MongoDB Compass (Viewing the Records)
 To see exactly what is saved in the database:
-1.  Open **MongoDB Compass**.
-2.  Click **Connect** to link to your local database.
-3.  Open the **PROVEXA** database.
-4.  Click on a "Collection" (like `employees`) to see all the data entries clearly.
+1.  Open **MongoDB Compass** and click **Connect**.
+2.  Open the **PROVEXA** database.
+3.  Click on a "Collection" (like `employees`) to see all the data entries clearly.
 
 ---
 
-## 6. Quick Setup
+## 7. Setup and Installation
 
 ### Prerequisites
-Make sure you have **Node.js** and **MongoDB** installed.
+You need to have **Node.js** and **MongoDB** installed.
 
-### Steps to Run
+### Quick Start
 1.  **Backend**: Go to the `server` folder, run `npm install`, then `npm run dev`.
 2.  **Frontend**: Go to the `client` folder, run `npm install`, then `npm run dev`.
-3.  **Access**: Open your browser to the link shown in the frontend terminal (usually `http://localhost:5173`).
 
 ---
 
-## 7. Conclusion
-**PROVEXA** simplifies employee welfare management by replacing old paper logs with a fast, secure digital system. It ensures every item is acknowledged with a real signature, making it perfect for modern workplace management.
+## 8. GitHub Guide (Commands to run manually)
 
+To save your project to GitHub, run these commands in your terminal:
+
+```bash
+# 1. Prepare all files to be saved
+git add .
+
+# 2. Save a snapshot of your project
+git commit -m "Update: Complete Welfare & Acknowledgement System"
+
+# 3. Upload everything to GitHub
+git push origin main
+```
+
+---
+
+## 9. Conclusion
+**PROVEXA** simplifies employee welfare management by replacing old paper logs with a fast, secure digital system. It ensures every item is acknowledged with a real signature, making the process faster and more reliable for administrators.
