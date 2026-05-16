@@ -9,7 +9,7 @@ import Dashboard from './pages/Dashboard'
 import Employees from './pages/Employees'
 import Items from './pages/Items'
 import Issues from './pages/Issues'
-import DueTracking from './pages/DueTracking'
+import ItemRenewal from './pages/ItemRenewal'
 import Replacements from './pages/Replacements'
 import Reports from './pages/Reports'
 
@@ -29,7 +29,7 @@ function App() {
     queryFn: async () => {
       try {
         const { data } = await api.get('/auth/me');
-        return data.user;
+        return data.admin || data.user || data;
       } catch (err) {
         return null; // Not logged in
       }
@@ -52,7 +52,7 @@ function App() {
           <Route path="/employees" element={<Employees />} />
           <Route path="/items" element={<Items />} />
           <Route path="/issues" element={<Issues />} />
-          <Route path="/due" element={<DueTracking />} />
+          <Route path="/item-renewal" element={<ItemRenewal />} />
           <Route path="/replacements" element={<Replacements />} />
           <Route path="/reports" element={<Reports />} />
         </Route>

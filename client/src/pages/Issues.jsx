@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { FileText, Plus, Search, Archive, History, RotateCcw, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { FileText, Plus, Search, Archive, History, RotateCcw, CheckCircle2, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
 import api from '../lib/api';
 import IssueForm from '../components/ui/IssueForm';
 import Modal from '../components/ui/Modal';
-import EmployeeSignatureModal from '../components/ui/EmployeeSignatureModal';
+import UnifiedVerificationModal from '../components/ui/UnifiedVerificationModal';
 import { toast } from '../components/ui/Toast';
 
 export default function Issues() {
@@ -22,6 +22,7 @@ export default function Issues() {
     const [selectedIds, setSelectedIds] = useState([]);
     const [showResetModal, setShowResetModal] = useState(false);
     const [resetScope, setResetScope] = useState('all');
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
 
     const isHistory = viewMode === 'history';
 
@@ -30,7 +31,11 @@ export default function Issues() {
         queryFn: async () => {
             const params = new URLSearchParams();
             if (statusFilter) params.set('status', statusFilter);
-            if (isHistory) params.set('archived', 'true');
+            if (isHistory) {
+                params.set('lifecycle_status', 'Returned');
+            } else {
+                params.set('lifecycle_status', 'Active');
+            }
             const { data } = await api.get(`/issues?${params.toString()}`);
             return data;
         }
@@ -42,12 +47,13 @@ export default function Issues() {
             return data;
         },
         onSuccess: (data) => {
-            queryClient.invalidateQueries(['issues']);
-            queryClient.invalidateQueries(['dashboardStats']);
-            queryClient.invalidateQueries(['dueTracking']);
+            queryClient.invalidateQueries({ queryKey: ['issues'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            queryClient.invalidateQueries({ queryKey: ['dueTracking'] });
             toast.success(data.message || 'Issues archived successfully.');
             setShowResetModal(false);
             setSelectedIds([]);
+            setIsSelectionMode(false);
         },
         onError: (err) => toast.error(err.response?.data?.message || 'Failed to archive issues.')
     });
@@ -64,21 +70,21 @@ export default function Issues() {
     // Issue status badge
     const getIssueStatusBadge = (status) => {
         if (status === 'Acknowledged')
-            return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase tracking-wide"><CheckCircle2 className="w-3 h-3" /> Acknowledged</span>;
+            return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-widest"><CheckCircle2 className="w-3 h-3" /> Verified</span>;
         if (status === 'Archived' || status === 'Reset Archived')
-            return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-200 text-slate-600 uppercase tracking-wide">Archived</span>;
-        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wide"><Clock className="w-3 h-3" /> Pending Signature</span>;
+            return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-500 uppercase tracking-widest">Archived</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-widest animate-pulse"><Clock className="w-3 h-3" /> Awaiting Verification</span>;
     };
 
-    // Due date badge
+    // Renewal date badge
     const getDueBadge = (dueDate) => {
         const due = dayjs(dueDate);
         const today = dayjs().startOf('day');
         const nextWeek = today.add(7, 'day');
         if (due.isBefore(today))
-            return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wide"><AlertTriangle className="w-3 h-3" /> Overdue</span>;
+            return <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 uppercase tracking-wide">Renewal Due</span>;
         if (due.isBefore(nextWeek))
-            return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 uppercase tracking-wide">Due Soon</span>;
+            return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-600 border border-amber-200 uppercase tracking-wide">Upcoming Renewal</span>;
         return <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 uppercase tracking-wide">Valid</span>;
     };
 
@@ -122,10 +128,10 @@ export default function Issues() {
 
     const filterButtons = [
         { val: '', label: 'All', color: 'slate' },
-        { val: 'overdue', label: '🔴 Overdue', color: 'red' },
+        { val: 'renewal_due', label: '⏳ Renewal Due', color: 'orange' },
         { val: 'pending_ack', label: '✍️ Pending Signature', color: 'amber' },
         { val: 'acknowledged', label: '✅ Acknowledged', color: 'emerald' },
-        { val: 'due_soon', label: '🟡 Due Soon', color: 'orange' },
+        { val: 'upcoming', label: '📅 Upcoming Renewal', color: 'amber' },
     ];
 
     return (
@@ -166,10 +172,22 @@ export default function Issues() {
                     <div className="flex gap-2 ml-auto shrink-0">
                         {!isHistory && (
                             <button
-                                onClick={() => setShowResetModal(true)}
-                                className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-4 py-2.5 rounded-xl font-semibold transition-colors text-sm"
+                                onClick={() => {
+                                    setIsSelectionMode(!isSelectionMode);
+                                    if (isSelectionMode) setSelectedIds([]);
+                                }}
+                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold transition-all text-sm border ${isSelectionMode ? 'bg-red-600 text-white border-red-600 shadow-md' : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100'}`}
                             >
-                                <RotateCcw className="w-4 h-4" /> Reset Issues
+                                <RotateCcw className={`w-4 h-4 ${isSelectionMode ? 'animate-spin-once' : ''}`} />
+                                {isSelectionMode ? 'Cancel Selection' : 'Reset Issues'}
+                            </button>
+                        )}
+                        {!isHistory && isSelectionMode && (
+                            <button
+                                onClick={() => { setResetScope('all'); setShowResetModal(true); }}
+                                className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-xl font-semibold transition-colors text-sm shadow-sm"
+                            >
+                                <Archive className="w-4 h-4" /> Reset All Active
                             </button>
                         )}
                         {!isHistory && (
@@ -229,7 +247,7 @@ export default function Issues() {
                     <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
                         <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] text-slate-500 uppercase font-bold tracking-widest border-b border-slate-100 dark:border-slate-800">
                             <tr>
-                                {!isHistory && (
+                                {isSelectionMode && !isHistory && (
                                     <th className="px-4 py-4 w-10">
                                         <input type="checkbox"
                                             checked={filtered.length > 0 && selectedIds.length === filtered.length}
@@ -239,7 +257,7 @@ export default function Issues() {
                                     </th>
                                 )}
                                 <th className="px-6 py-4">Employee Details</th>
-                                <th className="px-6 py-4">Asset Issued</th>
+                                <th className="px-6 py-4">Item Issued</th>
                                 <th className="px-6 py-4 text-center">Qty</th>
                                 <th className="px-6 py-4">Issue Date</th>
                                 <th className="px-6 py-4">Status</th>
@@ -274,7 +292,7 @@ export default function Issues() {
                                     return (
                                         <tr key={issueId}
                                             className={`transition-colors ${isSelected ? 'bg-blue-50/60 dark:bg-blue-900/10' : 'hover:bg-slate-50/50 dark:hover:bg-slate-800/20'}`}>
-                                            {!isHistory && (
+                                            {isSelectionMode && !isHistory && (
                                                 <td className="px-4 py-4">
                                                     <input type="checkbox" checked={isSelected}
                                                         onChange={() => toggleSelect(issueId)}
@@ -324,26 +342,30 @@ export default function Issues() {
                                             {/* Actions */}
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {isAcknowledged && issue.signature_path ? (
-                                                        /* View signature proof */
-                                                        <button
-                                                            onClick={() => setViewSignatureUrl(`http://localhost:5000${issue.signature_path}`)}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
-                                                            title="View Signature Proof"
-                                                        >
-                                                            <CheckCircle2 className="w-3.5 h-3.5" /> View Proof
-                                                        </button>
-                                                    ) : isPending && !isHistory ? (
-                                                        /* Sign Now — only for truly pending records */
+                                                    {isAcknowledged ? (
+                                                        <div className="flex flex-col items-end gap-1.5">
+                                                            {issue.signature_path && (
+                                                                <button
+                                                                    onClick={() => setViewSignatureUrl(`http://localhost:5000${issue.signature_path}`)}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                                                                >
+                                                                    View Proof
+                                                                </button>
+                                                            )}
+                                                            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                                                Verified via {issue.verification_method || 'System'}
+                                                            </div>
+                                                        </div>
+                                                    ) : !isHistory ? (
                                                         <button
                                                             onClick={() => handleSignClick(issue.employee, issueId)}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-sm shadow-blue-200 active:scale-95"
+                                                            className="flex items-center gap-2 px-4 py-2 text-[10px] font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-md shadow-indigo-200 active:scale-95 uppercase tracking-widest"
                                                         >
-                                                            ✍️ Sign Now
+                                                            <ShieldCheck className="w-3.5 h-3.5" /> Start Verification
                                                         </button>
-                                                    ) : isHistory ? (
+                                                    ) : (
                                                         <span className="text-[10px] text-slate-400 italic">Archived</span>
-                                                    ) : null}
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -358,7 +380,7 @@ export default function Issues() {
             {/* ── Modals ── */}
             <IssueForm isOpen={showForm} onClose={() => setShowForm(false)} />
 
-            <EmployeeSignatureModal
+            <UnifiedVerificationModal
                 isOpen={!!signingEmployee}
                 onClose={() => { setSigningEmployee(null); setSelectedIssueId(null); }}
                 employee={signingEmployee}

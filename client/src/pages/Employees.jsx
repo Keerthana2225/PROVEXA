@@ -60,6 +60,7 @@ export default function Employees() {
                                 <th className="px-6 py-4">Code</th>
                                 <th className="px-6 py-4">Department</th>
                                 <th className="px-6 py-4">Designation</th>
+                                <th className="px-6 py-4">Salary (₹)</th>
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4 text-right">Actions</th>
                             </tr>
@@ -100,6 +101,7 @@ export default function Employees() {
                                         <td className="px-6 py-4 font-mono text-xs bg-slate-50 dark:bg-transparent">{emp.emp_code}</td>
                                         <td className="px-6 py-4">{emp.department}</td>
                                         <td className="px-6 py-4">{emp.designation}</td>
+                                        <td className="px-6 py-4 font-bold text-slate-900">₹{(emp.salary || 0).toLocaleString()}</td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${emp.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
                                                 <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${emp.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>

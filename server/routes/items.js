@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const Item = require('../models/Item');
-const ItemCategory = require('../models/ItemCategory');
+const itemService = require('../services/ItemService');
+const { IssueRecord } = require('../models');
 const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware);
@@ -9,139 +9,105 @@ router.use(authMiddleware);
 // Get all items
 router.get('/', async (req, res) => {
     try {
-        const { category_id } = req.query;
-        const query = category_id ? { category: category_id } : {};
-
-        const items = await Item.find(query)
-            .populate('category')
-            .sort({ name: 1 });
-
+        const items = await itemService.getAll(req.query);
         res.json(items);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error fetching items' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Get all categories
 router.get('/categories', async (req, res) => {
     try {
-        const categories = await ItemCategory.find().sort({ name: 1 });
+        const categories = await itemService.getCategories();
         res.json(categories);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error fetching categories' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Create new item
 router.post('/', async (req, res) => {
     try {
-        const { name, category_id, new_category_name, frequency_days, fixed_date, description } = req.body;
+        const { name, category_id, new_category_name, frequency_days, fixed_date, description, cost } = req.body;
         let finalCategoryId = category_id;
 
         if (new_category_name) {
-            let category = await ItemCategory.findOne({ name: new_category_name });
+            const categories = await itemService.getCategories();
+            let category = categories.find(c => c.name.toLowerCase() === new_category_name.toLowerCase());
             if (!category) {
-                category = new ItemCategory({ name: new_category_name });
-                await category.save();
+                category = await itemService.createCategory({ name: new_category_name });
             }
-            finalCategoryId = category._id;
+            finalCategoryId = category.id;
         }
 
         if (!finalCategoryId) return res.status(400).json({ message: 'Category is required' });
 
-        const item = new Item({
+        const item = await itemService.createItem({
             name,
-            category: finalCategoryId,
-            frequency_days: frequency_days ? parseInt(frequency_days) : null,
-            fixed_date: fixed_date ? new Date(fixed_date) : null,
-            description
+            category_id: finalCategoryId,
+            frequency_days: frequency_days ? parseInt(frequency_days) : 180,
+            fixed_date: fixed_date || null,
+            description,
+            cost: cost || 0
         });
-        await item.save();
         
         res.status(201).json(item);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error creating item' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Update item
 router.put('/:id', async (req, res) => {
     try {
-        const { name, category_id, new_category_name, frequency_days, fixed_date, description } = req.body;
+        const { name, category_id, new_category_name, frequency_days, fixed_date, description, cost, status } = req.body;
         let finalCategoryId = category_id;
 
         if (new_category_name) {
-            let category = await ItemCategory.findOne({ name: new_category_name });
+            const categories = await itemService.getCategories();
+            let category = categories.find(c => c.name.toLowerCase() === new_category_name.toLowerCase());
             if (!category) {
-                category = new ItemCategory({ name: new_category_name });
-                await category.save();
+                category = await itemService.createCategory({ name: new_category_name });
             }
-            finalCategoryId = category._id;
+            finalCategoryId = category.id;
         }
 
-        const item = await Item.findByIdAndUpdate(
-            req.params.id,
-            { 
-                name, 
-                category: finalCategoryId || undefined, 
-                frequency_days: frequency_days ? parseInt(frequency_days) : null, 
-                fixed_date: fixed_date ? new Date(fixed_date) : null,
-                description 
-            },
-            { new: true }
-        );
+        const item = await itemService.updateItem(req.params.id, { 
+            name, 
+            category_id: finalCategoryId || undefined, 
+            frequency_days: frequency_days ? parseInt(frequency_days) : undefined, 
+            fixed_date: fixed_date || undefined,
+            description,
+            cost,
+            status
+        });
         
         res.json(item);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error updating item' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Delete item
 router.delete('/:id', async (req, res) => {
     try {
-        const item = await Item.findById(req.params.id);
-        if (!item) return res.status(404).json({ message: 'Item not found' });
-
-        // Check for associated issue records
-        const IssueRecord = require('../models/IssueRecord');
-        const hasIssues = await IssueRecord.exists({ item: req.params.id });
-        
+        const hasIssues = await IssueRecord.findOne({ where: { item_id: req.params.id } });
         if (hasIssues) {
             return res.status(400).json({ 
-                message: 'Cannot delete item with active or historical issue records. Consider renaming it instead.' 
+                message: 'Cannot delete item with active or historical records.' 
             });
         }
 
-        await Item.findByIdAndDelete(req.params.id);
+        await itemService.deleteItem(req.params.id);
         res.json({ message: 'Item deleted successfully' });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error deleting item' });
-    }
-});
-
-// Delete category
-router.delete('/categories/:id', async (req, res) => {
-    try {
-        const Item = require('../models/Item');
-        const itemCount = await Item.countDocuments({ category: req.params.id });
-        
-        if (itemCount > 0) {
-            return res.status(400).json({ 
-                message: 'Cannot delete category with assigned items. Reassign items first.' 
-            });
-        }
-
-        await ItemCategory.findByIdAndDelete(req.params.id);
-        res.json({ message: 'Category deleted successfully' });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error deleting category' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

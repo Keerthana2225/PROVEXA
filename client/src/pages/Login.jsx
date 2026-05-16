@@ -14,7 +14,7 @@ export default function Login() {
             return data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['auth']);
+            queryClient.invalidateQueries({ queryKey: ['auth'] });
         },
         onError: (err) => {
             setError(err.response?.data?.message || 'Login failed');

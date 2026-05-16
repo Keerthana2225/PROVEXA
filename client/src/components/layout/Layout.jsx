@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { LayoutDashboard, Users, Package, FileText, Clock, RefreshCw, BarChart2, LogOut, Zap } from 'lucide-react';
+import { LayoutDashboard, Users, Package, FileText, Clock, RefreshCw, BarChart2, LogOut, Zap, ShieldCheck } from 'lucide-react';
 import api from '../../lib/api';
 import ToastContainer from '../ui/Toast';
 
@@ -9,7 +9,7 @@ const navItems = [
     { path: '/employees', icon: Users, label: 'Employees' },
     { path: '/items', icon: Package, label: 'Items Master' },
     { path: '/issues', icon: FileText, label: 'Issue Management' },
-    { path: '/due', icon: Clock, label: 'Due Tracking' },
+    { path: '/item-renewal', icon: Clock, label: 'Item Renewal & Return' },
     { path: '/replacements', icon: RefreshCw, label: 'Replacements' },
     { path: '/reports', icon: BarChart2, label: 'Reports' },
 ];
@@ -19,7 +19,7 @@ const pageTitles = {
     '/employees': 'Employees',
     '/items': 'Items Master',
     '/issues': 'Issue Management',
-    '/due': 'Due Tracking',
+    '/item-renewal': 'Item Renewal & Return',
     '/replacements': 'Replacements',
     '/reports': 'Reports & Export',
 };

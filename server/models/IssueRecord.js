@@ -1,25 +1,98 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const issueRecordSchema = new mongoose.Schema({
-    employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-    employee_name: { type: String }, // For easier viewing in MongoDB Compass
-    item: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
-    item_name: { type: String }, // For easier viewing in MongoDB Compass
-    issued_date: { type: Date, required: true },
-    next_due_date: { type: Date, required: true },
-    quantity: { type: Number, default: 1 },
-    issued_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
-    issue_status: { type: String, enum: ['Pending Acknowledgement', 'Acknowledged'], default: 'Pending Acknowledgement' },
-    signature_path: { type: String }, // Path to stored signature image
-    acknowledged: { type: Boolean, default: false }, // Whether employee signed
-    acknowledgement_time: { type: Date }, // When the signature was captured
-    notes: { type: String },
-    // Archive (Reset) fields — records are NEVER deleted, only archived
-    archived: { type: Boolean, default: false },
-    archived_at: { type: Date },
-    archived_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
-    archive_reason: { type: String },
-    created_at: { type: Date, default: Date.now }
+const IssueRecord = sequelize.define('IssueRecord', {
+    id: { 
+        type: DataTypes.UUID, 
+        defaultValue: DataTypes.UUIDV4, 
+        primaryKey: true 
+    },
+    employee_id: { 
+        type: DataTypes.UUID, 
+        allowNull: false 
+    },
+    employee_name: { 
+        type: DataTypes.STRING 
+    },
+    item_id: { 
+        type: DataTypes.UUID, 
+        allowNull: false 
+    },
+    item_name: { 
+        type: DataTypes.STRING 
+    },
+    quantity: { 
+        type: DataTypes.INTEGER, 
+        defaultValue: 1 
+    },
+    size: { 
+        type: DataTypes.STRING, 
+        defaultValue: 'N/A' 
+    },
+    issued_date: { 
+        type: DataTypes.DATE, 
+        defaultValue: DataTypes.NOW 
+    },
+    next_due_date: { 
+        type: DataTypes.DATE 
+    },
+    lifecycle_status: { 
+        type: DataTypes.STRING, 
+        defaultValue: 'Active' 
+    },
+    issue_status: { 
+        type: DataTypes.STRING, 
+        defaultValue: 'Pending Acknowledgement' 
+    },
+    acknowledged: { 
+        type: DataTypes.BOOLEAN, 
+        defaultValue: false 
+    },
+    return_date: { 
+        type: DataTypes.DATE 
+    },
+    return_remarks: { 
+        type: DataTypes.TEXT 
+    },
+    returned_condition: { 
+        type: DataTypes.STRING 
+    },
+    item_condition: { 
+        type: DataTypes.STRING, 
+        defaultValue: 'Good' 
+    },
+    timeline: { 
+        type: DataTypes.TEXT, // Store as JSON string for MSSQL
+        get() {
+            const val = this.getDataValue('timeline');
+            return val ? JSON.parse(val) : [];
+        },
+        set(val) {
+            this.setDataValue('timeline', JSON.stringify(val));
+        }
+    },
+    signature_path: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    verification_method: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    acknowledgement_time: {
+        type: DataTypes.DATE,
+        allowNull: true
+    }
+}, {
+    tableName: 'IssueRecords',
+    timestamps: true,
+    indexes: [
+        { fields: ['employee_id'] },
+        { fields: ['item_id'] },
+        { fields: ['lifecycle_status'] },
+        { fields: ['issued_date'] },
+        { fields: ['next_due_date'] }
+    ]
 });
 
-module.exports = mongoose.model('IssueRecord', issueRecordSchema);
+module.exports = IssueRecord;

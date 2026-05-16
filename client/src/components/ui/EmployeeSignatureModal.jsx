@@ -20,8 +20,8 @@ export default function EmployeeSignatureModal({ isOpen, onClose, employee, issu
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries(['issues']);
-      queryClient.invalidateQueries(['dashboardStats']);
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       toast.success(data.message || 'Signature saved successfully!');
       onClose();
       setIsSignatureEmpty(true);

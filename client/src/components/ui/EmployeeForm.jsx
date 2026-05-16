@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import Modal from '../ui/Modal';
@@ -6,13 +6,28 @@ import Modal from '../ui/Modal';
 export default function EmployeeForm({ isOpen, onClose, editData = null }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    emp_code: editData?.emp_code || '',
-    name: editData?.name || '',
-    department: editData?.department || '',
-    designation: editData?.designation || '',
-    status: editData?.status || 'active',
+    emp_code: '',
+    name: '',
+    department: '',
+    designation: '',
+    salary: 0,
+    status: 'active',
   });
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setForm({
+        emp_code: editData?.emp_code || '',
+        name: editData?.name || '',
+        department: editData?.department || '',
+        designation: editData?.designation || '',
+        salary: editData?.salary || 0,
+        status: editData?.status || 'active',
+      });
+      setError('');
+    }
+  }, [editData, isOpen]);
 
   const mutation = useMutation({
     mutationFn: async (payload) => {
@@ -24,10 +39,9 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['employees']);
-      queryClient.invalidateQueries(['dashboardStats']);
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       onClose();
-      setError('');
     },
     onError: (err) => {
       setError(err.response?.data?.message || 'Failed to save employee');
@@ -110,6 +124,19 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
             <option value="">Select Designation</option>
             {designations.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+            Basic Monthly Salary (₹)
+          </label>
+          <input
+            type="number"
+            placeholder="e.g. 30000"
+            value={form.salary}
+            onChange={e => setForm(f => ({ ...f, salary: Number(e.target.value) }))}
+            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm font-bold"
+          />
         </div>
 
         {editData && (

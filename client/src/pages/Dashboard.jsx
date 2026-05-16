@@ -56,8 +56,8 @@ export default function Dashboard() {
                     <StatCard title="Active Employees" value={stats?.totalEmployees} icon={Users} colorClass="text-blue-600" bgClass="bg-blue-50" />
                     <StatCard title="Issued This Month" value={stats?.itemsIssuedThisMonth} icon={Package} colorClass="text-emerald-600" bgClass="bg-emerald-50" />
                     <StatCard title="Pending Replacements" value={stats?.pendingReplacements} icon={RefreshCw} colorClass="text-purple-600" bgClass="bg-purple-50" />
-                    <StatCard title="Due in 7 Days" value={stats?.itemsDueNext7Days} icon={Clock} colorClass="text-amber-600" bgClass="bg-amber-50" />
-                    <StatCard title="Overdue Items" value={stats?.overdueItems} icon={AlertTriangle} colorClass="text-red-600" bgClass="bg-red-50" />
+                    <StatCard title="Upcoming Renewals" value={stats?.upcomingRenewals} icon={Clock} colorClass="text-amber-600" bgClass="bg-amber-50" />
+                    <StatCard title="Items Requiring Attention" value={stats?.itemsRequiringAttention} icon={AlertTriangle} colorClass="text-red-600" bgClass="bg-red-50" />
                 </div>
             )}
 
@@ -127,7 +127,7 @@ export default function Dashboard() {
                         </button>
 
                         <button
-                            onClick={() => navigate('/due')}
+                            onClick={() => navigate('/item-renewal')}
                             className="w-full flex items-center justify-between p-4 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-xl transition-colors group"
                         >
                             <div className="flex items-center gap-3">
@@ -135,8 +135,8 @@ export default function Dashboard() {
                                     <Clock className="w-4 h-4 text-white" />
                                 </div>
                                 <div className="text-left">
-                                    <div className="font-semibold text-sm">View Due Items</div>
-                                    <div className="text-xs text-amber-500">{stats?.overdueItems || 0} overdue · {stats?.itemsDueNext7Days || 0} due soon</div>
+                                    <div className="font-semibold text-sm">View Renewals</div>
+                                    <div className="text-xs text-amber-500">{stats?.itemsRequiringAttention || 0} attention · {stats?.upcomingRenewals || 0} upcoming</div>
                                 </div>
                             </div>
                             <ArrowRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform" />

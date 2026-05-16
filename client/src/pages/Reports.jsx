@@ -1,16 +1,28 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileSpreadsheet, FileText, Search, Loader2, CheckCircle2 } from 'lucide-react';
+import { Download, FileSpreadsheet, Search, Loader2, CheckCircle2, ChevronDown, Filter, RefreshCcw, CreditCard, ClipboardList } from 'lucide-react';
 import api from '../lib/api';
 import { toast } from '../components/ui/Toast';
+import dayjs from 'dayjs';
 
 export default function Reports() {
+    // Global/General Filters
     const [department, setDepartment] = useState('');
     const [categoryId, setCategoryId] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
-    const [includeArchived, setIncludeArchived] = useState(false);
-    const [exporting, setExporting] = useState(null); // 'xlsx' | 'pdf' | null
+    const [employeeId, setEmployeeId] = useState('');
+    
+    // Verification Filters
+    const [verificationStatus, setVerificationStatus] = useState('');
+    const [verificationMethod, setVerificationMethod] = useState('');
+    
+    // Replacement Filters
+    const [replacementStatus, setReplacementStatus] = useState('');
+    const [paymentStatus, setPaymentStatus] = useState('');
+    const [itemType, setItemType] = useState('all'); // all | Uniform | General
+
+    const [exporting, setExporting] = useState(null); // 'issue' | 'replacement_history' | 'uniform_cost' | null
 
     const { data: categories } = useQuery({
         queryKey: ['categories'],
@@ -20,40 +32,58 @@ export default function Reports() {
         }
     });
 
-    const handleExport = async (format) => {
-        setExporting(format);
+    const handleExport = async (reportType) => {
+        setExporting(reportType);
         try {
-            const params = new URLSearchParams({ format });
-            if (department) params.append('department', department);
-            if (categoryId) params.append('category_id', categoryId);
-            if (startDate) params.append('startDate', startDate);
-            if (endDate) params.append('endDate', endDate);
-            if (includeArchived) params.append('include_archived', 'true');
+            let endpoint = '';
+            let filename = '';
+            const timestamp = dayjs().format('YYYY-MM-DD');
 
-            const response = await api.get(`/reports/export?${params.toString()}`, {
+            const params = new URLSearchParams();
+            if (department) params.append('department', department);
+            if (startDate) params.append('from_date', startDate);
+            if (endDate) params.append('to_date', endDate);
+            if (employeeId) params.append('employee_id', employeeId);
+
+            if (reportType === 'issue') {
+                endpoint = '/reports/export';
+                filename = `Issue_Report_${timestamp}.xlsx`;
+                if (categoryId) params.append('category_id', categoryId);
+                if (verificationStatus) params.append('verification_status', verificationStatus);
+                if (verificationMethod) params.append('verification_method', verificationMethod);
+                // Also support the old startDate/endDate params if backend still uses them
+                if (startDate) params.append('startDate', startDate);
+                if (endDate) params.append('endDate', endDate);
+            } else if (reportType === 'replacement_history') {
+                endpoint = '/reports/replacements/history';
+                filename = `Replacement_History_${timestamp}.xlsx`;
+                if (replacementStatus) params.append('status', replacementStatus);
+                if (itemType) params.append('item_type', itemType);
+            } else if (reportType === 'uniform_cost') {
+                endpoint = '/reports/replacements/uniform';
+                filename = `Uniform_Cost_Report_${timestamp}.xlsx`;
+                if (paymentStatus) params.append('payment_status', paymentStatus);
+            }
+
+            const response = await api.get(`${endpoint}?${params.toString()}`, {
                 responseType: 'blob'
             });
 
-            // Mobile-friendly blob download
             const blob = new Blob([response.data], { 
-                type: format === 'xlsx' 
-                    ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-                    : 'application/pdf' 
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             });
             
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            const filename = `Provexa_Report_${new Date().getTime()}.${format}`;
             link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
             
-            // Cleanup
             link.parentNode.removeChild(link);
             window.URL.revokeObjectURL(url);
             
-            toast.success(`${format.toUpperCase()} report generated successfully!`);
+            toast.success(`Report generated successfully!`);
         } catch (error) {
             console.error('Export error:', error);
             toast.error('Failed to generate report. Please try again.');
@@ -62,144 +92,254 @@ export default function Reports() {
         }
     };
 
+    const resetFilters = () => {
+        setDepartment('');
+        setCategoryId('');
+        setStartDate('');
+        setEndDate('');
+        setEmployeeId('');
+        setVerificationStatus('');
+        setVerificationMethod('');
+        setReplacementStatus('');
+        setPaymentStatus('');
+        setItemType('all');
+    };
+
     return (
-        <div className="space-y-6 max-w-5xl mx-auto pb-12">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+        <div className="space-y-6 max-w-6xl mx-auto pb-12 px-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Reports & Intelligence</h3>
-                    <p className="text-slate-500 mt-1">Configure filters and generate detailed asset distribution reports.</p>
+                    <p className="text-slate-500 mt-1">Configure filters and generate enterprise-grade Excel reports.</p>
+                </div>
+                <button 
+                    onClick={resetFilters}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                    <RefreshCcw className="w-4 h-4" />
+                    Reset Filters
+                </button>
+            </div>
+
+            {/* Filter Hub */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm">
+                <div className="flex items-center gap-2 mb-6">
+                    <Filter className="w-5 h-5 text-primary" />
+                    <h4 className="text-lg font-bold text-slate-800 dark:text-white">Global Filters</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Department</label>
+                        <select 
+                            value={department} 
+                            onChange={(e) => setDepartment(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                        >
+                            <option value="">All Departments</option>
+                            <option value="Production">Production</option>
+                            <option value="Maintenance">Maintenance</option>
+                            <option value="Quality">Quality</option>
+                            <option value="Stores">Stores</option>
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Employee ID</label>
+                        <input 
+                            type="text"
+                            placeholder="Search ID..."
+                            value={employeeId}
+                            onChange={(e) => setEmployeeId(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                        />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Start Date</label>
+                        <input 
+                            type="date" 
+                            value={startDate} 
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                        />
+                    </div>
+                    
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">End Date</label>
+                        <input 
+                            type="date" 
+                            value={endDate} 
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                        />
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Configuration Panel */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-                        <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                            <Search className="w-5 h-5 text-primary" />
-                            Report Configuration
-                        </h4>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Department</label>
-                                <select 
-                                    value={department} 
-                                    onChange={(e) => setDepartment(e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
-                                >
-                                    <option value="">All Departments</option>
-                                    <option value="Production">Production</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                    <option value="Quality">Quality</option>
-                                    <option value="Stores">Stores</option>
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Item Category</label>
-                                <select 
-                                    value={categoryId} 
-                                    onChange={(e) => setCategoryId(e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
-                                >
-                                    <option value="">All Categories</option>
-                                    {categories?.map(c => (
-                                        <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Start Date</label>
-                                <input 
-                                    type="date" 
-                                    value={startDate} 
-                                    onChange={(e) => setStartDate(e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
-                                />
-                            </div>
-                            
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">End Date</label>
-                                <input 
-                                    type="date" 
-                                    value={endDate} 
-                                    onChange={(e) => setEndDate(e.target.value)}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800">
-                            <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className="relative">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={includeArchived}
-                                        onChange={(e) => setIncludeArchived(e.target.checked)}
-                                        className="sr-only"
-                                    />
-                                    <div className={`w-10 h-6 rounded-full transition-colors ${includeArchived ? 'bg-primary' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
-                                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${includeArchived ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                                </div>
-                                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200">Include Archived (History) Records</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Export Options */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* General/Asset Reports */}
                 <div className="space-y-6">
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-sm h-full">
-                        <h4 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Download Options</h4>
-                        
-                        <div className="space-y-4">
-                            <button 
-                                onClick={() => handleExport('xlsx')}
-                                disabled={!!exporting}
-                                className={`w-full group flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-3xl transition-all ${exporting === 'xlsx' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-emerald-400 hover:bg-emerald-50/30'}`}
-                            >
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all ${exporting === 'xlsx' ? 'bg-emerald-500 text-white animate-pulse' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
-                                    {exporting === 'xlsx' ? <Loader2 className="w-8 h-8 animate-spin" /> : <FileSpreadsheet className="w-8 h-8" />}
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm h-full flex flex-col">
+                        <div className="flex items-center justify-between mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                                    <ClipboardList className="w-6 h-6" />
                                 </div>
-                                <span className="font-bold text-slate-800 dark:text-white">Excel Spreadsheet</span>
-                                <span className="text-xs text-slate-500 mt-1 text-center">Includes embedded signature images and styled columns.</span>
-                                
-                                <div className="mt-4 flex items-center text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/40 px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Download className="w-3 h-3 mr-1" />
-                                    Download .xlsx
-                                </div>
-                            </button>
-
-                            <button 
-                                onClick={() => handleExport('pdf')}
-                                disabled={!!exporting}
-                                className={`w-full group flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-3xl transition-all ${exporting === 'pdf' ? 'border-red-500 bg-red-50 dark:bg-red-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-red-400 hover:bg-red-50/30'}`}
-                            >
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all ${exporting === 'pdf' ? 'bg-red-500 text-white animate-pulse' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'}`}>
-                                    {exporting === 'pdf' ? <Loader2 className="w-8 h-8 animate-spin" /> : <FileText className="w-8 h-8" />}
-                                </div>
-                                <span className="font-bold text-slate-800 dark:text-white">PDF Document</span>
-                                <span className="text-xs text-slate-500 mt-1 text-center">Tablet-friendly clean layout for quick preview and printing.</span>
-
-                                <div className="mt-4 flex items-center text-xs font-bold text-red-600 bg-red-50 dark:bg-red-900/40 px-3 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Download className="w-3 h-3 mr-1" />
-                                    Download .pdf
-                                </div>
-                            </button>
+                                <h4 className="text-xl font-bold text-slate-800 dark:text-white">General Reports</h4>
+                            </div>
                         </div>
 
-                        <div className="mt-8 flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
-                                <CheckCircle2 className="w-4 h-4" />
+                        <div className="space-y-6 flex-grow">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-400 ml-1">Asset Category</label>
+                                    <select 
+                                        value={categoryId} 
+                                        onChange={(e) => setCategoryId(e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                    >
+                                        <option value="">All Categories</option>
+                                        {categories?.map(c => (
+                                            <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-400 ml-1">Verification Method</label>
+                                    <select 
+                                        value={verificationMethod} 
+                                        onChange={(e) => setVerificationMethod(e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                    >
+                                        <option value="all">All Methods</option>
+                                        <option value="OCR Scan">OCR Verification</option>
+                                        <option value="Signature">Digital Signature</option>
+                                        <option value="Signature + OCR">Both Methods</option>
+                                    </select>
+                                </div>
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold text-slate-400 ml-1">Acknowledgement Status</label>
+                                    <select 
+                                        value={verificationStatus} 
+                                        onChange={(e) => setVerificationStatus(e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                    >
+                                        <option value="">All Statuses</option>
+                                        <option value="Pending Verification">Pending Verification</option>
+                                        <option value="OCR Verified">OCR Verified</option>
+                                        <option value="Signature Verified">Signature Verified</option>
+                                        <option value="Fully Verified">Fully Verified</option>
+                                    </select>
+                                </div>
                             </div>
-                            <p className="text-[10px] leading-tight text-slate-500">
-                                Pro Tip: PDF is recommended for mobile devices if your Excel viewer is not configured.
-                            </p>
+                        </div>
+
+                        <div className="mt-10 pt-6 border-t border-slate-50 dark:border-slate-800">
+                            <button 
+                                onClick={() => handleExport('issue')}
+                                disabled={!!exporting}
+                                className="w-full group flex items-center justify-center gap-3 p-4 bg-primary text-white rounded-2xl font-bold hover:bg-primary-dark transition-all disabled:opacity-50 shadow-lg shadow-primary/20"
+                            >
+                                {exporting === 'issue' ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <FileSpreadsheet className="w-5 h-5" />
+                                )}
+                                Export Issue Report (.xlsx)
+                            </button>
                         </div>
                     </div>
                 </div>
+
+                {/* Replacement Reports */}
+                <div className="space-y-6">
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm h-full flex flex-col">
+                        <div className="flex items-center justify-between mb-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
+                                    <RefreshCcw className="w-6 h-6" />
+                                </div>
+                                <h4 className="text-xl font-bold text-slate-800 dark:text-white">Replacement Reports</h4>
+                            </div>
+                        </div>
+
+                        <div className="space-y-6 flex-grow">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-400 ml-1">Replacement Status</label>
+                                    <select 
+                                        value={replacementStatus} 
+                                        onChange={(e) => setReplacementStatus(e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                    >
+                                        <option value="all">All Statuses</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Approved">Approved</option>
+                                        <option value="Completed">Completed</option>
+                                        <option value="Rejected">Rejected</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-bold text-slate-400 ml-1">Payment Status</label>
+                                    <select 
+                                        value={paymentStatus} 
+                                        onChange={(e) => setPaymentStatus(e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                    >
+                                        <option value="all">All Statuses</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Deducted">Deducted</option>
+                                        <option value="Not Applicable">Not Applicable</option>
+                                    </select>
+                                </div>
+                                <div className="sm:col-span-2 space-y-1">
+                                    <label className="text-xs font-bold text-slate-400 ml-1">Item Group</label>
+                                    <select 
+                                        value={itemType} 
+                                        onChange={(e) => setItemType(e.target.value)}
+                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                    >
+                                        <option value="all">All Items</option>
+                                        <option value="Uniform">Uniforms Only</option>
+                                        <option value="General">Non-Uniform Assets</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-10 pt-6 border-t border-slate-50 dark:border-slate-800 flex flex-col sm:flex-row gap-3">
+                            <button 
+                                onClick={() => handleExport('replacement_history')}
+                                disabled={!!exporting}
+                                className="flex-1 group flex items-center justify-center gap-2 p-3.5 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all disabled:opacity-50"
+                            >
+                                {exporting === 'replacement_history' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                                History Report
+                            </button>
+                            <button 
+                                onClick={() => handleExport('uniform_cost')}
+                                disabled={!!exporting || itemType === 'General'}
+                                className="flex-1 group flex items-center justify-center gap-2 p-3.5 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-500 transition-all disabled:opacity-50 shadow-lg shadow-emerald-600/10"
+                            >
+                                {exporting === 'uniform_cost' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                                Uniform Cost Report
+                            </button>
+                        </div>
+                        {itemType === 'General' && (
+                            <p className="text-[10px] text-center mt-2 text-slate-500">Note: Uniform Cost Report is only for uniform items.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600">
+                    <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <p className="text-xs text-blue-800 dark:text-blue-300">
+                    <strong>Enterprise Export:</strong> All reports include frozen headers, alternate row shading, and auto-filters for a professional workflow.
+                </p>
             </div>
         </div>
     );

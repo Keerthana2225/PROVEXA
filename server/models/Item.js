@@ -1,11 +1,41 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/database');
 
-const itemSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    category: { type: mongoose.Schema.Types.ObjectId, ref: 'ItemCategory', required: true },
-    frequency_days: { type: Number }, // Optional now
-    fixed_date: { type: Date }, // Optional fixed due date
-    description: { type: String }
+const Item = sequelize.define('Item', {
+    id: { 
+        type: DataTypes.UUID, 
+        defaultValue: DataTypes.UUIDV4, 
+        primaryKey: true 
+    },
+    name: { 
+        type: DataTypes.STRING, 
+        allowNull: false 
+    },
+    description: { 
+        type: DataTypes.TEXT 
+    },
+    cost: { 
+        type: DataTypes.DECIMAL(10, 2), 
+        defaultValue: 0 
+    },
+    frequency_days: { 
+        type: DataTypes.INTEGER, 
+        defaultValue: 180 
+    },
+    fixed_date: { 
+        type: DataTypes.DATEONLY 
+    },
+    status: { 
+        type: DataTypes.STRING, 
+        defaultValue: 'Active' 
+    },
+    category_id: {
+        type: DataTypes.UUID,
+        allowNull: true
+    }
+}, {
+    tableName: 'Items',
+    timestamps: true
 });
 
-module.exports = mongoose.model('Item', itemSchema);
+module.exports = Item;

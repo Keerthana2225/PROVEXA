@@ -1,22 +1,17 @@
 const cron = require('node-cron');
 const dayjs = require('dayjs');
-const IssueRecord = require('../models/IssueRecord');
+const issueService = require('../services/IssueService');
 
 // Run daily at 8:00 AM
 cron.schedule('0 8 * * *', async () => {
     console.log(`[Cron Job] Running daily due date check at ${new Date()}`);
     
     try {
-        const today = dayjs().startOf('day').toDate();
+        const { actionNeeded } = await issueService.getUpcomingRenewals(0); // 0 days means today/overdue
         
-        // Find overdue issues
-        const overdueIssues = await IssueRecord.find({ 
-            next_due_date: { $lt: today } 
-        }).populate('employee item');
-
-        if (overdueIssues.length > 0) {
-            console.log(`[Cron Job] Found ${overdueIssues.length} overdue items.`);
-            // In a real application, you might send an email or SMS here
+        if (actionNeeded.length > 0) {
+            console.log(`[Cron Job] Found ${actionNeeded.length} overdue or due items.`);
+            // Implement notification logic here if needed
         } else {
             console.log('[Cron Job] No overdue items found today.');
         }

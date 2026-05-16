@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
-    const token = req.cookies.token;
+    const token = req.cookies.provexa_token || req.cookies.token;
 
     if (!token) {
         return res.status(401).json({ message: 'Authentication required' });
@@ -17,3 +17,4 @@ const authMiddleware = (req, res, next) => {
 };
 
 module.exports = authMiddleware;
+module.exports.protect = authMiddleware;

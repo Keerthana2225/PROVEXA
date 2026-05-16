@@ -6,7 +6,7 @@ import api from '../../lib/api';
 import Modal from '../ui/Modal';
 import { toast } from '../ui/Toast';
 
-export default function IssueForm({ isOpen, onClose }) {
+export default function IssueForm({ isOpen, onClose, initialData }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     employee_ids: [],
@@ -56,6 +56,23 @@ export default function IssueForm({ isOpen, onClose }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (isOpen) {
+      if (initialData) {
+        setForm({
+          employee_ids: initialData.employee_id ? [initialData.employee_id.toString()] : [],
+          item_ids: initialData.item_id ? [initialData.item_id.toString()] : [],
+          item_quantities: initialData.item_id ? { [initialData.item_id.toString()]: initialData.quantity || 1 } : {},
+          issued_date: dayjs().format('YYYY-MM-DD'),
+          notes: '',
+          override: initialData.override || false,
+        });
+      } else {
+        resetForm();
+      }
+    }
+  }, [isOpen, initialData]);
+
   const filteredEmployees = employees?.filter(emp => 
     emp.status === 'active' && 
     (emp.name.toLowerCase().includes(employeeSearch.toLowerCase().trim()) || 
@@ -69,6 +86,7 @@ export default function IssueForm({ isOpen, onClose }) {
   );
 
   const toggleEmployee = (id) => {
+    if (!id) return;
     const idStr = id.toString();
     setForm(f => {
         const employee_ids = f.employee_ids.includes(idStr) 
@@ -79,15 +97,17 @@ export default function IssueForm({ isOpen, onClose }) {
   };
 
   const toggleAllEmployees = () => {
-    if (form.employee_ids.length === employees?.length) {
+    const activeEmployees = employees?.filter(e => e.status === 'active') || [];
+    if (form.employee_ids.length === activeEmployees.length) {
         setForm(f => ({ ...f, employee_ids: [] }));
     } else {
-        const allIds = employees?.filter(e => e.status === 'active').map(e => e.id?.toString()).filter(Boolean) || [];
+        const allIds = activeEmployees.map(e => (e.id || e._id)?.toString()).filter(Boolean);
         setForm(f => ({ ...f, employee_ids: allIds }));
     }
   };
 
   const toggleItem = (id) => {
+    if (!id) return;
     const idStr = id.toString();
     setForm(f => {
         const item_ids = f.item_ids.includes(idStr) 
@@ -122,9 +142,9 @@ export default function IssueForm({ isOpen, onClose }) {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries(['issues']);
-      queryClient.invalidateQueries(['dashboardStats']);
-      queryClient.invalidateQueries(['dueTracking']);
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      queryClient.invalidateQueries({ queryKey: ['dueTracking'] });
       toast.success(`Success! Created ${data.count} issue records.`);
       onClose();
       resetForm();
@@ -134,7 +154,7 @@ export default function IssueForm({ isOpen, onClose }) {
       if (err.response?.status === 400 && err.response?.data?.activeIssue) {
         setDuplicateWarning({
             ...err.response.data.activeIssue,
-            itemName: items?.find(i => i.id === err.response.data.itemId)?.name
+            itemName: items?.find(i => (i.id || i._id)?.toString() === err.response.data.itemId?.toString())?.name
         });
       } else {
         setError(msg);
@@ -219,12 +239,12 @@ export default function IssueForm({ isOpen, onClose }) {
                 ) : (
                     filteredEmployees?.map(emp => (
                         <div 
-                            key={emp.id} 
-                            onClick={() => toggleEmployee(emp.id)}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${form.employee_ids.includes(emp.id.toString()) ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200' : 'hover:bg-white text-slate-600'}`}
+                            key={emp.id || emp._id} 
+                            onClick={() => toggleEmployee(emp.id || emp._id)}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${form.employee_ids.includes((emp.id || emp._id)?.toString()) ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200' : 'hover:bg-white text-slate-600'}`}
                         >
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${form.employee_ids.includes(emp.id.toString()) ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
-                                {form.employee_ids.includes(emp.id.toString()) && <Check className="w-3 h-3 text-white" />}
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${form.employee_ids.includes((emp.id || emp._id)?.toString()) ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
+                                {form.employee_ids.includes((emp.id || emp._id)?.toString()) && <Check className="w-3 h-3 text-white" />}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="text-xs font-semibold truncate">{emp.name}</div>
@@ -263,12 +283,12 @@ export default function IssueForm({ isOpen, onClose }) {
                 ) : (
                     filteredItems?.map(item => (
                         <div 
-                            key={item.id} 
-                            onClick={() => toggleItem(item.id)}
-                            className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${form.item_ids.includes(item.id.toString()) ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'hover:bg-white text-slate-600'}`}
+                            key={item.id || item._id} 
+                            onClick={() => toggleItem(item.id || item._id)}
+                            className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${form.item_ids.includes((item.id || item._id)?.toString()) ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'hover:bg-white text-slate-600'}`}
                         >
-                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${form.item_ids.includes(item.id.toString()) ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-slate-300'}`}>
-                                {form.item_ids.includes(item.id.toString()) && <Check className="w-3 h-3 text-white" />}
+                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${form.item_ids.includes((item.id || item._id)?.toString()) ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-slate-300'}`}>
+                                {form.item_ids.includes((item.id || item._id)?.toString()) && <Check className="w-3 h-3 text-white" />}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="text-xs font-semibold truncate">{item.name}</div>
@@ -290,7 +310,7 @@ export default function IssueForm({ isOpen, onClose }) {
                 </h3>
                 <div className="space-y-3">
                     {form.item_ids.map(id => {
-                        const item = items?.find(i => i.id === id);
+                        const item = items?.find(i => (i.id || i._id)?.toString() === id.toString());
                         if (!item) return null;
                         return (
                             <div key={id} className="flex items-center justify-between bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">

@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const dayjs = require('dayjs');
-const ReplacementRequest = require('../models/ReplacementRequest');
-const IssueRecord = require('../models/IssueRecord');
-const Item = require('../models/Item');
-const Employee = require('../models/Employee');
+const fs = require('fs');
+const path = require('path');
+const replacementService = require('../services/ReplacementService');
+const itemService = require('../services/ItemService');
 const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware);
@@ -12,107 +11,115 @@ router.use(authMiddleware);
 // Get all requests
 router.get('/', async (req, res) => {
     try {
-        const { status } = req.query;
-        const query = status ? { status } : {};
-
-        const requests = await ReplacementRequest.find(query)
-            .populate('employee')
-            .populate({ path: 'item', populate: { path: 'category' } })
-            .sort({ requested_date: -1 });
-
+        const requests = await replacementService.getAll(req.query);
         res.json(requests);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error fetching replacements' });
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Summary Stats
+router.get('/summary', async (req, res) => {
+    try {
+        const summary = await replacementService.getSummary();
+        res.json(summary);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Create new request
 router.post('/', async (req, res) => {
     try {
-        const { employee_id, item_id, reason } = req.body;
+        const { employee_id, item_id, reason, quantity, size, unit_cost, deduction_amount, payment_status } = req.body;
         
-        const employeeObj = await Employee.findById(employee_id);
-        const itemObj = await Item.findById(item_id);
+        const item = await itemService.getById(item_id);
+        if (!item) return res.status(404).json({ message: 'Item not found' });
 
-        const request = new ReplacementRequest({
-            employee: employee_id,
-            employee_name: employeeObj ? employeeObj.name : 'Unknown',
-            item: item_id,
-            item_name: itemObj ? itemObj.name : 'Unknown',
-            reason
+        const qty = parseInt(quantity) || 1;
+        const isCostTrackingItem = !!item.category?.requires_cost_tracking;
+
+        const request = await replacementService.create({
+            employee_id,
+            item_id,
+            reason,
+            quantity: qty,
+            size: size || 'N/A',
+            is_uniform_replacement: isCostTrackingItem,
+            unit_cost: isCostTrackingItem ? (parseFloat(unit_cost) || 0) : 0,
+            total_cost: isCostTrackingItem ? qty * (parseFloat(unit_cost) || 0) : 0,
+            deduction_amount: isCostTrackingItem ? (parseFloat(deduction_amount) || 0) : 0,
+            payment_status: isCostTrackingItem ? (payment_status || 'Pending') : 'Not Applicable',
+            status: 'Pending'
         });
-        await request.save();
 
         res.status(201).json(request);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error creating replacement request' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 
 // Approve a request
 router.put('/:id/approve', async (req, res) => {
     try {
-        const { notes } = req.body;
-
-        const request = await ReplacementRequest.findById(req.params.id).populate('item');
-        if (!request) return res.status(404).json({ message: 'Request not found' });
-        if (request.status !== 'pending') return res.status(400).json({ message: 'Request is already processed' });
-
-        // Auto create an issue record
-        const issued_date = dayjs().toDate();
-        const next_due_date = request.item.fixed_date ? new Date(request.item.fixed_date) : dayjs().add(request.item.frequency_days, 'day').toDate();
-
-        // Sequential updates (since transactions require replica set)
-        request.status = 'approved';
-        request.resolved_date = issued_date;
-        request.resolved_by = req.admin.id;
-        request.notes = notes;
-        await request.save();
-
-        const employeeObj = await Employee.findById(request.employee);
-
-        const newIssue = new IssueRecord({
-            employee: request.employee,
-            employee_name: employeeObj ? employeeObj.name : 'Unknown',
-            item: request.item._id,
-            item_name: request.item.name,
-            quantity: 1,
-            issued_date,
-            next_due_date,
-            notes: `Replacement for request #${request._id}`,
-            issued_by: req.admin.id
-        });
-        await newIssue.save();
-
-        res.json({ message: 'Request approved and issue created', request, issue: newIssue });
+        const request = await replacementService.approve(req.params.id, req.body, req.admin.id);
+        res.json({ message: 'Request approved successfully', request });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error approving request' });
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+// Acknowledge and Complete Handover
+router.put('/:id/acknowledge', async (req, res) => {
+    try {
+        const { signature, notes, ocr_details, verification_method = 'Signature' } = req.body;
+        
+        if (!signature && !ocr_details) {
+            return res.status(400).json({ message: 'Signature or OCR verification is required' });
+        }
+
+        const id = req.params.id;
+        let signature_path = null;
+        if (signature) {
+            const base64Data = signature.replace(/^data:image\/\w+;base64,/, "");
+            const buffer = Buffer.from(base64Data, 'base64');
+            const filename = `sig_replace_${Date.now()}_${id}.png`;
+            const dir = path.join(__dirname, '..', 'public', 'signatures');
+            
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            
+            const filepath = path.join(dir, filename);
+            fs.writeFileSync(filepath, buffer);
+            signature_path = `/public/signatures/${filename}`;
+        }
+        
+        const result = await replacementService.handover(id, {
+            signature_path,
+            notes,
+            ocr_details,
+            verification_method,
+            admin_id: req.admin.id
+        });
+
+        res.json({ message: 'Handover completed successfully', issue: result });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error completing handover' });
     }
 });
 
 // Reject a request
 router.put('/:id/reject', async (req, res) => {
     try {
-        const { notes } = req.body;
-
-        const request = await ReplacementRequest.findByIdAndUpdate(
-            req.params.id,
-            {
-                status: 'rejected',
-                resolved_date: dayjs().toDate(),
-                resolved_by: req.admin.id,
-                notes
-            },
-            { new: true }
-        );
-
+        const request = await replacementService.reject(req.params.id, req.body.notes, req.admin.id);
         res.json({ message: 'Request rejected', request });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server error rejecting request' });
+        res.status(500).json({ message: 'Server error' });
     }
 });
 

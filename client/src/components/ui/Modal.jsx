@@ -18,8 +18,8 @@ export default function Modal({ isOpen, onClose, title, children }) {
         onClick={onClose}
       />
       {/* Panel */}
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 animate-slide-up">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
+      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 animate-slide-up flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
           <button
             onClick={onClose}
@@ -28,7 +28,7 @@ export default function Modal({ isOpen, onClose, title, children }) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <div className="p-6">{children}</div>
+        <div className="p-6 overflow-y-auto custom-scrollbar">{children}</div>
       </div>
     </div>
   );

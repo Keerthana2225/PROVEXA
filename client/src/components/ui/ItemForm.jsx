@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Check } from 'lucide-react';
 import api from '../../lib/api';
@@ -7,16 +7,32 @@ import Modal from '../ui/Modal';
 export default function ItemForm({ isOpen, onClose, editData = null }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
-    name: editData?.name || '',
-    category_id: editData?.category_id || '',
+    name: '',
+    category_id: '',
     new_category_name: '',
-    frequency_days: editData?.frequency_days || '',
-    fixed_date: editData?.fixed_date ? new Date(editData.fixed_date).toISOString().split('T')[0] : '',
-    description: editData?.description || '',
+    frequency_days: '',
+    fixed_date: '',
+    description: '',
   });
-  const [distributionType, setDistributionType] = useState(editData?.fixed_date ? 'fixed' : 'frequency');
+  const [distributionType, setDistributionType] = useState('frequency');
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setForm({
+        name: editData?.name || '',
+        category_id: editData?.category_id || '',
+        new_category_name: '',
+        frequency_days: editData?.frequency_days || '',
+        fixed_date: editData?.fixed_date ? new Date(editData.fixed_date).toISOString().split('T')[0] : '',
+        description: editData?.description || '',
+      });
+      setDistributionType(editData?.fixed_date ? 'fixed' : 'frequency');
+      setIsAddingCategory(false);
+      setError('');
+    }
+  }, [editData, isOpen]);
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
@@ -39,8 +55,8 @@ export default function ItemForm({ isOpen, onClose, editData = null }) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['items']);
-      queryClient.invalidateQueries(['categories']);
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
       onClose();
       resetForm();
     },

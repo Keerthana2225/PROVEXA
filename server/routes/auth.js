@@ -1,59 +1,46 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const Admin = require('../models/Admin');
-const authMiddleware = require('../middleware/auth');
+const authService = require('../services/AuthService');
+const { protect } = require('../middleware/auth');
 
-// Login route
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        
-        // Find admin by email
-        const admin = await Admin.findOne({ email });
+        const result = await authService.login(email, password);
 
-        if (!admin) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
+        // Clear the old lingering MongoDB token just in case
+        res.clearCookie('token', { httpOnly: true, sameSite: 'lax' });
 
-        // Check password
-        const isMatch = await bcrypt.compare(password, admin.password_hash);
-        if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-        }
-
-        // Generate JWT
-        const token = jwt.sign(
-            { id: admin._id, name: admin.name, email: admin.email },
-            process.env.JWT_SECRET,
-            { expiresIn: '1d' }
-        );
-
-        // Set HTTP-only cookie
-        res.cookie('token', token, {
+        // Set JWT as an HTTP-only cookie using a new name
+        res.cookie('provexa_token', result.token, {
             httpOnly: true,
+            sameSite: 'lax',
             secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
             maxAge: 24 * 60 * 60 * 1000 // 1 day
         });
 
-        res.json({ message: 'Logged in successfully', user: { id: admin._id, name: admin.name, email: admin.email } });
+        res.json({ admin: result.admin });
+    } catch (error) {
+        console.error(error);
+        res.status(401).json({ message: error.message });
+    }
+});
+
+router.get('/me', protect, async (req, res) => {
+    try {
+        const admin = await authService.getMe(req.admin.id);
+        if (!admin) return res.status(401).json({ message: 'Session expired, please login again' });
+        res.json(admin);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 });
 
-// Logout route
 router.post('/logout', (req, res) => {
-    res.clearCookie('token');
+    res.clearCookie('provexa_token', { httpOnly: true, sameSite: 'lax' });
+    res.clearCookie('token', { httpOnly: true, sameSite: 'lax' });
     res.json({ message: 'Logged out successfully' });
-});
-
-// Check auth status
-router.get('/me', authMiddleware, (req, res) => {
-    res.json({ user: req.admin });
 });
 
 module.exports = router;
