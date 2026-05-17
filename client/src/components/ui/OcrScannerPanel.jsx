@@ -45,6 +45,53 @@ export default function OcrScannerPanel({ onResult }) {
     const [manualCode, setManualCode] = useState('');
     const [manualLoading, setManualLoading] = useState(false);
 
+    // Tap-to-focus states
+    const [focusActive, setFocusActive] = useState(false);
+    const [focusPos, setFocusPos] = useState({ x: 50, y: 50 });
+
+    const handleTapToFocus = useCallback(async (e) => {
+        if (!streamRef.current || !videoRef.current) return;
+        const track = streamRef.current.getVideoTracks()[0];
+        if (!track) return;
+
+        // Calculate click coordinates as percentages of the video box dimensions
+        const rect = videoRef.current.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        const pctX = Math.round((clickX / rect.width) * 100);
+        const pctY = Math.round((clickY / rect.height) * 100);
+
+        setFocusPos({ x: pctX, y: pctY });
+        setFocusActive(true);
+        setTimeout(() => setFocusActive(false), 800);
+
+        try {
+            // Check if Image Capture focus mode constraints are supported by hardware
+            if (typeof track.getCapabilities === 'function') {
+                const caps = track.getCapabilities();
+                if (caps.focusMode) {
+                    const focusMode = caps.focusMode.includes('continuous')
+                        ? 'continuous'
+                        : caps.focusMode.includes('single-shot')
+                        ? 'single-shot'
+                        : null;
+
+                    if (focusMode) {
+                        await track.applyConstraints({
+                            advanced: [{ focusMode }]
+                        });
+                    }
+                }
+            } else {
+                // Fallback: Re-apply current constraints to force driver refocus sweep
+                const currentConstraints = track.getConstraints();
+                await track.applyConstraints(currentConstraints);
+            }
+        } catch (err) {
+            console.warn('autofocus trigger failed:', err);
+        }
+    }, []);
+
     // ── Camera controls ────────────────────────────────────────────────────────
     const startCamera = useCallback(async () => {
         setStatus(STATUS.LOADING_CAMERA);
@@ -184,10 +231,26 @@ export default function OcrScannerPanel({ onResult }) {
                 {/* Live video */}
                 <video
                     ref={videoRef}
-                    className="w-full h-full object-cover"
+                    onClick={handleTapToFocus}
+                    className="w-full h-full object-cover cursor-crosshair"
                     autoPlay playsInline muted
                     style={{ display: isLiveCamera ? 'block' : 'none' }}
                 />
+
+                {/* Tap-to-focus SLR pulsing target ring */}
+                {isLiveCamera && focusActive && (
+                    <div
+                        className="absolute w-12 h-12 border-2 border-yellow-400 rounded-full flex items-center justify-center pointer-events-none animate-ping z-30"
+                        style={{
+                            left: `${focusPos.x}%`,
+                            top: `${focusPos.y}%`,
+                            transform: 'translate(-50%, -50%)',
+                            transition: 'left 0.1s ease-out, top 0.1s ease-out'
+                        }}
+                    >
+                        <div className="w-2 h-2 bg-yellow-400 rounded-full" />
+                    </div>
+                )}
 
                 {/* IDLE / NO_CAMERA placeholder */}
                 {!isLiveCamera && status !== STATUS.LOADING_CAMERA &&

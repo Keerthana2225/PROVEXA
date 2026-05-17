@@ -51,7 +51,9 @@ PROVEXA is built as a highly scalable microservices architecture. By separating 
 * **What we used**: React.js 18 (built with Vite), Tailwind CSS, TanStack React Query, and native Web APIs.
 * **Why we used it**: React allows us to build a Single Page Application (SPA) where the user never experiences full page reloads, providing a smooth, desktop-like software experience. Tailwind CSS allows for rapid, highly-customized UI design without writing messy external CSS files.
 * **How it is implemented**:
-  * **Compact UI Density**: We designed enterprise-grade data tables with strict viewports (`max-h-[500px]`) and sticky headers (`sticky top-0`). This ensures that even with 1,000 records, the user never has to endlessly scroll the entire browser window.
+  * **Collapsible Navigation (Sidebar)**: Supports tablet and mobile space optimization through a responsive collapsible sidebar layout. When collapsed, the workspace expands instantly while the navigation shrinks into icon-only mode with smooth `transition-all duration-300` animations.
+  * **SLR Tap-to-Focus Camera**: Features an interactive tap-to-focus video controller. Tapping anywhere on the live camera viewport calculates clicked coordinates, triggers hardware autofocus capabilities (`focusMode: 'continuous'`), and flashes a professional pulsing yellow SLR-style target ring overlay.
+  * **Dynamic Date & Status Sorting**: Optimizes data density by dynamically sorting all spreadsheets and tables with recent dates on top, grouping active/acknowledged records first.
   * **State Management**: We utilize TanStack Query for data fetching. It automatically caches API responses, retries failed requests, and provides immediate "optimistic updates" to the UI.
   * **Camera Integration**: We leverage standard HTML5 `navigator.mediaDevices.getUserMedia()` to tap into desktop webcams, tablet cameras, or mobile phone cameras directly from the browser to capture ID cards securely.
 
@@ -102,6 +104,7 @@ PROVEXA is built as a highly scalable microservices architecture. By separating 
 * **What we used**: The `exceljs` library on the Node backend.
 * **How it works**: When a user clicks "Export" on the Reports page, the backend fetches thousands of Issue and Replacement records. It creates a binary Excel workbook in memory.
 * **Data Resolution**: It converts meaningless database IDs (like `64ef2899...`) into human-readable strings ("Keerthana - EMP11333").
+* **Deeply Populated Relations**: Patched database queries to perform nested Mongoose deep-population (`.populate({ path: 'item', populate: { path: 'category' } })`) so categories are resolved accurately instead of displaying `'N/A'`.
 * **Automated Formatting**: It automatically calculates column widths based on text length, bolds the header row, adds background colors to cells, and streams the `.xlsx` file directly into the user's browser for download, entirely bypassing the need to store temporary files on the server.
 
 ---

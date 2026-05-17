@@ -14,7 +14,7 @@ class ReportService {
 
         return await IssueRecord.find(query)
             .populate('employee')
-            .populate('item')
+            .populate({ path: 'item', populate: { path: 'category' } })
             .populate('issued_by')
             .sort({ issued_date: -1 });
     }

@@ -73,7 +73,18 @@ export default function Replacements() {
                 (r.item_name || r.item?.name || '').toLowerCase().includes(q)
             );
         }
-        return result;
+        return [...result].sort((a, b) => {
+            // Sort by requested_date descending (recent on top)
+            const dateA = dayjs(a.requested_date);
+            const dateB = dayjs(b.requested_date);
+            if (!dateA.isSame(dateB)) {
+                return dateB.isAfter(dateA) ? 1 : -1;
+            }
+            // Secondary: Completed/Resolved first
+            const statusA = a.status === 'completed' || a.status === 'resolved' ? 1 : 0;
+            const statusB = b.status === 'completed' || b.status === 'resolved' ? 1 : 0;
+            return statusB - statusA;
+        });
     }, [requests, search]);
 
     const approveMutation = useMutation({

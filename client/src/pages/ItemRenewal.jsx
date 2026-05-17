@@ -163,7 +163,16 @@ export default function ItemRenewal() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
-                            {items.map(item => (
+                            {[...items].sort((a, b) => {
+                                const dateA = dayjs(a.issued_date || a.return_date || a.requested_date);
+                                const dateB = dayjs(b.issued_date || b.return_date || b.requested_date);
+                                if (!dateA.isSame(dateB)) {
+                                    return dateB.isAfter(dateA) ? 1 : -1;
+                                }
+                                const statusA = a.issue_status === 'Acknowledged' || a.acknowledged ? 1 : 0;
+                                const statusB = b.issue_status === 'Acknowledged' || b.acknowledged ? 1 : 0;
+                                return statusB - statusA;
+                            }).map(item => (
                                 <tr key={item._id || item.id} className="group hover:bg-slate-50/30 transition-colors">
                                     <td className="px-6 py-2.5">
                                         <div className="flex items-center gap-3">

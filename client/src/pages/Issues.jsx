@@ -102,7 +102,6 @@ export default function Issues() {
         }
     };
 
-    // Search: word-boundary for names, partial for emp_code only when non-numeric
     const filtered = useMemo(() => {
         if (!issues) return [];
         let result = issues;
@@ -117,7 +116,18 @@ export default function Issues() {
                 i.item?.name?.toLowerCase().includes(q)
             );
         }
-        return result;
+        return [...result].sort((a, b) => {
+            // Sort by issued_date descending (recent on top)
+            const dateA = dayjs(a.issued_date);
+            const dateB = dayjs(b.issued_date);
+            if (!dateA.isSame(dateB)) {
+                return dateB.isAfter(dateA) ? 1 : -1;
+            }
+            // Secondary: Acknowledged/Verified first
+            const statusA = a.issue_status === 'Acknowledged' || a.acknowledged ? 1 : 0;
+            const statusB = b.issue_status === 'Acknowledged' || b.acknowledged ? 1 : 0;
+            return statusB - statusA;
+        });
     }, [issues, search]);
 
     const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
