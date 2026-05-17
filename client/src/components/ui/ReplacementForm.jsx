@@ -235,40 +235,55 @@ export default function ReplacementForm({ isOpen, onClose }) {
           </div>
         </div>
 
-        {/* Section 2: Cost & Payment — ONLY shown for uniform items */}
-        {isCostTrackingItem && (
-          <div className="space-y-4 pt-2 border-t border-slate-100">
-            <div className="flex items-center gap-2">
-              <h3 className="text-xs font-bold text-amber-600 uppercase tracking-wider">Cost & Payment</h3>
-              <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">UNIFORM</span>
-            </div>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cost per Unit (₹)</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
-                  <input type="number" min="0" step="0.01" value={form.unit_cost} onChange={e => setForm(f => ({ ...f, unit_cost: parseFloat(e.target.value) || 0 }))} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium" />
-                </div>
+        {/* Section 2: Cost & Payment */}
+        <div className="space-y-4 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-bold text-amber-600 uppercase tracking-wider">Cost & Payment</h3>
+            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">MANUAL OVERRIDE</span>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cost per Unit (₹)</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
+                <input 
+                  type="number" 
+                  min="0" 
+                  step="0.01" 
+                  value={form.unit_cost} 
+                  onChange={e => {
+                    const val = parseFloat(e.target.value) || 0;
+                    setForm(f => ({ ...f, unit_cost: val, total_cost: val * f.quantity }));
+                  }} 
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium" 
+                />
               </div>
-              <div className="flex-1">
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Total Amount (₹)</label>
-                <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-bold text-amber-700 flex items-center gap-1">
-                  ₹ {totalCost.toFixed(2)}
-                  <span className="text-[10px] font-normal text-amber-600 opacity-80">(Auto-calculated)</span>
-                </div>
-              </div>
             </div>
-
-            <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Salary Deduction Amount (₹)</label>
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
-                  <input type="number" min="0" step="0.01" value={form.deduction_amount} onChange={e => setForm(f => ({ ...f, deduction_amount: parseFloat(e.target.value) || 0 }))} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-                </div>
-                <p className="mt-1 text-[10px] text-slate-400 italic font-medium">* This amount will be automatically marked as 'Pending' for salary deduction.</p>
+            <div className="flex-1">
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Total Amount (₹)</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
+                <input 
+                  type="number" 
+                  min="0" 
+                  step="0.01" 
+                  value={form.total_cost || (form.quantity * form.unit_cost)} 
+                  onChange={e => setForm(f => ({ ...f, total_cost: parseFloat(e.target.value) || 0 }))}
+                  className="w-full pl-9 pr-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold text-amber-700"
+                />
+              </div>
             </div>
           </div>
-        )}
+
+          <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Salary Deduction Amount (₹)</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
+                <input type="number" min="0" step="0.01" value={form.deduction_amount} onChange={e => setForm(f => ({ ...f, deduction_amount: parseFloat(e.target.value) || 0 }))} className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+              </div>
+              <p className="mt-1 text-[10px] text-slate-400 italic font-medium">* This amount will be automatically marked as 'Pending' for salary deduction.</p>
+          </div>
+        </div>
 
         {/* Section 3: Tracking */}
         <div className="space-y-4 pt-2 border-t border-slate-100">

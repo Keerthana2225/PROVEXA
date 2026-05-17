@@ -1,51 +1,58 @@
 const { Item, ItemCategory } = require('../models');
-const { Op } = require('sequelize');
 
 class ItemService {
     async getAll(filters = {}) {
-        const where = {};
-        if (filters.status) where.status = filters.status;
-        if (filters.category_id) where.category_id = filters.category_id;
+        const { search, categoryId, page, limit } = filters;
+        const query = {};
 
-        return await Item.findAll({
-            where,
-            include: [{ model: ItemCategory, as: 'category' }],
-            order: [['name', 'ASC']]
-        });
+        if (categoryId) query.category = categoryId;
+        if (search) {
+            query.name = { $regex: search, $options: 'i' };
+        }
+
+        let dbQuery = Item.find(query).populate('category').sort({ name: 1 });
+
+        if (page && limit) {
+            dbQuery = dbQuery.skip((parseInt(page) - 1) * parseInt(limit)).limit(parseInt(limit));
+            const items = await dbQuery;
+            const total = await Item.countDocuments(query);
+            return { items, total };
+        }
+
+        return await dbQuery;
     }
 
     async getById(id) {
-        return await Item.findByPk(id, { include: [{ model: ItemCategory, as: 'category' }] });
-    }
-
-    async getCategories() {
-        return await ItemCategory.findAll({ order: [['name', 'ASC']] });
-    }
-
-    async createCategory(data) {
-        return await ItemCategory.create(data);
-    }
-
-    async updateCategory(id, data) {
-        const category = await ItemCategory.findByPk(id);
-        if (!category) throw new Error('Category not found');
-        return await category.update(data);
+        return await Item.findById(id).populate('category');
     }
 
     async createItem(data) {
+        // Map category_id to category for Mongoose
+        if (data.category_id) {
+            data.category = data.category_id;
+            delete data.category_id;
+        }
         return await Item.create(data);
     }
 
     async updateItem(id, data) {
-        const item = await Item.findByPk(id);
-        if (!item) throw new Error('Item not found');
-        return await item.update(data);
+        if (data.category_id) {
+            data.category = data.category_id;
+            delete data.category_id;
+        }
+        return await Item.findByIdAndUpdate(id, data, { new: true });
     }
 
     async deleteItem(id) {
-        const item = await Item.findByPk(id);
-        if (!item) throw new Error('Item not found');
-        return await item.destroy();
+        return await Item.findByIdAndDelete(id);
+    }
+
+    async getCategories() {
+        return await ItemCategory.find().sort({ name: 1 });
+    }
+
+    async createCategory(data) {
+        return await ItemCategory.create(data);
     }
 }
 

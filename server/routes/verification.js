@@ -5,112 +5,133 @@ const path = require('path');
 const verificationService = require('../services/VerificationService');
 const employeeService = require('../services/EmployeeService');
 const authMiddleware = require('../middleware/auth');
+const axios = require('axios');
 
 router.use(authMiddleware);
 
 const OCR_SERVICE_URL = process.env.OCR_SERVICE_URL || 'http://127.0.0.1:8001';
 const DUPLICATE_WINDOW_MIN = parseInt(process.env.DUPLICATE_SCAN_WINDOW_MINUTES || '2', 10);
-const OCR_TIMEOUT_MS = parseInt(process.env.OCR_SCAN_TIMEOUT_MS || '90000', 10);
+const OCR_TIMEOUT_MS = parseInt(process.env.OCR_SCAN_TIMEOUT_MS || '30000', 10); // 30s default
 
 function normalizeNumericEmployeeCode(value) {
-    return String(value || '').replace(/\D/g, '');
+    if (!value) return '';
+    let str = String(value).trim().toUpperCase();
+    
+    // 1. Common OCR misreads
+    str = str.replace(/O/g, '0');
+    str = str.replace(/I/g, '1');
+    str = str.replace(/L/g, '1');
+    str = str.replace(/Z/g, '2');
+    str = str.replace(/S/g, '5');
+    str = str.replace(/B/g, '8');
+    
+    // 2. Extract first 4-6 digit sequence
+    const match = str.match(/\d{4,6}/);
+    return match ? match[0] : '';
 }
 
 // POST /api/verification/ocr-scan
 router.post('/ocr-scan', async (req, res) => {
+    const reqStart = Date.now();
     try {
-        const { image, device_info } = req.body;
-        if (!image) return res.status(400).json({ message: 'Image data is required' });
+        const { image, manual_code, device_info } = req.body;
+        
+        let emp_code = '';
+        let ocrResult = { success: false, confidence: 0 };
 
-        // 1. Call Python OCR service
-        let ocrResult;
-        try {
-            const ocrRes = await fetch(`${OCR_SERVICE_URL}/scan`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image }),
-                signal: AbortSignal.timeout(OCR_TIMEOUT_MS)
-            });
-            ocrResult = await ocrRes.json();
-            if (!ocrRes.ok) {
-                throw new Error(ocrResult?.message || ocrResult?.error || `OCR service returned ${ocrRes.status}`);
+        // ── Case A: Manual Code Entry ──
+        if (manual_code) {
+            // Keep the code as entered — don't strip prefix (e.g. EMP1001 should stay EMP1001)
+            emp_code = String(manual_code).trim();
+            ocrResult = { success: true, emp_code, confidence: 1.0, method: 'Manual' };
+            console.log(`[OCR] Manual Entry: "${emp_code}"`);
+        } 
+        // ── Case B: OCR Engine ──
+        else {
+            if (!image) return res.status(400).json({ message: 'Image data is required' });
+            console.log(`[OCR] Scan Request: ${(image.length / 1024).toFixed(1)} KB`);
+
+            try {
+                const ocrRes = await axios.post(`${OCR_SERVICE_URL}/scan`, 
+                    { image },
+                    { timeout: OCR_TIMEOUT_MS }
+                );
+                ocrResult = ocrRes.data;
+                emp_code = normalizeNumericEmployeeCode(ocrResult.emp_code);
+                
+                const ocrMs = Date.now() - reqStart;
+                console.log(`[OCR] PaddleOCR Response: ${ocrMs}ms | code=${emp_code} | success=${ocrResult.success}`);
+            } catch (fetchErr) {
+                console.error('[OCR] Service Unreachable:', fetchErr.message);
+                const isTimeout = fetchErr.code === 'ECONNABORTED' || fetchErr.message.includes('timeout');
+                return res.status(503).json({
+                    status: 'Failed',
+                    message: isTimeout ? 'Scan taking too long' : 'OCR Service Offline'
+                });
             }
-        } catch (fetchErr) {
-            console.error('OCR service unreachable:', fetchErr.message);
-            const isTimeout = fetchErr.name === 'TimeoutError' || fetchErr.message?.toLowerCase().includes('timeout');
-            return res.status(503).json({
-                status: 'Failed',
-                message: isTimeout
-                    ? 'OCR service is still processing. Please try again in a moment.'
-                    : 'OCR service is unavailable.'
-            });
         }
 
-        const emp_code = normalizeNumericEmployeeCode(ocrResult.emp_code);
-
+        // 2. Process Result
         if (!ocrResult.success || !emp_code) {
+            console.log(`[OCR] Raw text from OCR engine: "${ocrResult.raw_text}" | emp_code="${emp_code}" | confidence=${ocrResult.confidence}`);
             return res.json({
                 status: 'Failed',
-                message: ocrResult.error || 'Employee ID could not be extracted.',
+                message: 'ID not recognized. Hold card steady.',
                 confidence: ocrResult.confidence,
                 raw_text: ocrResult.raw_text
             });
         }
 
+        // 3. Database Validation
+        console.log(`[OCR] Looking for employee with code: "${emp_code}"`);
         const employee = await employeeService.getByCode(emp_code);
-
+        
         if (!employee) {
+            console.log(`[OCR] Employee NOT found in database for code: "${emp_code}"`);
             return res.json({
                 status: 'Failed',
-                message: `Employee ID "${emp_code}" not found.`,
-                emp_code,
-                confidence: ocrResult.confidence
+                message: `ID "${emp_code}" not found`,
+                emp_code
             });
         }
+        
+        console.log(`[OCR] Found Employee: ${employee.name} (ID: ${employee.id})`);
 
-        // 2. Duplicate Check
+        // 4. Duplicate Check
         const recentLog = await verificationService.getRecentVerified(employee.id, 'OCR Scan', DUPLICATE_WINDOW_MIN);
         if (recentLog) {
-            await verificationService.log({
-                type: 'OCR Scan',
-                status: 'Duplicate Scan',
-                entity_id: employee.id, // Using employee.id as entity_id for standalone
-                entity_type: 'Employee',
-                details: JSON.stringify({ emp_code, device_info })
-            });
-
             return res.json({
                 status: 'Duplicate Scan',
-                message: `${employee.name} was already scanned.`,
-                employee,
-                last_scan: recentLog.timestamp
+                message: `${employee.name} already verified`,
+                employee
             });
         }
 
-        // 3. Log Success
+        // 5. Final Verification Log
         await verificationService.log({
             type: 'OCR Scan',
             status: 'Verified',
             entity_id: employee.id,
             entity_type: 'Employee',
-            details: JSON.stringify({ 
-                confidence: ocrResult.confidence, 
-                raw_text: ocrResult.raw_text,
-                device_info 
+            details: JSON.stringify({
+                confidence: ocrResult.confidence,
+                elapsed_ms: ocrResult.elapsed_ms,
+                device_info
             })
         });
 
+        console.log(`[OCR] ✅ Verified: ${employee.name} (${emp_code})`);
+
         return res.json({
             status: 'Verified',
-            message: `${employee.name} verified successfully.`,
+            message: `${employee.name} verified successfully`,
             employee,
-            confidence: ocrResult.confidence,
-            elapsed_ms: ocrResult.elapsed_ms
+            confidence: ocrResult.confidence
         });
 
     } catch (error) {
-        console.error('OCR scan route error:', error);
-        res.status(500).json({ message: 'Server error processing scan.' });
+        console.error('[OCR] Route Error:', error);
+        res.status(500).json({ message: 'Server error during scan' });
     }
 });
 

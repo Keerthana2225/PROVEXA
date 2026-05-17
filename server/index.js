@@ -3,12 +3,13 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const { connectSQL } = require('./config/database');
 
 dotenv.config();
 
-// SQL Server Connection
-connectSQL();
+const connectDB = require('./config/db');
+
+// MongoDB Connection
+connectDB();
 
 const authRoutes = require('./routes/auth');
 const employeeRoutes = require('./routes/employees');
@@ -23,24 +24,25 @@ const verificationRoutes = require('./routes/verification');
 require('./jobs/cron');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ limit: '25mb', extended: true }));
 app.use(cookieParser());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 const corsOptions = {
     origin: function (origin, callback) {
+        // Allow requests with no origin (server-to-server, mobile apps)
         if (!origin) return callback(null, true);
-        const allowed = [
-            'http://localhost:5173',
-            'http://localhost:5174',
-            'http://127.0.0.1:5173',
-            'http://127.0.0.1:5174',
-            'http://10.29.74.219:5173',
-        ];
-        if (allowed.includes(origin)) return callback(null, true);
-        if (/^http:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin)) {
+        // Allow all localhost variants
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
             return callback(null, true);
         }
+        // Allow all private LAN IPs (192.168.x, 10.x, 172.16-31.x)
+        if (/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin)) {
+            return callback(null, true);
+        }
+        // Log and reject unknown origins
+        console.warn('[CORS] Blocked origin:', origin);
         callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
@@ -65,5 +67,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Mode: ${process.env.NODE_ENV}`);
-    console.log(`🗄️  Database: MS SQL Server`);
+    console.log(`🗄️  Database: MongoDB`);
 });

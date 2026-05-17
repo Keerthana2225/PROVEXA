@@ -1,43 +1,19 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
+const mongoose = require('mongoose');
 
-const Employee = sequelize.define('Employee', {
-    id: { 
-        type: DataTypes.UUID, 
-        defaultValue: DataTypes.UUIDV4, 
-        primaryKey: true 
-    },
-    emp_code: { 
-        type: DataTypes.STRING, 
-        unique: true, 
-        allowNull: false 
-    },
-    name: { 
-        type: DataTypes.STRING, 
-        allowNull: false 
-    },
-    department: { 
-        type: DataTypes.STRING 
-    },
-    designation: { 
-        type: DataTypes.STRING 
-    },
-    salary: { 
-        type: DataTypes.DECIMAL(10, 2), 
-        defaultValue: 0 
-    },
-    status: { 
-        type: DataTypes.STRING, 
-        defaultValue: 'active' 
-    }
-}, {
-    tableName: 'Employees',
-    timestamps: true,
-    indexes: [
-        { fields: ['emp_code'] },
-        { fields: ['department'] },
-        { fields: ['status'] }
-    ]
-});
+const schemaOptions = {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+};
 
-module.exports = Employee;
+const employeeSchema = new mongoose.Schema({
+    emp_code: { type: String, required: true, unique: true },
+    name: { type: String, required: true },
+    department: { type: String, required: true },
+    designation: { type: String, required: true },
+    salary: { type: Number, default: 0 },
+    doj: { type: Date },
+    status: { type: String, default: 'active' }
+}, schemaOptions);
+
+module.exports = mongoose.model('Employee', employeeSchema);

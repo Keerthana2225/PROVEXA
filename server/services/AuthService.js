@@ -1,45 +1,40 @@
 const { Admin } = require('../models');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 class AuthService {
-    async login(email, password) {
-        // The frontend sends { email, password }
-        // In SQL, the email is stored in the 'username' column (mapped during migration)
-        const admin = await Admin.findOne({ where: { username: email } });
-        if (!admin) throw new Error('Invalid credentials');
+    async login(identifier, password) {
+        // Find by username OR email
+        const admin = await Admin.findOne({
+            $or: [
+                { username: identifier },
+                { email: identifier }
+            ]
+        });
 
-        let isMatch = false;
-
-        // Try bcrypt compare first (for properly hashed passwords)
-        try {
-            isMatch = await bcrypt.compare(password, admin.password);
-        } catch (e) {
-            // If bcrypt fails (e.g. password is not a valid hash), fall back to plain comparison
-            isMatch = false;
+        if (!admin || admin.password !== password) {
+            throw new Error('Invalid credentials');
         }
 
-        // Fallback: plain text comparison for development/initial setup
-        if (!isMatch && admin.password === password) {
-            isMatch = true;
-        }
+        const token = jwt.sign(
+            { id: admin._id, username: admin.username, role: admin.role },
+            process.env.JWT_SECRET || 'provexa-super-secret-jwt-key-2024',
+            { expiresIn: '24h' }
+        );
 
-        if (!isMatch) throw new Error('Invalid credentials');
-
-        const token = jwt.sign({ id: admin.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-        return { 
-            admin: {
-                id: admin.id,
-                username: admin.username,
-                name: admin.name,
-                role: admin.role
-            }, 
-            token 
-        };
+        return { admin, token };
     }
 
     async getMe(id) {
-        return await Admin.findByPk(id, { attributes: { exclude: ['password'] } });
+        try {
+            // If the ID is not a valid ObjectId (e.g. an old SQL UUID), this will fail safely
+            if (!id || typeof id !== 'string' || id.length !== 24) {
+                return null;
+            }
+            return await Admin.findById(id).select('-password');
+        } catch (err) {
+            console.warn('[Auth] Invalid User ID format detected in token:', id);
+            return null;
+        }
     }
 }
 

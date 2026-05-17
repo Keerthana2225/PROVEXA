@@ -73,65 +73,85 @@ export default function UnifiedVerificationModal({ isOpen, onClose, employee, is
     });
 
     const handleOcrResult = (result) => {
-        if (result.status === 'Verified' && result.employee?.emp_code === employee.emp_code) {
+        if (result.status === 'Verified') {
+            // Normalize both codes to pure digits for comparison
+            const scannedCode = String(result.employee?.emp_code || '').replace(/\D/g, '');
+            const expectedCode = String(employee?.emp_code || '').replace(/\D/g, '');
+
+            if (scannedCode && expectedCode && scannedCode !== expectedCode) {
+                // Different employee's card scanned
+                toast.error(`Wrong card! This belongs to ${result.employee?.name}. Please scan ${displayName}'s card.`);
+                return;
+            }
+
+            // Correct card (or no expected code to compare against)
             setOcrVerified(true);
             setOcrData(result);
-            toast.success('ID Card Verified!');
-            
+            toast.success(`✓ ${result.employee?.name} verified via ID card!`);
+
             if (method === 'both') {
                 setStep(STATUS.SIGNATURE);
             } else {
-                // OCR Only - complete now
-                acknowledgeMutation.mutate({ 
+                // OCR Only — complete acknowledgement immediately
+                acknowledgeMutation.mutate({
                     verification_type: 'ocr',
                     confidence: result.confidence,
-                    ocr_details: result // Pass directly
+                    ocr_details: result
                 });
             }
-        } else if (result.status === 'Verified') {
-            toast.error(`Employee mismatch! Card belongs to ${result.employee.name}.`);
         }
     };
 
-    const handleSignatureSubmit = (e) => {
-        e.preventDefault();
+    const handleSignatureSubmit = () => {
         if (isSignatureEmpty || !sigCanvas.current) {
-            return setError('Employee signature is required.');
+            toast.error('Please provide a signature first.');
+            return;
         }
-        
-        const signatureBase64 = sigCanvas.current.toDataURL('image/png');
-        acknowledgeMutation.mutate({ 
-            signature: signatureBase64,
-            verification_type: method === 'both' ? 'both' : 'signature'
+
+        const signatureData = sigCanvas.current.toDataURL('image/png');
+        acknowledgeMutation.mutate({
+            verification_type: 'signature',
+            signature: signatureData
         });
     };
 
-    if (!employee && !issueId) return null;
+    const clearSignature = () => {
+        sigCanvas.current.clear();
+        setIsSignatureEmpty(true);
+    };
+
+    if (!isOpen) return null;
 
     const displayName = employee?.name || 'Employee';
-    const displayCode = employee?.emp_code || '';
 
     return (
         <Modal 
             isOpen={isOpen} 
             onClose={onClose} 
-            title="Complete Employee Verification"
-            maxWidth="max-w-2xl"
+            title="Unified Identity Verification"
+            maxWidth="max-w-3xl"
         >
             <div className="p-1">
-                {/* ── Step: Select Method ───────────────────────────────────── */}
+                {/* ── Step 1: Select Method ────────────────────────────────────── */}
                 {step === STATUS.SELECT_METHOD && (
-                    <div className="p-4 space-y-6 animate-fade-in">
-                        <div className="text-center space-y-2">
-                            <h3 className="text-lg font-bold text-slate-800">Choose Verification Method</h3>
-                            <p className="text-sm text-slate-500">Select how you want to verify the employee's identity for this acknowledgement.</p>
+                    <div className="p-8 space-y-8 animate-fade-in">
+                        <div className="flex flex-col items-center text-center space-y-3">
+                            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center shadow-inner">
+                                <ShieldCheck className="w-8 h-8" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-xl font-black text-slate-900 tracking-tight">Identity Verification</h3>
+                                <p className="text-sm text-slate-500 font-medium max-w-sm">
+                                    How would you like to verify <span className="text-indigo-600 font-bold">{displayName}</span> for <span className="font-bold">{pendingCount} item(s)</span>?
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                             {[
-                                { id: 'ocr', label: 'OCR ID Scan', icon: ScanLine, desc: 'Scan physical ID card', color: 'blue' },
-                                { id: 'signature', label: 'Digital Signature', icon: PenTool, desc: 'Draw signature on screen', color: 'purple' },
-                                { id: 'both', label: 'Both Methods', icon: ShieldCheck, desc: 'Maximum security check', color: 'emerald' },
+                                { id: 'ocr', label: 'AI ID Scan', icon: ScanLine, color: 'blue', desc: 'Auto-read card' },
+                                { id: 'signature', label: 'Signature', icon: PenTool, color: 'purple', desc: 'Digital sign' },
+                                { id: 'both', label: 'Dual Mode', icon: ShieldCheck, color: 'emerald', desc: 'Maximum security' },
                             ].map((opt) => (
                                 <button
                                     key={opt.id}
@@ -139,60 +159,57 @@ export default function UnifiedVerificationModal({ isOpen, onClose, employee, is
                                         setMethod(opt.id);
                                         setStep(opt.id === 'signature' ? STATUS.SIGNATURE : STATUS.OCR_SCANNING);
                                     }}
-                                    className={`flex flex-col items-center text-center p-6 rounded-2xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98] group
-                                        ${opt.id === 'ocr' ? 'border-blue-100 hover:border-blue-400 bg-blue-50/30' : 
-                                          opt.id === 'signature' ? 'border-purple-100 hover:border-purple-400 bg-purple-50/30' : 
-                                          'border-emerald-100 hover:border-emerald-400 bg-emerald-50/30'}`}
+                                    className={`flex flex-col items-center text-center p-6 rounded-3xl border-2 transition-all hover:scale-[1.02] active:scale-[0.98] group
+                                        ${opt.id === 'ocr' ? 'border-blue-100 hover:border-blue-400 bg-blue-50/50' : 
+                                          opt.id === 'signature' ? 'border-purple-100 hover:border-purple-400 bg-purple-50/50' : 
+                                          'border-emerald-100 hover:border-emerald-400 bg-emerald-50/50'}`}
                                 >
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-transform group-hover:rotate-6
-                                        ${opt.id === 'ocr' ? 'bg-blue-600' : opt.id === 'signature' ? 'bg-purple-600' : 'bg-emerald-600'}`}>
-                                        <opt.icon className="w-6 h-6 text-white" />
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:rotate-6 shadow-lg
+                                        ${opt.id === 'ocr' ? 'bg-blue-600 shadow-blue-500/30' : opt.id === 'signature' ? 'bg-purple-600 shadow-purple-500/30' : 'bg-emerald-600 shadow-emerald-500/30'}`}>
+                                        <opt.icon className="w-7 h-7 text-white" />
                                     </div>
-                                    <div className="font-bold text-slate-800 text-sm mb-1">{opt.label}</div>
-                                    <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">{opt.desc}</div>
+                                    <div className="font-black text-slate-900 text-xs uppercase tracking-widest">{opt.label}</div>
+                                    <div className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{opt.desc}</div>
                                 </button>
                             ))}
                         </div>
 
-                        <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-4 border border-slate-100">
-                            <div className="w-10 h-10 rounded-full bg-white border border-slate-200 text-primary font-bold flex items-center justify-center shrink-0">
-                                {displayName.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1">
-                                <div className="text-xs text-slate-400 font-bold uppercase tracking-widest">Target Employee</div>
-                                <div className="font-bold text-slate-800">{displayName} <span className="text-slate-400 font-mono ml-2">({displayCode})</span></div>
-                            </div>
+                        <div className="flex justify-center">
+                            <button onClick={onClose} className="text-xs font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest px-8 py-2 transition-colors">
+                                Skip for now
+                            </button>
                         </div>
                     </div>
                 )}
 
                 {/* ── Step: OCR Scanning ─────────────────────────────────────── */}
                 {step === STATUS.OCR_SCANNING && (
-                    <div className="p-4 space-y-4 animate-fade-in">
-                        <div className="flex items-center justify-between">
+                    <div className="p-6 space-y-6 animate-fade-in">
+                        <div className="flex items-center justify-between px-2">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                                    <ScanLine className="w-4 h-4 text-white" />
+                                <div className="p-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-200">
+                                    <ScanLine className="w-4 h-4" />
                                 </div>
-                                <h3 className="font-bold text-slate-800">OCR ID Verification</h3>
+                                <div>
+                                    <h4 className="font-black text-slate-900 text-[11px] uppercase tracking-[0.2em]">Scan Employee ID Card</h4>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">System is reading handwriting...</p>
+                                </div>
                             </div>
-                            <button 
-                                onClick={() => setStep(STATUS.SELECT_METHOD)}
-                                className="text-xs text-slate-500 hover:text-slate-700 font-bold"
-                            >
-                                Change Method
+                            <button onClick={() => setStep(STATUS.SELECT_METHOD)} className="w-9 h-9 flex items-center justify-center bg-slate-100 text-slate-400 rounded-xl hover:bg-slate-200 transition-colors">
+                                <XCircle className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="bg-slate-900 rounded-2xl overflow-hidden shadow-xl">
+                        <div className="bg-slate-950 rounded-[2.5rem] overflow-hidden shadow-2xl ring-8 ring-slate-100 border border-slate-800">
                             <OcrScannerPanel onResult={handleOcrResult} />
                         </div>
 
-                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-start gap-3">
-                            <AlertTriangle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                            <p className="text-xs text-blue-700 leading-relaxed">
-                                Please ensure the employee's ID card is clearly visible within the frame. 
-                                The system will automatically verify if the ID belongs to <strong>{displayName}</strong>.
+                        <div className="flex items-center gap-4 bg-blue-50 border border-blue-100 rounded-2xl p-4">
+                            <div className="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-600 flex items-center justify-center shrink-0">
+                                <AlertTriangle className="w-5 h-5" />
+                            </div>
+                            <p className="text-xs text-blue-800 font-medium leading-relaxed">
+                                <strong>Tip:</strong> Ensure the card is within the blue box. The AI will automatically detect the handwritten <strong>Emp. No.</strong>
                             </p>
                         </div>
                     </div>
@@ -200,77 +217,115 @@ export default function UnifiedVerificationModal({ isOpen, onClose, employee, is
 
                 {/* ── Step: Signature ────────────────────────────────────────── */}
                 {step === STATUS.SIGNATURE && (
-                    <form onSubmit={handleSignatureSubmit} className="p-4 space-y-6 animate-fade-in">
+                    <div className="p-8 space-y-8 animate-fade-in">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center">
-                                    <PenTool className="w-4 h-4 text-white" />
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-purple-600 text-white rounded-2xl shadow-lg shadow-purple-200">
+                                    <PenTool className="w-5 h-5" />
                                 </div>
-                                <h3 className="font-bold text-slate-800">
-                                    {method === 'both' ? 'Final Acknowledgment' : 'Digital Signature'}
-                                </h3>
+                                <div>
+                                    <h4 className="font-black text-slate-900 text-sm uppercase tracking-widest">Digital Signature</h4>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Confirming receipt of items</p>
+                                </div>
                             </div>
                             {method !== 'both' && (
-                                <button 
-                                    type="button"
-                                    onClick={() => setStep(STATUS.SELECT_METHOD)}
-                                    className="text-xs text-slate-500 hover:text-slate-700 font-bold"
-                                >
+                                <button onClick={() => setStep(STATUS.SELECT_METHOD)} className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest transition-colors px-4 py-2 bg-indigo-50 rounded-xl">
                                     Change Method
                                 </button>
                             )}
                         </div>
 
-                        {method === 'both' && (
-                            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg text-xs font-bold border border-emerald-100">
-                                <CheckCircle2 className="w-4 h-4" /> OCR Verification Successful
+                        {ocrVerified && (
+                            <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-100 px-5 py-4 rounded-3xl animate-scale-up">
+                                <div className="w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-md">
+                                    <CheckCircle2 className="w-4 h-4" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[10px] font-black text-emerald-800 uppercase tracking-widest leading-none">Identity Secured</p>
+                                    <p className="text-[11px] text-emerald-600 font-medium mt-0.5">Verified via AI Handwriting Recognition</p>
+                                </div>
                             </div>
                         )}
 
-                        <div className="space-y-4">
-                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6">
-                                <div className="flex items-center justify-between mb-3">
-                                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Signature Panel</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => { sigCanvas.current?.clear(); setIsSignatureEmpty(true); }}
-                                        className="text-xs text-red-500 font-bold px-2 py-1 hover:bg-red-50 rounded"
-                                    >
-                                        Clear
-                                    </button>
-                                </div>
-                                <div className="border-2 border-dashed border-slate-300 bg-white rounded-xl overflow-hidden">
-                                    <SignatureCanvas
-                                        ref={sigCanvas}
-                                        penColor="#0f172a"
-                                        canvasProps={{ className: 'w-full h-40 cursor-crosshair' }}
-                                        onEnd={() => setIsSignatureEmpty(false)}
-                                    />
-                                </div>
-                                <p className="text-[10px] text-slate-400 text-center mt-3 font-semibold uppercase tracking-widest">Employee must sign above</p>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between px-1">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                    <PenTool className="w-3.5 h-3.5" /> Hand-drawn Signature
+                                </label>
+                                <button 
+                                    onClick={clearSignature}
+                                    className="text-[10px] font-black text-red-400 hover:text-red-600 uppercase tracking-widest transition-colors"
+                                >
+                                    Clear Canvas
+                                </button>
                             </div>
+                            <div className="border-4 border-slate-100 rounded-[2.5rem] bg-white overflow-hidden shadow-inner ring-1 ring-slate-200">
+                                <SignatureCanvas 
+                                    ref={sigCanvas}
+                                    onBegin={() => setIsSignatureEmpty(false)}
+                                    canvasProps={{
+                                        className: "w-full h-56 cursor-crosshair",
+                                    }}
+                                    penColor="#0f172a"
+                                />
+                            </div>
+                        </div>
 
-                            {error && <div className="text-red-500 text-sm bg-red-50 p-3 rounded-lg flex items-center gap-2"><XCircle className="w-4 h-4" /> {error}</div>}
-
-                            <button
-                                type="submit"
-                                disabled={acknowledgeMutation.isPending || isSignatureEmpty}
-                                className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-2xl shadow-xl shadow-primary/20 transition-all active:scale-[0.98] disabled:opacity-70 text-sm uppercase tracking-widest"
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={onClose}
+                                className="flex-1 py-4 border-2 border-slate-100 text-slate-500 font-black text-[11px] rounded-2xl hover:bg-slate-50 transition-all uppercase tracking-widest"
                             >
-                                {acknowledgeMutation.isPending ? <><Loader2 className="w-5 h-5 animate-spin" /> Verifying...</> : 'Complete Acknowledge'}
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={handleSignatureSubmit}
+                                disabled={acknowledgeMutation.isPending || isSignatureEmpty}
+                                className="flex-[2] py-4 bg-slate-900 text-white font-black text-[11px] rounded-2xl hover:bg-slate-800 transition-all shadow-2xl shadow-slate-900/30 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-[0.2em] flex items-center justify-center gap-3"
+                            >
+                                {acknowledgeMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                                Finalize Verification
                             </button>
                         </div>
-                    </form>
+                    </div>
                 )}
 
-                {/* ── Success Overlay ───────────────────────────────────────── */}
+                {/* ── Step: Success ────────────────────────────────────────── */}
                 {step === STATUS.SUCCESS && (
-                    <div className="p-12 flex flex-col items-center justify-center text-center space-y-4 animate-bounce-in">
-                        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-2">
-                            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+                    <div className="flex flex-col items-center justify-center py-20 text-center animate-scale-up space-y-6">
+                        <div className="relative">
+                            <div className="w-24 h-24 bg-emerald-100 rounded-[2.5rem] flex items-center justify-center shadow-xl shadow-emerald-500/20">
+                                <CheckCircle2 className="w-12 h-12 text-emerald-600" />
+                            </div>
+                            <div className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg border border-emerald-50">
+                                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                            </div>
                         </div>
-                        <h3 className="text-2xl font-bold text-slate-800">Verification Complete</h3>
-                        <p className="text-slate-500">The acknowledgement has been recorded successfully.</p>
+                        <div className="space-y-2 px-10">
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Identity Verified!</h3>
+                            <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                                The acknowledgement has been successfully logged. Items are now officially handed over.
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Step: Failed ─────────────────────────────────────────── */}
+                {step === STATUS.FAILED && (
+                    <div className="flex flex-col items-center justify-center py-16 text-center animate-shake space-y-6 px-12">
+                        <div className="w-20 h-20 bg-red-100 rounded-[2rem] flex items-center justify-center shadow-lg shadow-red-500/20">
+                            <XCircle className="w-10 h-10 text-red-600" />
+                        </div>
+                        <div className="space-y-2">
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Verification Failed</h3>
+                            <p className="text-sm text-slate-500 font-medium leading-relaxed">{error}</p>
+                        </div>
+                        <button 
+                            onClick={() => setStep(STATUS.SELECT_METHOD)}
+                            className="w-full py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl"
+                        >
+                            Back to Selection
+                        </button>
                     </div>
                 )}
             </div>

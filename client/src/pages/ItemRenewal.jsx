@@ -149,73 +149,73 @@ export default function ItemRenewal() {
 
         return (
             <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-600">
-                        <thead className="bg-slate-50/50 text-[11px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-100">
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm text-slate-600 border-collapse">
+                        <thead className="sticky top-0 bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-200 z-10">
                             <tr>
-                                <th className="px-8 py-5">Asset Holder</th>
-                                <th className="px-8 py-5">Item Details</th>
-                                <th className="px-8 py-5">Condition</th>
-                                {type !== 'history' && <th className="px-8 py-5">Next Renewal</th>}
-                                {type === 'history' && <th className="px-8 py-5">Closing Type</th>}
-                                {type === 'history' && <th className="px-8 py-5">Processed Date</th>}
-                                <th className="px-8 py-5 text-right">Actions</th>
+                                <th className="px-6 py-3 bg-slate-50">Asset Holder</th>
+                                <th className="px-6 py-3 bg-slate-50">Item Details</th>
+                                <th className="px-6 py-3 bg-slate-50">Condition</th>
+                                {type !== 'history' && <th className="px-6 py-3 bg-slate-50">Next Renewal</th>}
+                                {type === 'history' && <th className="px-6 py-3 bg-slate-50">Closing Type</th>}
+                                {type === 'history' && <th className="px-6 py-3 bg-slate-50">Processed Date</th>}
+                                <th className="px-6 py-3 text-right bg-slate-50">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {items.map(item => (
                                 <tr key={item._id || item.id} className="group hover:bg-slate-50/30 transition-colors">
-                                    <td className="px-8 py-5">
+                                    <td className="px-6 py-2.5">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors text-xs">
                                                 {item.employee?.name?.[0] || 'E'}
                                             </div>
                                             <div>
-                                                <div className="font-bold text-slate-900 text-sm">{item.employee?.name || item.employee_name}</div>
-                                                <div className="text-[10px] text-slate-400 font-mono tracking-tighter">{item.employee?.emp_code || '---'}</div>
+                                                <div className="font-bold text-slate-900 text-xs leading-none">{item.employee?.name || item.employee_name}</div>
+                                                <div className="text-[9px] text-slate-400 font-mono tracking-tighter mt-1 leading-none">{item.employee?.emp_code || '---'}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-8 py-5">
-                                        <div className="font-semibold text-slate-800 text-sm">{item.item?.name || item.item_name}</div>
-                                        <div className="text-[10px] text-slate-400 font-bold uppercase">Qty: {item.quantity}</div>
+                                    <td className="px-6 py-2.5">
+                                        <div className="font-bold text-slate-800 text-xs leading-none">{item.item?.name || item.item_name}</div>
+                                        <div className="text-[9px] text-slate-400 font-bold uppercase mt-1 leading-none">Qty: {item.quantity}</div>
                                     </td>
-                                    <td className="px-8 py-5">
+                                    <td className="px-6 py-2.5">
                                         <Badge color={item.item_condition === 'Good' ? 'emerald' : item.item_condition === 'Damaged' ? 'red' : 'amber'}>
                                             {type === 'history' ? (item.returned_condition || 'N/A') : item.item_condition}
                                         </Badge>
                                     </td>
                                     {type !== 'history' && (
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-2.5">
                                             <div className="flex flex-col">
-                                                <span className={`font-bold text-sm ${dayjs(item.next_due_date).isBefore(dayjs().add(7, 'day')) ? 'text-red-500' : 'text-slate-700'}`}>
+                                                <span className={`font-bold text-xs ${dayjs(item.next_due_date).isBefore(dayjs().add(7, 'day')) ? 'text-red-500' : 'text-slate-700'} leading-none`}>
                                                     {dayjs(item.next_due_date).format('DD MMM YYYY')}
                                                 </span>
-                                                <span className="text-[10px] text-slate-400 font-medium">
+                                                <span className="text-[9px] text-slate-400 font-medium mt-1 leading-none">
                                                     {dayjs(item.next_due_date).fromNow()}
                                                 </span>
                                             </div>
                                         </td>
                                     )}
                                     {type === 'history' && (
-                                        <td className="px-8 py-5">
+                                        <td className="px-6 py-2.5">
                                             <Badge color={item.lifecycle_status === 'Renewed' ? 'blue' : 'slate'}>
                                                 {item.lifecycle_status}
                                             </Badge>
                                         </td>
                                     )}
                                     {type === 'history' && (
-                                        <td className="px-8 py-5">
-                                            <div className="font-medium text-slate-600 text-sm">
-                                                {dayjs(item.return_date).format('DD MMM YYYY')}
+                                        <td className="px-6 py-2.5">
+                                            <div className="font-medium text-slate-600 text-xs leading-none">
+                                                {dayjs(item.return_date || item.archived_at || item.updated_at).format('DD MMM YYYY')}
                                             </div>
                                         </td>
                                     )}
-                                    <td className="px-8 py-5 text-right">
+                                    <td className="px-6 py-2.5 text-right">
                                         <div className="flex items-center justify-end gap-2">
                                             <button 
                                                 onClick={() => openTimelineModal(item)} 
-                                                className="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                                                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
                                                 title="View History Log"
                                             >
                                                 <Activity className="w-4 h-4" />
@@ -223,7 +223,7 @@ export default function ItemRenewal() {
                                             {type !== 'history' && (
                                                 <button 
                                                     onClick={() => openRenewModal(item)} 
-                                                    className={`px-4 py-2 text-xs font-bold rounded-xl transition-all border shadow-sm ${dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour')) ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200/50'}`}
+                                                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all border shadow-sm ${dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour')) ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200/50'}`}
                                                     disabled={dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour'))}
                                                 >
                                                     {dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour')) ? 'Renewed Today' : 'Renew'}
@@ -232,7 +232,7 @@ export default function ItemRenewal() {
                                             {type !== 'history' && (
                                                 <button 
                                                     onClick={() => openReturnModal(item)} 
-                                                    className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all border border-slate-200/50 shadow-sm"
+                                                    className="px-3 py-1.5 text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all border border-slate-200/50 shadow-sm"
                                                 >
                                                     Return
                                                 </button>

@@ -1,31 +1,18 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
+const mongoose = require('mongoose');
 
-const Admin = sequelize.define('Admin', {
-    id: { 
-        type: DataTypes.UUID, 
-        defaultValue: DataTypes.UUIDV4, 
-        primaryKey: true 
-    },
-    username: { 
-        type: DataTypes.STRING, 
-        unique: true, 
-        allowNull: false 
-    },
-    password: { 
-        type: DataTypes.STRING, 
-        allowNull: false 
-    },
-    name: { 
-        type: DataTypes.STRING 
-    },
-    role: { 
-        type: DataTypes.STRING, 
-        defaultValue: 'Admin' 
-    }
-}, {
-    tableName: 'Admins',
-    timestamps: true
-});
+// Global schema configuration to ensure .id is present in JSON/Object conversions
+const schemaOptions = {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+};
 
-module.exports = Admin;
+const adminSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    username: { type: String, required: true, unique: true },
+    email: { type: String, unique: true, sparse: true },
+    password: { type: String, required: true },
+    role: { type: String, default: 'Admin' }
+}, schemaOptions);
+
+module.exports = mongoose.model('Admin', adminSchema);

@@ -202,20 +202,18 @@ export default function Replacements() {
                         className="w-full pl-12 pr-6 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-medium transition-all shadow-sm"
                     />
                 </div>
-            </div>
-
-            {/* Data Table */}
+            </div>            {/* Data Table */}
             <div className="bg-white rounded-[2rem] border border-slate-100 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-600">
-                        <thead className="bg-slate-50/50 text-[11px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-100">
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm text-slate-600 border-collapse">
+                        <thead className="sticky top-0 bg-slate-50 text-[10px] text-slate-400 uppercase font-bold tracking-widest border-b border-slate-200 z-10">
                             <tr>
-                                <th className="px-8 py-5">Status</th>
-                                <th className="px-8 py-5">Asset Holder</th>
-                                <th className="px-8 py-5">Replacement Item</th>
-                                <th className="px-8 py-5">Financial Details</th>
-                                <th className="px-8 py-5">Asset Exchange</th>
-                                <th className="px-8 py-5 text-right">Actions</th>
+                                <th className="px-6 py-3 bg-slate-50">Status</th>
+                                <th className="px-6 py-3 bg-slate-50">Asset Holder</th>
+                                <th className="px-6 py-3 bg-slate-50">Replacement Item</th>
+                                <th className="px-6 py-3 bg-slate-50">Financial Details</th>
+                                <th className="px-6 py-3 bg-slate-50">Asset Exchange</th>
+                                <th className="px-6 py-3 text-right bg-slate-50">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -223,15 +221,15 @@ export default function Replacements() {
                                 [...Array(5)].map((_, i) => (
                                     <tr key={i} className="animate-pulse">
                                         {[...Array(6)].map((_, j) => (
-                                            <td key={j} className="px-8 py-6"><div className="h-5 bg-slate-100 rounded-full w-full"></div></td>
+                                            <td key={j} className="px-6 py-2.5"><div className="h-5 bg-slate-100 rounded-full w-full"></div></td>
                                         ))}
                                     </tr>
                                 ))
                             ) : filteredRequests?.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-8 py-24 text-center">
-                                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <Package className="w-10 h-10 text-slate-200" />
+                                    <td colSpan="6" className="px-6 py-16 text-center">
+                                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <Package className="w-8 h-8 text-slate-200" />
                                         </div>
                                         <h3 className="text-lg font-bold text-slate-800">No requests found</h3>
                                         <p className="text-sm text-slate-500">There are no replacement requests in this category.</p>
@@ -242,51 +240,56 @@ export default function Replacements() {
                                     const requestId = req._id || req.id;
                                     return (
                                         <tr key={requestId} className="group hover:bg-slate-50/30 transition-colors">
-                                            <td className="px-8 py-6">
-                                                <div className="flex flex-col gap-2">
-                                                    <Badge color={req.status === 'Pending' ? 'amber' : req.status === 'Approved' ? 'blue' : req.status === 'Completed' ? 'emerald' : 'red'}>
+                                            <td className="px-6 py-2.5">
+                                                <div className="flex flex-col gap-1.5">
+                                                    <Badge color={
+                                                        req.status?.toLowerCase() === 'pending' ? 'amber' : 
+                                                        req.status?.toLowerCase() === 'approved' ? 'blue' : 
+                                                        req.status?.toLowerCase() === 'completed' ? 'emerald' : 
+                                                        'red'
+                                                    }>
                                                         {req.status}
                                                     </Badge>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
                                                         {dayjs(req.requested_date).format('DD MMM YYYY')}
                                                     </span>
                                                 </div>
                                             </td>
 
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                                                        <User className="w-5 h-5" />
+                                            <td className="px-6 py-2.5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
+                                                        <User className="w-4 h-4" />
                                                     </div>
                                                     <div>
-                                                        <div className="font-bold text-slate-900 text-sm leading-none">{req.employee_name || req.employee?.name}</div>
-                                                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1.5 tracking-tighter">
+                                                        <div className="font-bold text-slate-900 text-xs leading-none">{req.employee_name || req.employee?.name}</div>
+                                                        <div className="text-[9px] text-slate-505 font-bold uppercase mt-1 leading-none tracking-tighter">
                                                             {req.employee?.emp_code || '---'} · {req.employee?.department || 'GENERAL'}
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
 
-                                            <td className="px-8 py-6">
-                                                <div className="space-y-1.5">
-                                                    <div className="font-bold text-slate-800 text-sm">{req.item_name || req.item?.name}</div>
-                                                    <div className="flex gap-2">
-                                                        <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-black uppercase">Qty: {req.quantity}</span>
-                                                        <span className="text-[9px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-black uppercase">Size: {req.size}</span>
+                                            <td className="px-6 py-2.5">
+                                                <div className="space-y-1">
+                                                    <div className="font-bold text-slate-800 text-xs leading-none">{req.item_name || req.item?.name}</div>
+                                                    <div className="flex gap-1.5 mt-1 leading-none">
+                                                        <span className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase">Qty: {req.quantity}</span>
+                                                        <span className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase">Size: {req.size}</span>
                                                     </div>
-                                                    <div className="text-[11px] text-slate-500 italic bg-slate-50 p-2 rounded-xl border border-slate-100 line-clamp-1">
+                                                    <div className="text-[10px] text-slate-500 italic bg-slate-50 p-1.5 rounded-lg border border-slate-100 line-clamp-1 mt-1">
                                                         "{req.reason}"
                                                     </div>
                                                 </div>
                                             </td>
 
-                                            <td className="px-8 py-6">
+                                            <td className="px-6 py-2.5">
                                                 {(req.total_cost > 0 || req.deduction_amount > 0) ? (
-                                                    <div className="space-y-2">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="text-lg font-black text-slate-900">₹{(req.total_cost || 0).toLocaleString()}</span>
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-sm font-black text-slate-900 leading-none">₹{(req.total_cost || 0).toLocaleString()}</span>
                                                             {req.deduction_amount > 0 && (
-                                                                <span className="text-[10px] text-red-500 font-bold bg-red-50 px-1.5 rounded-md">-{req.deduction_amount}</span>
+                                                                <span className="text-[9px] text-red-500 font-bold bg-red-50 px-1 rounded">-{req.deduction_amount}</span>
                                                             )}
                                                         </div>
                                                         <Badge color={req.payment_status === 'Deducted' ? 'emerald' : req.payment_status === 'Pending' ? 'amber' : 'slate'}>
@@ -294,55 +297,55 @@ export default function Replacements() {
                                                         </Badge>
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px] text-slate-300 font-black uppercase tracking-widest">N/A</span>
+                                                    <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest leading-none">N/A</span>
                                                 )}
                                             </td>
 
-                                            <td className="px-8 py-6">
-                                                <div className="space-y-2">
+                                            <td className="px-6 py-2.5">
+                                                <div className="space-y-1.5">
                                                     <Badge color={req.return_status === 'Returned' ? 'emerald' : req.return_status === 'Pending Return' ? 'amber' : 'slate'}>
-                                                        Old Item: {req.return_status}
+                                                        Old: {req.return_status}
                                                     </Badge>
                                                     {req.acknowledged && (
-                                                        <div className="flex items-center text-[10px] text-emerald-600 font-black uppercase tracking-widest gap-1">
-                                                            <ShieldCheck className="w-3 h-3" /> Fully Verified
+                                                        <div className="flex items-center text-[9px] text-emerald-600 font-black uppercase tracking-widest gap-0.5 leading-none">
+                                                            <ShieldCheck className="w-2.5 h-2.5" /> Verified
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
 
-                                            <td className="px-8 py-6 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {req.status === 'Pending' && (
+                                            <td className="px-6 py-2.5 text-right">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {(req.status?.toLowerCase() === 'pending') && (
                                                         <>
                                                             <button 
                                                                 onClick={() => openApproveModal(req)} 
-                                                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/20"
+                                                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow"
                                                             >
                                                                 Approve
                                                             </button>
                                                             <button 
                                                                 onClick={() => setActionModal({ ...actionModal, isOpen: true, type: 'reject', request: req })} 
-                                                                className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-xl transition-all"
+                                                                className="w-7 h-7 flex items-center justify-center bg-red-50 text-red-600 hover:bg-red-500 hover:text-white rounded-lg transition-all"
                                                             >
-                                                                <X className="w-4 h-4" />
+                                                                <X className="w-3.5 h-3.5" />
                                                             </button>
                                                         </>
                                                     )}
-                                                    {req.status === 'Approved' && (
+                                                    {(req.status?.toLowerCase() === 'approved') && (
                                                         <button 
                                                             onClick={() => setHandoverData(req)} 
-                                                            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white hover:bg-blue-700 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-600/20"
+                                                            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow"
                                                         >
-                                                            <PenTool className="w-4 h-4" /> Handover
+                                                            <PenTool className="w-3.5 h-3.5" /> Handover
                                                         </button>
                                                     )}
-                                                    {req.status === 'Completed' && req.signature_path && (
+                                                    {(req.status?.toLowerCase() === 'completed') && req.signature_path && (
                                                         <button 
                                                             onClick={() => window.open(`http://localhost:5000${req.signature_path}`, '_blank')} 
-                                                            className="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-500 hover:bg-slate-900 hover:text-white rounded-xl transition-all"
+                                                            className="w-8 h-8 flex items-center justify-center bg-slate-100 text-slate-505 hover:bg-slate-900 hover:text-white rounded-lg transition-all"
                                                         >
-                                                            <PenTool className="w-4 h-4" />
+                                                            <PenTool className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
                                                 </div>

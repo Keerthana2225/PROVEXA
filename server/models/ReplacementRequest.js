@@ -1,86 +1,39 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/database');
+const mongoose = require('mongoose');
 
-const ReplacementRequest = sequelize.define('ReplacementRequest', {
-    id: { 
-        type: DataTypes.UUID, 
-        defaultValue: DataTypes.UUIDV4, 
-        primaryKey: true 
-    },
-    employee_id: { 
-        type: DataTypes.UUID, 
-        allowNull: false 
-    },
-    item_id: { 
-        type: DataTypes.UUID, 
-        allowNull: false 
-    },
-    reason: { 
-        type: DataTypes.TEXT, 
-        allowNull: false 
-    },
-    is_uniform_replacement: { 
-        type: DataTypes.BOOLEAN, 
-        defaultValue: false 
-    },
-    quantity: { 
-        type: DataTypes.INTEGER, 
-        defaultValue: 1 
-    },
-    size: { 
-        type: DataTypes.STRING 
-    },
-    unit_cost: { 
-        type: DataTypes.DECIMAL(10, 2), 
-        defaultValue: 0 
-    },
-    total_cost: { 
-        type: DataTypes.DECIMAL(10, 2), 
-        defaultValue: 0 
-    },
-    deduction_amount: { 
-        type: DataTypes.DECIMAL(10, 2), 
-        defaultValue: 0 
-    },
-    payment_status: { 
-        type: DataTypes.STRING, 
-        defaultValue: 'Pending' 
-    },
+const schemaOptions = {
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+};
+
+const replacementRequestSchema = new mongoose.Schema({
+    employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+    employee_name: { type: String },
+    item: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
+    item_name: { type: String },
+    reason: { type: String, required: true },
+    quantity: { type: Number, default: 1 },
+    size: { type: String, default: 'N/A' },
+    unit_cost: { type: Number, default: 0 },
+    total_cost: { type: Number, default: 0 },
+    deduction_amount: { type: Number, default: 0 },
+    payment_status: { type: String, default: 'Not Applicable' },
+    return_status: { type: String, default: 'Not Required' },
     status: { 
-        type: DataTypes.STRING, 
-        defaultValue: 'Pending' 
+        type: String, 
+        default: 'Pending', 
+        enum: ['Pending', 'Approved', 'Rejected', 'Completed', 'pending', 'approved', 'rejected', 'completed'] 
     },
-    requested_date: { 
-        type: DataTypes.DATE, 
-        defaultValue: DataTypes.NOW 
-    },
-    replacement_date: { 
-        type: DataTypes.DATE 
-    },
-    resolved_date: { 
-        type: DataTypes.DATE 
-    },
-    signature_path: { 
-        type: DataTypes.STRING 
-    },
-    acknowledged: { 
-        type: DataTypes.BOOLEAN, 
-        defaultValue: false 
-    },
-    verification_method: { 
-        type: DataTypes.STRING, 
-        defaultValue: 'Manual' 
-    }
-}, {
-    tableName: 'ReplacementRequests',
-    timestamps: true,
-    indexes: [
-        { fields: ['employee_id'] },
-        { fields: ['item_id'] },
-        { fields: ['status'] },
-        { fields: ['payment_status'] },
-        { fields: ['requested_date'] }
-    ]
-});
+    lifecycle_status: { type: String, enum: ['Active', 'Completed'], default: 'Active' },
+    requested_date: { type: Date, default: Date.now },
+    resolved_date: { type: Date },
+    resolved_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
+    notes: { type: String },
+    verification_method: { type: String },
+    signature_path: { type: String },
+    ocr_details: { type: Object },
+    item_collected: { type: Boolean, default: false },
+    acknowledged: { type: Boolean, default: false }
+}, schemaOptions);
 
-module.exports = ReplacementRequest;
+module.exports = mongoose.model('ReplacementRequest', replacementRequestSchema);

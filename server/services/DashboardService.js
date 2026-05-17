@@ -1,37 +1,38 @@
-const { Employee, IssueRecord, ReplacementRequest } = require('../models');
-const { Op } = require('sequelize');
-const dayjs = require('dayjs');
+const { Employee, IssueRecord, ReplacementRequest, Item } = require('../models');
 
 class DashboardService {
     async getStats() {
-        const totalEmployees = await Employee.count({ where: { status: 'active' } });
-        
-        const startOfMonth = dayjs().startOf('month').toDate();
-        const itemsIssuedThisMonth = await IssueRecord.count({
-            where: {
-                issued_date: { [Op.gte]: startOfMonth }
-            }
-        });
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
 
-        const pendingReplacements = await ReplacementRequest.count({
-            where: { status: 'Pending' }
-        });
+        const thresholdDate = new Date();
+        thresholdDate.setDate(thresholdDate.getDate() + 7); // 7 days window
 
-        const today = dayjs().startOf('day').toDate();
-        const nextMonth = dayjs().add(30, 'day').endOf('day').toDate();
-        const upcomingRenewals = await IssueRecord.count({
-            where: {
-                lifecycle_status: 'Active',
-                next_due_date: { [Op.gt]: today, [Op.lte]: nextMonth }
-            }
-        });
-
-        const itemsRequiringAttention = await IssueRecord.count({
-            where: {
-                lifecycle_status: 'Active',
-                next_due_date: { [Op.lte]: today }
-            }
-        });
+        const [
+            totalEmployees,
+            itemsIssuedThisMonth,
+            pendingReplacements,
+            upcomingRenewals,
+            itemsRequiringAttention
+        ] = await Promise.all([
+            Employee.countDocuments({ status: 'active' }),
+            IssueRecord.countDocuments({ 
+                issued_date: { $gte: startOfMonth },
+                archived: false 
+            }),
+            ReplacementRequest.countDocuments({ status: 'pending' }),
+            IssueRecord.countDocuments({ 
+                next_due_date: { $lte: thresholdDate, $gt: new Date() },
+                archived: false,
+                lifecycle_status: 'Active'
+            }),
+            IssueRecord.countDocuments({ 
+                next_due_date: { $lte: new Date() },
+                archived: false,
+                lifecycle_status: 'Active'
+            })
+        ]);
 
         return {
             totalEmployees,
@@ -43,26 +44,29 @@ class DashboardService {
     }
 
     async getChartData() {
-        const months = [];
-        for (let i = 5; i >= 0; i--) {
-            months.push(dayjs().subtract(i, 'month').format('MMM YYYY'));
-        }
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1);
+        sixMonthsAgo.setHours(0, 0, 0, 0);
 
-        const chartData = [];
-        for (const month of months) {
-            const start = dayjs(month, 'MMM YYYY').startOf('month').toDate();
-            const end = dayjs(month, 'MMM YYYY').endOf('month').toDate();
-            
-            const count = await IssueRecord.count({
-                where: {
-                    issued_date: { [Op.between]: [start, end] }
+        const activity = await IssueRecord.aggregate([
+            { $match: { issued_date: { $gte: sixMonthsAgo }, archived: false } },
+            {
+                $group: {
+                    _id: { $month: '$issued_date' },
+                    issues: { $sum: 1 }
                 }
-            });
-            
-            chartData.push({ name: month.split(' ')[0], issues: count });
-        }
+            },
+            { $sort: { '_id': 1 } }
+        ]);
 
-        return chartData;
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        // Return a plain array of objects for Recharts
+        return activity.map(a => ({ 
+            name: monthNames[a._id - 1], 
+            issues: a.issues 
+        }));
     }
 }
 

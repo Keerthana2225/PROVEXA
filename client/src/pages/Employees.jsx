@@ -52,34 +52,34 @@ export default function Employees() {
             </div>
 
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-                        <thead className="bg-slate-50 dark:bg-slate-800/50 text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
+                <div className="overflow-x-auto max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400 border-collapse">
+                        <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-widest border-b border-slate-200 dark:border-slate-700 z-10">
                             <tr>
-                                <th className="px-6 py-4">Employee</th>
-                                <th className="px-6 py-4">Code</th>
-                                <th className="px-6 py-4">Department</th>
-                                <th className="px-6 py-4">Designation</th>
-                                <th className="px-6 py-4">Salary (₹)</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4 text-right">Actions</th>
+                                <th className="px-5 py-3 bg-slate-50 dark:bg-slate-800">Employee</th>
+                                <th className="px-5 py-3 bg-slate-50 dark:bg-slate-800">Code</th>
+                                <th className="px-5 py-3 bg-slate-50 dark:bg-slate-800">Department</th>
+                                <th className="px-5 py-3 bg-slate-50 dark:bg-slate-800">Designation</th>
+                                <th className="px-5 py-3 bg-slate-50 dark:bg-slate-800">Salary (₹)</th>
+                                <th className="px-5 py-3 bg-slate-50 dark:bg-slate-800">Status</th>
+                                <th className="px-5 py-3 text-right bg-slate-50 dark:bg-slate-800">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                             {isLoading ? (
                                 [...Array(5)].map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700"></div><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28"></div></div></td>
-                                        <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
-                                        <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24"></div></td>
-                                        <td className="px-6 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div></td>
-                                        <td className="px-6 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-full w-14"></div></td>
-                                        <td className="px-6 py-4"></td>
+                                        <td className="px-5 py-2.5"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700"></div><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28"></div></div></td>
+                                        <td className="px-5 py-2.5"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
+                                        <td className="px-5 py-2.5"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24"></div></td>
+                                        <td className="px-5 py-2.5"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-20"></div></td>
+                                        <td className="px-5 py-2.5"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-full w-14"></div></td>
+                                        <td className="px-5 py-2.5"></td>
                                     </tr>
                                 ))
                             ) : data?.employees.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-16 text-center">
+                                    <td colSpan="7" className="px-5 py-16 text-center">
                                         <UserCircle className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                                         <p className="text-slate-500 font-medium">No employees found</p>
                                         <p className="text-slate-400 text-sm mt-1">Try adjusting your search or add a new employee.</p>
@@ -90,28 +90,28 @@ export default function Employees() {
                                     const empId = emp.id || emp._id;
                                     return (
                                         <tr key={empId} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
-                                        <td className="px-6 py-4">
+                                        <td className="px-5 py-2.5">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-sm flex-shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xs flex-shrink-0">
                                                     {emp.name.charAt(0).toUpperCase()}
                                                 </div>
-                                                <span className="font-medium text-slate-900 dark:text-white">{emp.name}</span>
+                                                <span className="font-medium text-slate-900 dark:text-white text-xs">{emp.name}</span>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 font-mono text-xs bg-slate-50 dark:bg-transparent">{emp.emp_code}</td>
-                                        <td className="px-6 py-4">{emp.department}</td>
-                                        <td className="px-6 py-4">{emp.designation}</td>
-                                        <td className="px-6 py-4 font-bold text-slate-900">₹{(emp.salary || 0).toLocaleString()}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${emp.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${emp.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                                        <td className="px-5 py-2.5 font-mono text-[10px] bg-slate-50 dark:bg-transparent">{emp.emp_code}</td>
+                                        <td className="px-5 py-2.5 text-xs">{emp.department}</td>
+                                        <td className="px-5 py-2.5 text-xs">{emp.designation}</td>
+                                        <td className="px-5 py-2.5 font-bold text-slate-900 text-xs">₹{(emp.salary || 0).toLocaleString()}</td>
+                                        <td className="px-5 py-2.5">
+                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${emp.status === 'active' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+                                                <span className={`w-1 h-1 rounded-full mr-1 ${emp.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
                                                 {emp.status}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-5 py-2.5 text-right">
                                             <button
                                                 onClick={() => handleEdit(emp)}
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                             >
                                                 <Pencil className="w-3.5 h-3.5" />
                                                 Edit

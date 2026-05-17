@@ -1,99 +1,48 @@
-const { Employee, IssueRecord, ReplacementRequest, Item, ItemCategory } = require('../models');
-const { Op } = require('sequelize');
-const dayjs = require('dayjs');
+const { IssueRecord, ReplacementRequest } = require('../models');
 
 class ReportService {
+    async getIssueReport(filters = {}) {
+        const { startDate, endDate, employeeId, itemId, status } = filters;
+        const query = { archived: false };
+
+        if (startDate && endDate) {
+            query.issued_date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+        }
+        if (employeeId) query.employee = employeeId;
+        if (itemId) query.item = itemId;
+        if (status) query.issue_status = status;
+
+        return await IssueRecord.find(query)
+            .populate('employee')
+            .populate('item')
+            .populate('issued_by')
+            .sort({ issued_date: -1 });
+    }
+
     async getIssueExportData(filters = {}) {
-        const where = {};
-        if (filters.include_archived !== 'true') {
-            where.lifecycle_status = { [Op.ne]: 'Returned' };
+        return await this.getIssueReport(filters);
+    }
+
+    async getReplacementReport(filters = {}) {
+        const { startDate, endDate, employeeId, itemId, status } = filters;
+        const query = {};
+
+        if (startDate && endDate) {
+            query.requested_date = { $gte: new Date(startDate), $lte: new Date(endDate) };
         }
+        if (employeeId) query.employee = employeeId;
+        if (itemId) query.item = itemId;
+        if (status) query.status = status;
 
-        if (filters.employee_id) where.employee_id = filters.employee_id;
-
-        if (filters.startDate && filters.endDate) {
-            where.issued_date = {
-                [Op.between]: [
-                    dayjs(filters.startDate).startOf('day').toDate(),
-                    dayjs(filters.endDate).endOf('day').toDate()
-                ]
-            };
-        }
-
-        const include = [
-            { 
-                model: Employee, 
-                as: 'employee',
-                where: filters.department ? { department: filters.department } : {}
-            },
-            { 
-                model: Item, 
-                as: 'item', 
-                include: [{ model: ItemCategory, as: 'category' }],
-                where: filters.category_id ? { category_id: filters.category_id } : {}
-            }
-        ];
-
-        // Verification filters
-        if (filters.verification_status) {
-            if (filters.verification_status === 'Pending Verification') {
-                where.acknowledged = false;
-            } else if (filters.verification_status === 'OCR Verified') {
-                where.acknowledged = true;
-                where.verification_method = 'OCR Scan';
-            } else if (filters.verification_status === 'Signature Verified') {
-                where.acknowledged = true;
-                where.verification_method = 'Signature';
-            } else if (filters.verification_status === 'Fully Verified') {
-                where.acknowledged = true;
-                where.verification_method = 'Signature + OCR';
-            }
-        }
-
-        if (filters.verification_method && filters.verification_method !== 'all') {
-            where.verification_method = filters.verification_method;
-        }
-
-        return await IssueRecord.findAll({
-            where,
-            include,
-            order: [['issued_date', 'DESC']]
-        });
+        return await ReplacementRequest.find(query)
+            .populate('employee')
+            .populate('item')
+            .populate('resolved_by')
+            .sort({ requested_date: -1 });
     }
 
     async getReplacementExportData(filters = {}) {
-        const where = {};
-        if (filters.is_uniform_replacement !== undefined) {
-            where.is_uniform_replacement = filters.is_uniform_replacement;
-        }
-        if (filters.employee_id) where.employee_id = filters.employee_id;
-        if (filters.payment_status && filters.payment_status !== 'all') where.payment_status = filters.payment_status;
-        if (filters.status && filters.status !== 'all') where.status = filters.status;
-
-        if (filters.from_date || filters.to_date) {
-            where.requested_date = {};
-            if (filters.from_date) where.requested_date[Op.gte] = new Date(filters.from_date);
-            if (filters.to_date) where.requested_date[Op.lte] = dayjs(filters.to_date).endOf('day').toDate();
-        }
-
-        const include = [
-            { 
-                model: Employee, 
-                as: 'employee',
-                where: filters.department ? { department: filters.department } : {}
-            },
-            { 
-                model: Item, 
-                as: 'item', 
-                include: [{ model: ItemCategory, as: 'category' }] 
-            }
-        ];
-
-        return await ReplacementRequest.findAll({
-            where,
-            include,
-            order: [['requested_date', 'DESC']]
-        });
+        return await this.getReplacementReport(filters);
     }
 }
 

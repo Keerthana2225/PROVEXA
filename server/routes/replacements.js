@@ -14,8 +14,8 @@ router.get('/', async (req, res) => {
         const requests = await replacementService.getAll(req.query);
         res.json(requests);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Replacement Get All Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
@@ -25,21 +25,20 @@ router.get('/summary', async (req, res) => {
         const summary = await replacementService.getSummary();
         res.json(summary);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Replacement Summary Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
 // Create new request
 router.post('/', async (req, res) => {
     try {
-        const { employee_id, item_id, reason, quantity, size, unit_cost, deduction_amount, payment_status } = req.body;
+        const { employee_id, item_id, reason, quantity, size, unit_cost, total_cost, deduction_amount, payment_status } = req.body;
         
         const item = await itemService.getById(item_id);
         if (!item) return res.status(404).json({ message: 'Item not found' });
 
         const qty = parseInt(quantity) || 1;
-        const isCostTrackingItem = !!item.category?.requires_cost_tracking;
 
         const request = await replacementService.create({
             employee_id,
@@ -47,18 +46,16 @@ router.post('/', async (req, res) => {
             reason,
             quantity: qty,
             size: size || 'N/A',
-            is_uniform_replacement: isCostTrackingItem,
-            unit_cost: isCostTrackingItem ? (parseFloat(unit_cost) || 0) : 0,
-            total_cost: isCostTrackingItem ? qty * (parseFloat(unit_cost) || 0) : 0,
-            deduction_amount: isCostTrackingItem ? (parseFloat(deduction_amount) || 0) : 0,
-            payment_status: isCostTrackingItem ? (payment_status || 'Pending') : 'Not Applicable',
-            status: 'Pending'
+            unit_cost: parseFloat(unit_cost) || 0,
+            total_cost: parseFloat(total_cost) || (qty * (parseFloat(unit_cost) || 0)),
+            deduction_amount: parseFloat(deduction_amount) || 0,
+            payment_status: payment_status || 'Pending'
         });
 
         res.status(201).json(request);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Replacement Create Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
@@ -68,8 +65,8 @@ router.put('/:id/approve', async (req, res) => {
         const request = await replacementService.approve(req.params.id, req.body, req.admin.id);
         res.json({ message: 'Request approved successfully', request });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Replacement Approve Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
@@ -97,6 +94,7 @@ router.put('/:id/acknowledge', async (req, res) => {
             signature_path = `/public/signatures/${filename}`;
         }
         
+        console.log(`[Handover] Processing for ID: ${id}`);
         const result = await replacementService.handover(id, {
             signature_path,
             notes,
@@ -104,11 +102,12 @@ router.put('/:id/acknowledge', async (req, res) => {
             verification_method,
             admin_id: req.admin.id
         });
-
+        
+        console.log(`[Handover] Success for ID: ${id}`);
         res.json({ message: 'Handover completed successfully', issue: result });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error completing handover' });
+        console.error('Replacement Handover Error:', error);
+        res.status(500).json({ message: error.message || 'Server error completing handover' });
     }
 });
 
@@ -118,8 +117,8 @@ router.put('/:id/reject', async (req, res) => {
         const request = await replacementService.reject(req.params.id, req.body.notes, req.admin.id);
         res.json({ message: 'Request rejected', request });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        console.error('Replacement Reject Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 

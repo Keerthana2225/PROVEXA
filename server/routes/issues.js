@@ -131,4 +131,15 @@ router.put('/acknowledge/:id', async (req, res) => {
     }
 });
 
+// Archive / Reset Issues
+router.put('/archive-reset', async (req, res) => {
+    try {
+        const result = await issueService.archiveReset(req.body, req.admin.id);
+        res.json(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error archiving issues' });
+    }
+});
+
 module.exports = router;

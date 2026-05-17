@@ -75,7 +75,7 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
               type="text"
               required
               disabled={!!editData}
-              placeholder="e.g. EMP1001"
+              placeholder="e.g. 11222"
               value={form.emp_code}
               onChange={e => setForm(f => ({ ...f, emp_code: e.target.value }))}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"

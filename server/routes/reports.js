@@ -149,7 +149,7 @@ router.get('/replacements/uniform', async (req, res) => {
                 total_cost:   r.total_cost,
                 deduction:    r.deduction_amount,
                 net_salary:   (parseFloat(r.employee?.salary || 0) - parseFloat(r.deduction_amount || 0)).toFixed(2),
-                rep_date:     r.replacement_date ? dayjs(r.replacement_date).format('YYYY-MM-DD') : 'Pending',
+                rep_date:     r.resolved_date ? dayjs(r.resolved_date).format('YYYY-MM-DD') : 'Pending',
             });
         });
 
@@ -215,7 +215,7 @@ router.get('/replacements/history', async (req, res) => {
                 size:        r.size || 'N/A',
                 status:      r.status,
                 req_date:    dayjs(r.requested_date).format('YYYY-MM-DD'),
-                rep_date:    r.replacement_date ? dayjs(r.replacement_date).format('YYYY-MM-DD') : 'Pending',
+                rep_date:    r.resolved_date ? dayjs(r.resolved_date).format('YYYY-MM-DD') : 'Pending',
                 verify:      verifyStatus
             });
 

@@ -68,7 +68,7 @@ async function seed() {
         
         for (let i = 1; i <= 10; i++) {
             employeesData.push({
-                emp_code: `EMP${1000 + i}`,
+                emp_code: `${11000 + i}`,
                 name: `Employee ${i}`,
                 department: depts[i % depts.length],
                 designation: desigs[i % desigs.length],

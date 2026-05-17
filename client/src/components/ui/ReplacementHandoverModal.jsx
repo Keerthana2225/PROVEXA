@@ -49,7 +49,9 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
 
     const mutation = useMutation({
         mutationFn: async (payload) => {
-            const { data } = await api.put(`/replacements/${request?._id || request?.id}/acknowledge`, {
+            const id = request?._id || request?.id;
+            console.log(`[Handover] Submitting for ID: ${id}`, payload);
+            const { data } = await api.put(`/replacements/${id}/acknowledge`, {
                 ...payload,
                 notes,
                 item_collected: itemCollected,
@@ -76,7 +78,7 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
 
     const handleOcrResult = (result) => {
         const empCode = request.employee?.emp_code || '';
-        if (result.status === 'Verified' && result.employee?.emp_code === empCode) {
+        if (result.status === 'Verified' && (result.employee?.emp_code === empCode || `0${result.employee?.emp_code}` === empCode)) {
             setOcrVerified(true);
             setOcrData(result);
             toast.success('ID Card Verified!');
@@ -86,7 +88,8 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
             } else {
                 // OCR Only
                 mutation.mutate({ 
-                    ocr_details: result 
+                    ocr_details: result,
+                    verification_type: 'ocr'
                 });
             }
         } else if (result.status === 'Verified') {
@@ -95,13 +98,17 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
     };
 
     const handleSignatureSubmit = () => {
-        if (isSignatureEmpty || !sigCanvas.current) {
-            return toast.error('Employee signature is required.');
+        // Check the canvas directly for emptiness — don't rely on state
+        const isEmpty = !sigCanvas.current || sigCanvas.current.isEmpty();
+        if (isEmpty) {
+            return toast.error('Please draw the employee signature first.');
         }
         
-        const signatureBase64 = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+        // Use getCanvas().toDataURL() instead of getTrimmedCanvas() to avoid the trim-canvas bug
+        const signatureBase64 = sigCanvas.current.getCanvas().toDataURL('image/png');
         mutation.mutate({ 
-            signature: signatureBase64
+            signature: signatureBase64,
+            verification_type: 'signature'
         });
     };
 
@@ -188,11 +195,6 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
                                     </button>
                                 ))}
                             </div>
-                            {!itemCollected && request.return_status !== 'Not Required' && (
-                                <p className="text-center text-[10px] text-red-500 font-bold animate-pulse">
-                                    Please confirm old asset collection first
-                                </p>
-                            )}
                         </div>
                     </div>
                 )}
@@ -224,7 +226,7 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
                             {method !== 'both' && <button onClick={() => setStep(STATUS.SELECT_METHOD)} className="text-xs text-slate-400 font-bold hover:text-slate-900">Go Back</button>}
                         </div>
 
-                        {method === 'both' && (
+                        {ocrVerified && (
                             <div className="bg-emerald-50 text-emerald-700 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-emerald-100 flex items-center gap-2">
                                 <CheckCircle2 className="w-4 h-4" /> OCR Identity Verified
                             </div>
@@ -250,7 +252,7 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
 
                             <button
                                 onClick={handleSignatureSubmit}
-                                disabled={mutation.isPending || isSignatureEmpty}
+                                disabled={mutation.isPending}
                                 className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-black text-white font-black py-5 rounded-[2rem] shadow-2xl shadow-slate-900/20 transition-all disabled:opacity-70 text-[11px] uppercase tracking-[0.2em]"
                             >
                                 {mutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Confirm & Complete Handover'}

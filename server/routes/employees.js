@@ -45,7 +45,7 @@ router.post('/', async (req, res) => {
         const employee = await employeeService.create(req.body);
         res.status(201).json(employee);
     } catch (error) {
-        if (error.name === 'SequelizeUniqueConstraintError') {
+        if (error.code === 11000) {
             return res.status(400).json({ message: 'Employee code already exists' });
         }
         console.error(error);

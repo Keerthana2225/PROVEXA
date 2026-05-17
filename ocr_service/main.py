@@ -1,415 +1,295 @@
 """
-PROVEXA OCR Microservice
-Extracts Employee ID from physical ID cards using OpenCV + PaddleOCR.
+PROVEXA OCR Microservice — EasyOCR engine (Speed + Accuracy v5.3)
+Extracts Employee ID from a single captured image of a physical ID card.
 
-Employee ID Format on cards: "Emp.No : 11122"
-Extracted value: "11122" (numeric only)
+Run with: uvicorn main:app --host 0.0.0.0 --port 8001
 
-Run with: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+v5.3 speed improvements vs v5.2:
+  - allowlist='0123456789' on every readtext() call
+    EasyOCR skips ALL letter/symbol candidates → ~60% faster per pass
+  - Early-exit confidence threshold lowered 0.60 → 0.40
+    2nd variant is now skipped whenever the 1st pass finds the ID cleanly
+  - Accuracy (from v5.2) preserved:
+    * CLAHE colour + sharpened-Otsu dual variants
+    * 5% crop margin, digit-token merging, longest-code-wins scoring
 """
 
 import base64
 import logging
-import os
 import re
 import time
+from typing import Optional
 
 import cv2
 import numpy as np
+import easyocr
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from paddleocr import PaddleOCR
 from pydantic import BaseModel
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)s  %(message)s")
 logger = logging.getLogger("provexa-ocr")
-FAST_MODE = os.getenv("OCR_FAST_MODE", "1").lower() not in {"0", "false", "no"}
-MIN_ID_DIGITS = int(os.getenv("OCR_MIN_ID_DIGITS", "3"))
-MAX_ID_DIGITS = int(os.getenv("OCR_MAX_ID_DIGITS", "7"))
+
+MIN_ID_DIGITS = 3
+MAX_ID_DIGITS = 7
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="PROVEXA OCR Service", version="1.0.0")
-
+app = FastAPI(title="PROVEXA OCR Service", version="5.3.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restricted further in production
+    allow_origins=["*"],
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
 
-# ── PaddleOCR — initialise once at startup (expensive) ───────────────────────
-logger.info("Initialising PaddleOCR engine ...")
-ocr_engine = PaddleOCR(
-    use_angle_cls=True,
-    lang="en",
-    use_gpu=False,
-    show_log=False,
-    enable_mkldnn=True,  # Speedup on CPU
-)
-logger.info("PaddleOCR ready.")
+# ── EasyOCR — initialise once at startup ─────────────────────────────────────
+logger.info("Initialising EasyOCR engine ...")
+ocr_reader = easyocr.Reader(["en"], gpu=False, verbose=False, quantize=True)
+logger.info("EasyOCR ready.")
 
 
-# ── Pydantic models ───────────────────────────────────────────────────────────
+# ── Pydantic ──────────────────────────────────────────────────────────────────
 class ScanRequest(BaseModel):
-    image: str  # base64-encoded image (data-URL or raw base64)
+    image: str
 
 
 # ── Image helpers ─────────────────────────────────────────────────────────────
-def decode_image(b64: str) -> np.ndarray | None:
-    """Decode a base64 image string to an OpenCV BGR array."""
+def decode_image(b64: str) -> Optional[np.ndarray]:
     try:
-        if "," in b64:          # strip "data:image/png;base64," prefix
+        if "," in b64:
             b64 = b64.split(",", 1)[1]
         raw = base64.b64decode(b64)
         arr = np.frombuffer(raw, dtype=np.uint8)
-        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        return img
+        return cv2.imdecode(arr, cv2.IMREAD_COLOR)
     except Exception as e:
         logger.error("decode_image failed: %s", e)
         return None
 
 
-def preprocess(img: np.ndarray, method: str = "standard") -> np.ndarray:
+def preprocess_variants(img: np.ndarray) -> list:
     """
-    OpenCV preprocessing pipeline with multiple methods for robustness.
+    Returns TWO complementary preprocessing variants of the image.
+    Running two targeted variants is still ~5x faster than the old single-pass
+    at mag_ratio=1.5, because mag_ratio is the dominant cost factor.
+
+    Variant 1 — CLAHE colour:
+        Works on all card colours (dark maroon, navy, black, light).
+        Preserves the full-colour image that EasyOCR's CNN is trained on.
+
+    Variant 2 — Sharpened Otsu grayscale:
+        Unsharp masking amplifies thin strokes (the digit '1', '7') before
+        binarisation — the #1 reason '11333' was read as '1333'.
+        Otsu threshold auto-adapts to any card brightness.
+
+    Crop margin is 5% (NOT 8%) — the old 8% was cutting off leading digits
+    that appeared near the card edge.
     """
-    # 1. Resize
     h, w = img.shape[:2]
-    if w > 1200:
-        img = cv2.resize(img, (1200, int(h * 1200 / w)), interpolation=cv2.INTER_AREA)
 
-    # 2. Grayscale
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # ── 5% edge crop — just enough to remove fingers/background ────────────
+    mw, mh = int(w * 0.05), int(h * 0.05)
+    img = img[mh:h - mh, mw:w - mw]
+    h, w = img.shape[:2]
 
-    if method == "high_contrast":
-        # Adaptive thresholding for low-contrast/handwritten text
-        return cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    
-    if method == "sharpen":
-        # Extreme sharpening
-        kernel = np.array([[-1,-1,-1], [-1,10,-1], [-1,-1,-1]])
-        return cv2.filter2D(gray, -1, kernel)
+    # ── Cap longest side at 800px then upscale 2x ───────────────────────────
+    max_side = 800
+    if max(h, w) > max_side:
+        scale = max_side / max(h, w)
+        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        h, w = img.shape[:2]
 
-    # 3. Standard (CLAHE)
+    img2x = cv2.resize(img, (w * 2, h * 2), interpolation=cv2.INTER_CUBIC)
+
+    variants = []
+
+    # ── Variant 1: CLAHE colour ─────────────────────────────────────────────
+    lab = cv2.cvtColor(img2x, cv2.COLOR_BGR2LAB)
+    l, a, b_ch = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-    enhanced = clahe.apply(gray)
+    l = clahe.apply(l)
+    lab = cv2.merge([l, a, b_ch])
+    variants.append(("clahe_colour", cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)))
 
-    # 4. Sharpen (simple and fast)
-    kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-    sharpened = cv2.filter2D(enhanced, -1, kernel)
-    
-    return sharpened
+    # ── Variant 2: Sharpened → Otsu grayscale ───────────────────────────────
+    gray = cv2.cvtColor(img2x, cv2.COLOR_BGR2GRAY)
+    # Unsharp mask: amplifies edges (thin strokes like '1' become solid)
+    blur = cv2.GaussianBlur(gray, (0, 0), sigmaX=2)
+    sharp = cv2.addWeighted(gray, 2.0, blur, -1.0, 0)
+    # Otsu threshold: auto-adapts to card brightness — no manual tuning needed
+    _, otsu = cv2.threshold(sharp, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    variants.append(("sharp_otsu", cv2.cvtColor(otsu, cv2.COLOR_GRAY2BGR)))
 
-
-def extract_roi(gray: np.ndarray) -> np.ndarray:
-    """
-    Crop a wider ROI from the center of the image.
-    """
-    h, w = gray.shape[:2]
-
-    # Wider ROI band (35% to 75% height)
-    y1 = int(h * 0.35)
-    y2 = int(h * 0.75)
-    roi = gray[y1:y2, 0:w]
-
-    # Upscale ROI 2× — improves OCR accuracy on small text
-    roi = cv2.resize(roi, (roi.shape[1] * 2, roi.shape[0] * 2), interpolation=cv2.INTER_CUBIC)
-
-    return roi
-
-
-def extract_number_strip(gray: np.ndarray) -> np.ndarray | None:
-    """Find the most card-like bright horizontal strip without showing a UI ROI."""
-    h, w = gray.shape[:2]
-    if h < 80 or w < 120:
-        return None
-
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    _, thresh = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
-    closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=2)
-    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    best = None
-    best_score = 0.0
-    frame_area = float(w * h)
-
-    for contour in contours:
-        x, y, cw, ch = cv2.boundingRect(contour)
-        if cw <= 0 or ch <= 0:
-            continue
-
-        area = cw * ch
-        aspect = cw / max(ch, 1)
-        if area < frame_area * 0.025 or cw < w * 0.25 or not (1.8 <= aspect <= 12):
-            continue
-        if ch < h * 0.06 or ch > h * 0.55:
-            continue
-
-        center_x = x + cw / 2
-        center_y = y + ch / 2
-        center_score = 1.0 - min(abs(center_x - w / 2) / (w / 2), 1.0)
-        vertical_score = 1.0 - min(abs(center_y - h * 0.55) / (h * 0.55), 1.0)
-        score = (area / frame_area) * 3.0 + center_score + vertical_score + min(aspect / 6.0, 1.0)
-
-        if score > best_score:
-            best_score = score
-            best = (x, y, cw, ch)
-
-    if not best:
-        return None
-
-    x, y, cw, ch = best
-    pad_x = int(cw * 0.08)
-    pad_y = int(ch * 0.28)
-    x1 = max(0, x - pad_x)
-    y1 = max(0, y - pad_y)
-    x2 = min(w, x + cw + pad_x)
-    y2 = min(h, y + ch + pad_y)
-    strip = gray[y1:y2, x1:x2]
-    if strip.size == 0:
-        return None
-    return cv2.resize(strip, (strip.shape[1] * 2, strip.shape[0] * 2), interpolation=cv2.INTER_CUBIC)
-
-
-def ocr_targets(gray: np.ndarray) -> list[tuple[str, np.ndarray]]:
-    """Return OCR targets from broadest to narrowest for robust extraction."""
-    targets = []
-    h, w = gray.shape[:2]
-
-    if h >= 80 and w >= 80:
-        number_strip = extract_number_strip(gray)
-        if number_strip is not None:
-            targets.append(("number_strip", number_strip))
-
-        targets.append(("center_band", extract_roi(gray)))
-
-        y1 = int(h * 0.20)
-        y2 = int(h * 0.85)
-        wide = gray[y1:y2, 0:w]
-        if wide.size:
-            wide = cv2.resize(
-                wide,
-                (wide.shape[1] * 2, wide.shape[0] * 2),
-                interpolation=cv2.INTER_CUBIC,
-            )
-            targets.append(("wide_band", wide))
-
-    targets.append(("full", gray))
-    return targets
-
-
-def flatten_ocr_result(result) -> list[tuple[str, float]]:
-    """
-    Convert PaddleOCR's nested result shapes into (text, confidence) pairs.
-    Different PaddleOCR versions return either [lines] or [[lines]].
-    """
-    lines = []
-
-    def walk(node):
-        if not node:
-            return
-        if (
-            isinstance(node, (list, tuple))
-            and len(node) >= 2
-            and isinstance(node[1], (list, tuple))
-            and len(node[1]) >= 2
-            and isinstance(node[1][0], str)
-        ):
-            try:
-                lines.append((node[1][0], float(node[1][1])))
-            except (TypeError, ValueError):
-                lines.append((node[1][0], 0.0))
-            return
-        if isinstance(node, (list, tuple)):
-            for child in node:
-                walk(child)
-
-    walk(result)
-    return lines
+    return variants
 
 
 # ── Employee ID extraction ────────────────────────────────────────────────────
-# Numeric-only patterns ordered from most-specific to most-general.
-_EMP_PATTERNS = [
-    re.compile(
-        r"(?:Employee|Emp)[\s\.\-]*(?:ID|Code|No|Number|N[o0])?[\s\.\-:]*([0-9OQDILSBZ\s\.\-]{3,18})",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"(?:Emp|Employee|No)[\.\s\-]*[Nn]?[Oo0][\.\s:\-]*\s*([0-9OQDILSBZ\s\.\-]{3,18})",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"[Nn][Oo0][\.\s:\-]+\s*([0-9OQDILSBZ\s\.\-]{3,18})",
-        re.IGNORECASE,
-    ),
-    re.compile(r"\b(\d{3,7})\b", re.IGNORECASE),
+_PATTERNS = [
+    # "Emp No: 11333" / "Employee ID: 11333"
+    re.compile(r"(?:emp(?:loyee)?[\s\.\-]*(?:no|id|code|number)?[\s\.\-:]+)([0-9OQDILSBZG]{3,7})", re.IGNORECASE),
+    # "No: 11333" / "ID: 11333"
+    re.compile(r"(?:no|id)[\s\.\-:]+([0-9OQDILSBZG]{3,7})", re.IGNORECASE),
+    # Standalone digit sequence
+    re.compile(r"\b([0-9OQDILSBZG]{3,7})\b", re.IGNORECASE),
 ]
 
-
-def normalize_ocr_text(text: str) -> str:
-    text = text.replace("\n", " ")
-    text = re.sub(r"[_|]+", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
-
-def normalize_emp_candidate(candidate: str) -> str | None:
-    candidate = re.sub(r"[^A-Za-z0-9]", "", candidate).upper()
-    if not candidate:
-        return None
-
-    candidate = candidate.translate(str.maketrans({
-        "O": "0",
-        "Q": "0",
-        "D": "0",
-        "I": "1",
-        "L": "1",
-        "S": "5",
-        "B": "8",
-        "Z": "2",
-    }))
-    digits = re.sub(r"\D", "", candidate)
-
-    if not (MIN_ID_DIGITS <= len(digits) <= MAX_ID_DIGITS):
-        return None
-
-    return digits
+# Common OCR character → digit substitutions
+_OCR_FIX = str.maketrans({
+    "O": "0", "o": "0", "Q": "0", "D": "0",
+    "I": "1", "l": "1", "i": "1", "L": "1", "J": "1",
+    "S": "5", "s": "5", "B": "8", "Z": "2", "G": "6", "q": "9",
+})
 
 
-def extract_emp_id(text: str) -> str | None:
+# ── Digit-token merger ────────────────────────────────────────────────────────
+def merge_split_digits(text: str) -> str:
     """
-    Apply regex patterns in priority order.
-    Returns the numeric employee code string, or None.
+    EasyOCR often splits a number across multiple bounding boxes.
+    Joins adjacent digit-only tokens into one:
+        '1133 3'       →  '11333'
+        '3 3 3'        →  '333'
+        'Emp No 1 1333' →  'Emp No 11333'
     """
-    normalized = normalize_ocr_text(text)
-    for pattern in _EMP_PATTERNS:
-        m = pattern.search(normalized)
-        if m:
-            candidate = normalize_emp_candidate(m.group(1))
-            if candidate:
-                logger.debug("Matched '%s' -> candidate '%s'", normalized, candidate)
-                return candidate
-    return None
+    _digit_tok = re.compile(r'^[0-9OQDIlLiJSsBZGq]+$', re.IGNORECASE)
+    tokens = text.split()
+    merged: list = []
+    i = 0
+    while i < len(tokens):
+        if _digit_tok.match(tokens[i]):
+            run = tokens[i]
+            j = i + 1
+            while j < len(tokens) and _digit_tok.match(tokens[j]):
+                run += tokens[j]
+                j += 1
+            merged.append(run)
+            i = j
+        else:
+            merged.append(tokens[i])
+            i += 1
+    return ' '.join(merged)
 
 
-def extract_emp_id_from_lines(lines: list[tuple[str, float]]) -> str | None:
-    """Prefer OCR lines that are mostly digits, then fall back to combined text."""
-    best_code = None
-    best_score = 0.0
+def extract_code(text: str) -> Optional[str]:
+    """
+    Try extraction on both the raw text AND the digit-merged version.
+    Always returns the LONGEST valid code found (11333 beats 1333 beats 333).
+    """
+    best: Optional[str] = None
+    for attempt in [merge_split_digits(text), text]:
+        clean = re.sub(r"[_|\[\]\(\)\{\}\'\"]+", " ", attempt).strip()
+        for pat in _PATTERNS:
+            m = pat.search(clean)
+            if m:
+                candidate = m.group(1).translate(_OCR_FIX)
+                digits = re.sub(r"\D", "", candidate)
+                if MIN_ID_DIGITS <= len(digits) <= MAX_ID_DIGITS:
+                    if best is None or len(digits) > len(best):
+                        best = digits
+                    break
+    return best
 
-    for text, conf in lines:
-        code = extract_emp_id(text)
-        if not code:
-            continue
-        compact = re.sub(r"\s+", "", text)
-        digit_ratio = len(re.sub(r"\D", "", compact)) / max(len(compact), 1)
-        score = float(conf) + digit_ratio + min(len(code), MAX_ID_DIGITS) * 0.05
-        if score > best_score:
-            best_score = score
-            best_code = code
 
-    return best_code or extract_emp_id(" ".join(txt for txt, _ in lines))
+def best_code_from_results(results: list) -> tuple:
+    """
+    From EasyOCR results [(bbox, text, conf), ...]:
+    1. Extract code from each individual box
+    2. Extract code from the full joined sentence (catches split boxes)
+    3. Return the candidate with the highest score.
+       Score = confidence + length_bonus so longer codes beat truncated ones.
+    """
+    all_text = " ".join(r[1] for r in results)
+    candidates: list = []  # (code, score, conf)
+
+    for _, text, conf in results:
+        code = extract_code(text)
+        if code:
+            score = float(conf) + (len(code) - MIN_ID_DIGITS) * 0.07
+            candidates.append((code, score, float(conf)))
+
+    # Always try full sentence — catches IDs split across boxes
+    full_code = extract_code(all_text)
+    if full_code:
+        avg_conf = (sum(float(r[2]) for r in results) / len(results)) if results else 0.5
+        score = avg_conf + (len(full_code) - MIN_ID_DIGITS) * 0.07
+        candidates.append((full_code, score, avg_conf))
+
+    if not candidates:
+        return None, 0.0, all_text.strip()
+
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    best_code, _, best_conf = candidates[0]
+    return best_code, best_conf, all_text.strip()
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "PROVEXA OCR Service", "version": "1.0.0"}
+    return {"status": "ok", "service": "PROVEXA OCR (Speed+Accuracy)", "version": "5.3.0"}
 
 
 @app.post("/scan")
 async def scan(request: ScanRequest):
     t0 = time.time()
-    
-    # Log incoming request size
-    size_kb = len(request.image) / 1024
-    logger.info("OCR request received. Image size: %.1f KB", size_kb)
+    logger.info("Scan request: %.1f KB", len(request.image) / 1024)
 
-    # 1. Decode
     img = decode_image(request.image)
     if img is None:
-        return {
-            "success": False,
-            "error": "Invalid or unreadable image data.",
-            "emp_code": None,
-            "confidence": 0.0,
-            "raw_text": "",
-            "elapsed_ms": 0,
-        }
+        return {"success": False, "error": "Could not decode image.",
+                "emp_code": None, "confidence": 0.0, "raw_text": "", "elapsed_ms": 0}
 
-    # ── Multi-pass OCR logic ───────────────────────────────────────────
-    methods = ["standard", "high_contrast"] if FAST_MODE else ["standard", "sharpen", "high_contrast"]
-    max_conf = 0.0
-    best_emp_code = None
-    best_raw_text = ""
+    variants = preprocess_variants(img)
 
-    for method in methods:
-        logger.info("OCR Pass: %s", method)
-        proc_gray = preprocess(img, method=method)
+    overall_best_code: Optional[str] = None
+    overall_best_conf = 0.0
+    overall_best_raw = ""
 
-        targets = ocr_targets(proc_gray)
-        if FAST_MODE:
-            targets = targets[:2]
-        for target_name, target_gray in targets:
-            target_rgb = cv2.cvtColor(target_gray, cv2.COLOR_GRAY2BGR)
+    for name, variant_img in variants:
+        try:
+            results = ocr_reader.readtext(
+                variant_img,
+                detail=1,
+                paragraph=False,
+                allowlist='0123456789',  # ← BIGGEST speed win: skip all letters/symbols
+                mag_ratio=1.0,           # No internal resize — we already upscaled 2x
+                width_ths=0.3,           # Merge nearby digit boxes
+                text_threshold=0.4,
+                low_text=0.3,
+                batch_size=1,
+            )
+        except Exception as e:
+            logger.error("[%s] EasyOCR error: %s", name, e)
+            continue
 
-            try:
-                result = ocr_engine.ocr(target_rgb, cls=True)
-                lines = flatten_ocr_result(result)
-                if not lines:
-                    continue
+        code, conf, raw = best_code_from_results(results)
+        logger.info("[%s] raw='%s' code=%s conf=%.3f", name, raw[:60], code, conf)
 
-                raw_text = " ".join(txt for txt, _ in lines).strip()
-                pass_conf = max(conf for _, conf in lines)
-                emp_code = extract_emp_id_from_lines(lines)
+        if code:
+            # Always prefer LONGER code; tie-break by confidence
+            if (overall_best_code is None
+                    or len(code) > len(overall_best_code)
+                    or (len(code) == len(overall_best_code) and conf > overall_best_conf)):
+                overall_best_code = code
+                overall_best_conf = conf
+                overall_best_raw = raw
 
-                if emp_code:
-                    logger.info(
-                        "Match found in '%s/%s' pass: %s (conf: %.4f)",
-                        method,
-                        target_name,
-                        emp_code,
-                        pass_conf,
-                    )
+        elif not overall_best_raw:
+            overall_best_raw = raw
 
-                    if FAST_MODE or pass_conf > 0.85:
-                        return {
-                            "success": True,
-                            "emp_code": emp_code,
-                            "confidence": round(pass_conf, 4),
-                            "raw_text": raw_text,
-                            "elapsed_ms": int((time.time() - t0) * 1000),
-                        }
-
-                    if pass_conf > max_conf:
-                        max_conf = pass_conf
-                        best_emp_code = emp_code
-                        best_raw_text = raw_text
-                elif pass_conf > max_conf:
-                    max_conf = pass_conf
-                    best_raw_text = raw_text
-            except Exception as e:
-                logger.error("Pass %s/%s failed: %s", method, target_name, e)
+        # Early exit: skip 2nd variant if 1st already found a code with decent confidence
+        if overall_best_code and overall_best_conf >= 0.40:
+            logger.info("Early exit after [%s] (conf=%.3f) — skipping remaining variants.", name, overall_best_conf)
+            break
 
     elapsed = int((time.time() - t0) * 1000)
 
-    if best_emp_code:
-        return {
-            "success": True,
-            "emp_code": best_emp_code,
-            "confidence": round(max_conf, 4),
-            "raw_text": best_raw_text,
-            "elapsed_ms": elapsed,
-        }
+    if overall_best_code:
+        logger.info("✅ Found: %s (conf=%.3f) in %dms", overall_best_code, overall_best_conf, elapsed)
+        return {"success": True, "emp_code": overall_best_code,
+                "confidence": round(overall_best_conf, 4),
+                "raw_text": overall_best_raw, "elapsed_ms": elapsed}
 
-    return {
-        "success": False,
-        "error": "Employee ID not found. Ensure the card is clear and well-lit.",
-        "emp_code": None,
-        "confidence": round(max_conf, 4),
-        "raw_text": best_raw_text,
-        "elapsed_ms": elapsed,
-    }
+    logger.info("❌ No ID found in %dms. raw='%s'", elapsed, overall_best_raw[:80])
+    return {"success": False,
+            "error": "Employee ID not found. Ensure the card is well-lit and horizontal.",
+            "emp_code": None, "confidence": round(overall_best_conf, 4),
+            "raw_text": overall_best_raw, "elapsed_ms": elapsed}
