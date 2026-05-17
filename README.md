@@ -47,6 +47,26 @@ In large organizations (manufacturing, logistics, corporate IT), tracking physic
 
 PROVEXA is built as a highly scalable microservices architecture. By separating the frontend, the core backend, and the AI OCR processing, we achieve maximum performance and maintainability.
 
+### 🛠️ Core Technology Matrix & Tools Used
+
+| Layer | Technology / Library | Purpose & Business Application |
+| :--- | :--- | :--- |
+| **Frontend Core** | React.js 18 (Vite SPA) | High-performance Single Page Application with continuous state management and instant views. |
+| **Styling & Theme**| Tailwind CSS | Premium responsive layout design system with dynamic dark-mode variables. |
+| **Icons** | Lucide React | High-aesthetic vector icon badges for responsive layouts (e.g. `ShieldCheck`, `PenTool`). |
+| **Frontend State** | TanStack React Query | Enterprise client caching, background pre-fetching, and instant query synchronization. |
+| **Date Utilities** | Day.js | Lightweight and ultra-accurate formatting for compliance audits and next due dates. |
+| **Digital Signature**| HTML5 Canvas API | High-fidelity drawn signature capture, pixel mapping, and dynamic image export. |
+| **Camera Feed** | HTML5 MediaDevices API | Native video streams supporting interactive SLR tap-to-focus camera controls. |
+| **Backend Core** | Node.js & Express.js | Ultra-fast async event-driven HTTP API gateway and microservice traffic router. |
+| **Database ODM** | Mongoose & MongoDB | Schema validation, schema safety constraints, and deep relational populations. |
+| **Excel Generator**| ExcelJS Engine | Programmatic spreadsheet building, custom styling, autofit widths, and binary image overlay. |
+| **OCR Gateway** | FastAPI (Python) | High-performance async microservice pipeline hosting heavy AI modules. |
+| **Computer Vision**| OpenCV | Advanced image preprocessing (CLAHE contrast normalization, Otsu binarization). |
+| **Deep Learning** | EasyOCR & PyTorch | Neural network character detection and extraction models. |
+| **Regex Parser** | Python `re` Module | Intelligent pattern matching to safely isolate employee badge numbers from raw OCR. |
+| **Version Control**| Git | Strict codebase state tracking and version control history. |
+
 ### Frontend (React SPA)
 * **What we used**: React.js 18 (built with Vite), Tailwind CSS, TanStack React Query, and native Web APIs.
 * **Why we used it**: React allows us to build a Single Page Application (SPA) where the user never experiences full page reloads, providing a smooth, desktop-like software experience. Tailwind CSS allows for rapid, highly-customized UI design without writing messy external CSS files.

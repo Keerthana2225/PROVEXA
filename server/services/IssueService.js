@@ -29,7 +29,10 @@ class IssueService {
 
         let dbQuery = IssueRecord.find(query)
             .populate('employee')
-            .populate('item')
+            .populate({
+                path: 'item',
+                populate: { path: 'category' }
+            })
             .sort({ issued_date: -1 });
 
         let records = [];
@@ -105,7 +108,10 @@ class IssueService {
 
         const records = await IssueRecord.find(query)
             .populate('employee')
-            .populate('item')
+            .populate({
+                path: 'item',
+                populate: { path: 'category' }
+            })
             .sort({ next_due_date: 1 });
 
         // For each record, fetch its verification history (timeline)

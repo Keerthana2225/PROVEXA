@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { FileText, Plus, PlusCircle, Search, Archive, History, RotateCcw, CheckCircle2, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { FileText, Plus, PlusCircle, Search, Archive, History, RotateCcw, CheckCircle2, Clock, AlertTriangle, ShieldCheck, Fingerprint, ScanLine, PenTool } from 'lucide-react';
 import api from '../lib/api';
 import IssueForm from '../components/ui/IssueForm';
 import Modal from '../components/ui/Modal';
@@ -16,6 +16,7 @@ export default function Issues() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [viewSignatureUrl, setViewSignatureUrl] = useState(null);
+    const [selectedProof, setSelectedProof] = useState(null);
     const [signingEmployee, setSigningEmployee] = useState(null);
     const [selectedIssueId, setSelectedIssueId] = useState(null);
     const [pendingCount, setPendingCount] = useState(0);
@@ -355,19 +356,21 @@ export default function Issues() {
                                             <td className="px-6 py-2.5 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     {isAcknowledged ? (
-                                                        <div className="flex flex-col items-end gap-1">
-                                                             {issue.signature_path && (
-                                                                <button
-                                                                    onClick={() => setViewSignatureUrl(`http://localhost:5000${issue.signature_path}`)}
-                                                                    className="flex items-center gap-1 px-2.5 py-1 text-[9px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition-colors"
-                                                                >
-                                                                    View Proof
-                                                                </button>
+                                                        <button 
+                                                            onClick={() => setSelectedProof(issue)} 
+                                                            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all shadow-sm active:scale-95 border ${
+                                                                issue.verification_method?.toLowerCase().includes('ocr') 
+                                                                    ? 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border-blue-100' 
+                                                                    : 'bg-slate-50 text-slate-600 hover:bg-slate-900 hover:text-white border-slate-200/60'
+                                                            }`}
+                                                            title={`View Proof (Verified via ${issue.verification_method || 'Signature'})`}
+                                                        >
+                                                            {issue.verification_method?.toLowerCase().includes('ocr') ? (
+                                                                <ShieldCheck className="w-4 h-4 text-blue-600 group-hover:text-white" />
+                                                            ) : (
+                                                                <PenTool className="w-4 h-4 text-slate-600 group-hover:text-white" />
                                                             )}
-                                                            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 leading-none mt-1">
-                                                                Verified via {issue.verification_method || 'System'}
-                                                            </div>
-                                                        </div>
+                                                        </button>
                                                     ) : !isHistory ? (
                                                         <button
                                                             onClick={() => handleSignClick(issue.employee, issueId)}
@@ -402,13 +405,134 @@ export default function Issues() {
 
 
             {/* Signature viewer */}
-            <Modal isOpen={!!viewSignatureUrl} onClose={() => setViewSignatureUrl(null)} title="Signature Proof">
-                <div className="flex flex-col items-center p-6 bg-slate-50 border border-slate-200 rounded-xl">
-                    {viewSignatureUrl && (
-                        <img src={viewSignatureUrl} alt="Employee Signature" className="max-w-full h-auto bg-white border border-slate-300 rounded-lg shadow-sm" />
-                    )}
-                    <p className="text-xs text-slate-400 mt-3">Digital signature captured at time of acknowledgement</p>
-                </div>
+            {/* Handover Verification Proof Modal */}
+            <Modal
+                isOpen={!!selectedProof}
+                onClose={() => setSelectedProof(null)}
+                title="Handover Verification Proof"
+                maxWidth="max-w-xl"
+            >
+                {selectedProof && (
+                    <div className="p-6 space-y-6">
+                        {/* Header Badge */}
+                        <div className="flex flex-col items-center justify-center text-center space-y-3 pb-2 border-b border-slate-100">
+                            <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 shadow-md">
+                                <ShieldCheck className="w-9 h-9" />
+                            </div>
+                            <div className="space-y-1">
+                                <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-750 border border-emerald-100 uppercase tracking-widest">
+                                    Secure Handover Verified
+                                </span>
+                                <h4 className="text-lg font-black text-slate-900 tracking-tight mt-1">
+                                    {selectedProof.employee_name || selectedProof.employee?.name || 'Employee Handover'}
+                                </h4>
+                                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                                    {selectedProof.employee?.emp_code || '---'} · {selectedProof.employee?.department || 'GENERAL'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Details grid */}
+                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
+                            <div>
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Item Issued</span>
+                                <span className="text-xs font-bold text-slate-800">{selectedProof.item_name || selectedProof.item?.name}</span>
+                            </div>
+                            <div>
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Specifications</span>
+                                <span className="text-xs font-bold text-slate-800">Qty: {selectedProof.quantity || 1} / Cond: {selectedProof.item_condition || 'Good'}</span>
+                            </div>
+                            <div>
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Handover Method</span>
+                                <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                    {selectedProof.verification_method?.toLowerCase().includes('ocr') ? (
+                                        <ScanLine className="w-3.5 h-3.5 text-blue-650" />
+                                    ) : (
+                                        <Fingerprint className="w-3.5 h-3.5 text-purple-650" />
+                                    )}
+                                    {selectedProof.verification_method || 'Signature'}
+                                </span>
+                            </div>
+                            <div>
+                                <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">Verified At</span>
+                                <span className="text-xs font-bold text-slate-800">
+                                    {selectedProof.acknowledgement_time ? dayjs(selectedProof.acknowledgement_time).format('DD MMM YYYY, hh:mm A') : '---'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Visual Proof Section */}
+                        <div className="space-y-3">
+                            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Verification Evidence</label>
+                            
+                            {/* Case A: Digital Signature */}
+                            {selectedProof.signature_path && (
+                                <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-4 flex flex-col items-center">
+                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Employee Digital Signature</span>
+                                    <div className="bg-slate-50 rounded-xl p-2 border border-slate-100 w-full flex justify-center">
+                                        <img 
+                                            src={`http://localhost:5000${selectedProof.signature_path}`} 
+                                            alt="Employee Signature" 
+                                            className="max-h-36 object-contain"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Case B: OCR Details */}
+                            {selectedProof.ocr_details && (
+                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[9px] font-black text-blue-700 uppercase tracking-widest flex items-center gap-1">
+                                            <ScanLine className="w-3.5 h-3.5" /> OCR Scan Match Log
+                                        </span>
+                                        {selectedProof.ocr_details.confidence !== undefined && (
+                                            <span className="text-[10px] font-black bg-blue-100 text-blue-700 px-2 py-0.5 rounded-lg">
+                                                Confidence: {Math.round(selectedProof.ocr_details.confidence * 100)}%
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="space-y-1.5 text-xs">
+                                        <div className="flex justify-between border-b border-blue-100/50 pb-1.5">
+                                            <span className="text-slate-500">Scanned Code</span>
+                                            <span className="font-mono font-bold text-slate-800">{selectedProof.ocr_details.employee?.emp_code || selectedProof.employee?.emp_code}</span>
+                                        </div>
+                                        <div className="flex justify-between border-b border-blue-100/50 pb-1.5">
+                                            <span className="text-slate-500">Scanned Holder</span>
+                                            <span className="font-bold text-slate-800">{selectedProof.ocr_details.employee?.name || selectedProof.employee?.name}</span>
+                                        </div>
+                                        {selectedProof.ocr_details.device_info && (
+                                            <div className="flex flex-col gap-1 pt-1">
+                                                <span className="text-slate-500 text-[10px]">Scanner Device</span>
+                                                <span className="font-mono text-[9px] text-slate-400 bg-slate-100/50 p-2 rounded-lg break-all leading-tight border border-slate-200/30">
+                                                    {selectedProof.ocr_details.device_info}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Internal Remarks */}
+                            {selectedProof.notes && (
+                                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Handover Notes / Remarks</span>
+                                    <p className="text-xs text-slate-600 font-medium italic">"{selectedProof.notes}"</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer button */}
+                        <div className="pt-2">
+                            <button
+                                onClick={() => setSelectedProof(null)}
+                                className="w-full bg-slate-900 hover:bg-black text-white font-black py-4 rounded-2xl shadow-xl shadow-slate-900/10 transition-all text-[10px] uppercase tracking-[0.2em] active:scale-95"
+                            >
+                                Close Proof
+                            </button>
+                        </div>
+                    </div>
+                )}
             </Modal>
 
 

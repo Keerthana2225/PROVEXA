@@ -67,7 +67,10 @@ router.get('/export', async (req, res) => {
                 verify_method: issue.verification_method || 'None',
                 ack_time:      issue.acknowledgement_time ? dayjs(issue.acknowledgement_time).format('YYYY-MM-DD HH:mm') : 'Pending',
                 return_status: issue.lifecycle_status === 'Returned' ? 'Returned' : 'Active',
-                renewal_status: issue.lifecycle_status
+                renewal_status: issue.lifecycle_status,
+                signature: hasSig 
+                    ? '' 
+                    : (hasOcr ? 'Verified via OCR Scan' : 'Pending Verification')
             });
 
             // Set row height to accommodate signature
@@ -216,7 +219,10 @@ router.get('/replacements/history', async (req, res) => {
                 status:      r.status,
                 req_date:    dayjs(r.requested_date).format('YYYY-MM-DD'),
                 rep_date:    r.resolved_date ? dayjs(r.resolved_date).format('YYYY-MM-DD') : 'Pending',
-                verify:      verifyStatus
+                verify:      verifyStatus,
+                signature: hasSig 
+                    ? '' 
+                    : (hasOcr ? 'Verified via OCR Scan' : 'Pending Verification')
             });
 
             row.height = 60;
