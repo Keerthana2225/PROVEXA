@@ -6,468 +6,242 @@
 [![EasyOCR](https://img.shields.io/badge/EasyOCR-FFA116?style=for-the-badge&logo=python&logoColor=white)](https://github.com/JaidedAI/EasyOCR)
 [![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](https://opencv.org/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![SQL_Server](https://img.shields.io/badge/SQL_Server-CC292B?style=for-the-badge&logo=microsoft-sql-server&logoColor=white)](https://www.microsoft.com/sql-server)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-PROVEXA is a modern, enterprise-grade, SaaS-ready Employee Asset Issue, Renewal, Replacement, and AI-Driven Verification Management System. Designed for organizations needing flawless accountability, PROVEXA digitizes and enforces strict asset handover protocols using high-performance **EasyOCR Computer Vision Identity Extraction** and **Cryptographic/Biometric Digital Signature Verification**.
+PROVEXA is a modern, enterprise-grade, SaaS-ready Employee Asset Management System. It digitizes the entire lifecycle of company assets—from initial issuing and cyclical renewals to damage replacements and final returns. 
 
-The entire system is responsive, robust, and optimized for deployment across Desktops, Tablet webcams, Laptop cameras, and Mobile browsers.
+At its core, PROVEXA solves a major corporate accountability problem by enforcing strict **handover verification protocols** using high-performance **Computer Vision (OCR)** and **Cryptographic Digital Signatures**.
 
 ---
 
 ## 📖 Table of Contents
-1. [Project Overview](#-project-overview)
-2. [Key Features](#-key-features)
-3. [System Architecture](#-system-architecture)
-4. [Technology Stack](#-technology-stack)
-5. [System Modules](#-system-modules)
-6. [Folder Structure](#-folder-structure)
-7. [Environment Variables Configuration](#-environment-variables-configuration)
-8. [Database Setup & Configurations](#-database-setup--configurations)
-9. [Installation & Execution Guide](#-installation--execution-guide)
-10. [Detailed API Endpoints Documentation](#-detailed-api-endpoints-documentation)
-11. [Postman Testing & API Integration Guide](#-postman-testing--api-integration-guide)
-12. [Core Workflows & Handover Protocols](#-core-workflows--handover-protocols)
-13. [OCR Technical Architecture Details](#-ocr-technical-architecture-details)
-14. [Security & Compliance Engineering](#-security--compliance-engineering)
-15. [UI/UX & Interactive Design System](#-uiux--interactive-design-system)
-16. [Enterprise Troubleshooting Guide](#-enterprise-troubleshooting-guide)
-17. [Future Enhancements](#-future-enhancements)
-18. [License & Developer Info](#-license--developer-info)
+1. [Executive Summary & Business Value](#1-executive-summary--business-value)
+2. [Technology Stack: What, Why, and How?](#2-technology-stack-what-why-and-how)
+   - [Frontend (React SPA)](#frontend-react-spa)
+   - [Backend (Node.js API Gateway)](#backend-nodejs-api-gateway)
+   - [Database Layer (MongoDB / SQL Server)](#database-layer-mongodb--sql-server)
+   - [OCR Microservice (Python / FastAPI)](#ocr-microservice-python--fastapi)
+3. [Deep Dive into Core Business Modules](#3-deep-dive-into-core-business-modules)
+   - [Issues & Verification Workflow](#issues--verification-workflow)
+   - [Replacements & Financial Deductions](#replacements--financial-deductions)
+   - [Advanced Excel Reporting Engine](#advanced-excel-reporting-engine)
+4. [System Architecture](#4-system-architecture)
+5. [Installation & Execution Guide](#5-installation--execution-guide)
+6. [Mobile & Tablet Local Network Setup](#6-mobile--tablet-local-network-setup)
+7. [API Endpoints & Integration](#7-api-endpoints--integration)
+8. [Enterprise Troubleshooting](#8-enterprise-troubleshooting)
 
 ---
 
-## 🌟 Project Overview
+## 1. Executive Summary & Business Value
 
-Managing physical employee assets—ranging from technical laptops and security cards to critical custom uniforms, shoes, and dietary nutrition kits—has historically suffered from a lack of secure audit trails. Handover verifications are easily forged, and spreadsheets fail to enforce cycle tracking.
+In large organizations (manufacturing, logistics, corporate IT), tracking physical assets—such as laptops, security badges, custom-sized uniforms, and safety equipment—is critical. 
 
-**PROVEXA solves this challenge** by introducing an integrated double-verification framework:
-* **Digital Signatures**: Captures real-time touchscreen/mouse-drawn hand signatures with timestamp logging.
-* **OCR Employee ID Verification**: Leverages real-time cameras (webcams, mobile, or tablets) to extract employee identifiers from physical ID cards using OpenCV image processing and EasyOCR. It matches characters against active databases to confirm handovers in under 300 milliseconds.
+**The Problem**: Historically, asset handovers are managed via paper sign-off sheets or manual Excel inputs. This leads to lost items, forged signatures, lack of auditability, and massive headaches during offboarding or payroll deduction calculations.
 
----
-
-## ✨ Key Features
-
-* **High-Accuracy OCR ID Scanner**: Process physical employee IDs dynamically using a custom dual-pass image preprocessing pipeline (CLAHE color balance + Otsu adaptive thresholding + Image sharpening).
-* **Cross-Device Camera Support**: Full support for native mobile browsers, tablets, and desktop webcams via `navigator.mediaDevices.getUserMedia()`.
-* **Sleek, Compact Layouts**: Built-in viewport bounds (`max-h-[500px]`) and sticky column headers (`sticky top-0`) to eliminate endless vertical page scrolls.
-* **Financial Deduction Tracking**: Seamlessly tracks item replacements, employee damage reports, custom sizes (e.g. shoes, uniform sizing), and direct payroll deductions (salary offsets).
-* **Excel Reports Engine**: Highly advanced reporting module generating professional worksheets with automated auto-fitting, total formulas, and multi-tab categorization via `exceljs`.
-* **Multi-Database Support**: Native support for **MongoDB** (primary NoSQL schema) and pre-engineered mapping hooks for **Microsoft SQL Server** (for secure enterprise migration).
-* **Security First**: Absolute route guards via JSON Web Tokens (JWT), robust CORS configurations, and high-performance server-side file verification.
+**The Solution**: PROVEXA digitizes this entire flow. When HR issues an item, it sits in a "Pending" state. The employee must physically present themselves and either provide a **Digital Signature** on a tablet, or present their physical company ID card to a webcam, where PROVEXA's **Artificial Intelligence OCR (Optical Character Recognition)** validates their identity in milliseconds. Every transaction is legally and digitally bound to a timestamped audit log.
 
 ---
 
-## 🏗️ System Architecture
+## 2. Technology Stack: What, Why, and How?
 
-PROVEXA is built as a highly decoupled microservices architecture to guarantee performance, scaling, and modular maintenance.
+PROVEXA is built as a highly scalable microservices architecture. By separating the frontend, the core backend, and the AI OCR processing, we achieve maximum performance and maintainability.
+
+### Frontend (React SPA)
+* **What we used**: React.js 18 (built with Vite), Tailwind CSS, TanStack React Query, and native Web APIs.
+* **Why we used it**: React allows us to build a Single Page Application (SPA) where the user never experiences full page reloads, providing a smooth, desktop-like software experience. Tailwind CSS allows for rapid, highly-customized UI design without writing messy external CSS files.
+* **How it is implemented**:
+  * **Compact UI Density**: We designed enterprise-grade data tables with strict viewports (`max-h-[500px]`) and sticky headers (`sticky top-0`). This ensures that even with 1,000 records, the user never has to endlessly scroll the entire browser window.
+  * **State Management**: We utilize TanStack Query for data fetching. It automatically caches API responses, retries failed requests, and provides immediate "optimistic updates" to the UI.
+  * **Camera Integration**: We leverage standard HTML5 `navigator.mediaDevices.getUserMedia()` to tap into desktop webcams, tablet cameras, or mobile phone cameras directly from the browser to capture ID cards securely.
+
+### Backend (Node.js API Gateway)
+* **What we used**: Node.js, Express.js, JSON Web Tokens (JWT), Multer.
+* **Why we used it**: Node.js utilizes an event-driven, non-blocking I/O model. This makes it exceptionally fast at handling thousands of simultaneous HTTP requests, database reads, and file uploads without freezing the server.
+* **How it is implemented**:
+  * **API Gateway**: Acts as the central traffic controller. It receives requests from React, validates the JWT authorization token, queries the database, and securely passes image data to the Python OCR service.
+  * **File Storage (Multer)**: When a digital signature is captured, it is sent as a Base64 string. The backend converts this string into a secure `.png` image file and saves it to a protected `/uploads` directory, saving the file path string in the database to prevent database bloat.
+
+### Database Layer (MongoDB / SQL Server)
+* **What we used**: MongoDB (Primary NoSQL) via Mongoose ODM. (System is structurally prepared for Microsoft SQL Server enterprise migration).
+* **Why we used it**: MongoDB’s document-based structure allows for incredibly flexible and rapid schema development. When an `Issue` is created, it can easily reference nested object IDs for the `Employee` and the `Item`. 
+* **How it is implemented**: We use Mongoose to enforce strict schema validation. For example, an `Issue` document requires a quantity, an issued date, and ties directly to a specific employee ID. If HR tries to issue an item that doesn't exist, the schema rejects it, ensuring absolute data integrity.
+
+### OCR Microservice (Python / FastAPI)
+* **What we used**: Python, FastAPI, OpenCV, EasyOCR (PyTorch), NumPy.
+* **Why we used it**: Node.js is excellent for web traffic, but terrible for heavy CPU-bound machine learning tasks. Python is the industry standard for AI. FastAPI provides an ultra-fast, async web server to expose the AI model as an API.
+* **How it is implemented (The Computer Vision Pipeline)**:
+  1. **Base64 Decode**: FastAPI receives the image from Node.js and decodes it into a NumPy multidimensional array (matrix) that OpenCV can understand.
+  2. **CLAHE Normalization**: (Contrast Limited Adaptive Histogram Equalization) is applied. If an ID card is photographed in a dark room or with heavy window glare, CLAHE mathematically evens out the contrast so text pops clearly.
+  3. **Sharpened Otsu Thresholding**: Converts the image into pure black and white pixels based on calculated lighting thresholds, stripping away colorful ID card backgrounds.
+  4. **EasyOCR Processing**: A deep learning model analyzes the pixel patterns and extracts raw text.
+  5. **Regex Extraction**: We use Regular Expressions (e.g., `(?:EMP[.-]?)?(\d{5})`) to search the raw text specifically for 4 or 5 digit patterns that match our company employee codes, discarding irrelevant text (like company address or logos).
+
+---
+
+## 3. Deep Dive into Core Business Modules
+
+### Issues & Verification Workflow
+**The Concept**: Handing out company property must be documented. 
+**The Execution**:
+1. **Allocation**: An HR admin assigns 2 Uniforms to Employee #11333. The database creates a record with `issue_status: "Pending Acknowledgement"`.
+2. **Verification Modal**: The employee arrives at the desk. HR opens the Verification Modal, offering two legal proof methods.
+3. **Digital Signature**: The employee draws their signature on a tablet. The React `<canvas>` element captures the stroke paths, converts them to an image, and saves it.
+4. **OCR Verification**: Instead of signing, the employee holds up their ID badge to the webcam. The system captures the frame, sends it to the Python AI, extracts "11333", compares it against the database record, and instantly marks the item as **"Verified via OCR"**. This creates a frictionless, 1-second automated handover.
+
+### Replacements & Financial Deductions
+**The Concept**: Items get damaged or lost. Companies need to track the financial cost of replacing them and whether the employee owes the company money.
+**The Execution**:
+* When requesting a replacement, HR inputs the `Total Cost` and `Deduction Amount`.
+* **State Tracking**: The system tracks the physical exchange. Did the employee return the torn uniform? (`Pending Return` vs `Returned`).
+* **Payroll Ready**: The module displays clear financial badges (e.g., "₹1,500 - ₹500 Deduction"). At the end of the month, this exact data is exported for the payroll department to dock from salaries.
+
+### Advanced Excel Reporting Engine
+**The Concept**: Dashboards are great for viewing, but accounting, payroll, and auditing departments run on Microsoft Excel. We needed a way to provide pristine, raw data.
+**The Execution**:
+* **What we used**: The `exceljs` library on the Node backend.
+* **How it works**: When a user clicks "Export" on the Reports page, the backend fetches thousands of Issue and Replacement records. It creates a binary Excel workbook in memory.
+* **Data Resolution**: It converts meaningless database IDs (like `64ef2899...`) into human-readable strings ("Keerthana - EMP11333").
+* **Automated Formatting**: It automatically calculates column widths based on text length, bolds the header row, adds background colors to cells, and streams the `.xlsx` file directly into the user's browser for download, entirely bypassing the need to store temporary files on the server.
+
+---
+
+## 4. System Architecture
 
 ```mermaid
 graph TD
-    A[React Client - Single Page App] -->|HTTPS REST API| B[Backend Server Gateway - NodeJS/Express]
-    A -->|getUserMedia Camera Capture| C[FastAPI OCR Microservice - Python]
-    C -->|ID Card Extraction OCR| B
-    B -->|Schema Query| D[(Primary DB: MongoDB)]
-    B -->|Audit Sync| E[(Enterprise DB: SQL Server)]
-    B -->|Local Storage| F[Asset Signature Proof Files]
-```
-
-### Flow Breakdown:
-1. **Request Phase**: The HR officer opens the verification screen. The React frontend accesses the device's camera stream to capture a snapshot of the employee's ID.
-2. **OCR Pre-Processing Phase**: The image is posted as a Base64 payload to the FastAPI microservice. The service isolates the ID region, normalizes contrast, and runs EasyOCR.
-3. **Database Validation Phase**: The extracted employee code is returned to the React frontend, which requests an instant confirmation from the backend. The backend matches the record against MongoDB/SQL Server, marks the asset as verified, and archives the signature path.
-
----
-
-## 🛠️ Technology Stack
-
-### Frontend (SPA)
-* **Core Framework**: React.js 18 (Vite-powered for instant bundling)
-* **Data Queries**: TanStack React Query v5 (Optimized object-based caching)
-* **CSS System**: Tailwind CSS (Custom color system, glassmorphism shadows)
-* **Date Utilities**: Day.js (For due calculations, next cycle tracking)
-* **Icons**: Lucide React
-* **Network**: Axios (Interceptors for automatic JWT header attachments)
-
-### Backend (REST API)
-* **Runtime**: Node.js & Express.js
-* **Authentication**: JWT (JSON Web Tokens) with Secure Cookie/Header verification
-* **File Uploads**: Multer (Disk storage structure)
-* **Excel Processor**: ExcelJS
-* **Database Driver**: Mongoose (MongoDB) / Tedious & mssql (SQL Server)
-
-### Computer Vision OCR Microservice
-* **Framework**: FastAPI (Asynchronous request handling, Pydantic type checking)
-* **Image Processing**: OpenCV (Open Source Computer Vision Library)
-* **Deep Learning Engine**: EasyOCR (PyTorch-based text extraction)
-* **Image Parsing**: NumPy (Matrix mathematical operations)
-
----
-
-## 📂 Folder Structure
-
-```
-PROVEXA/
-├── client/                     # React Frontend Single Page Application
-│   ├── src/
-│   │   ├── components/         # Reusable UI (Modal, Button, IssueForm, etc.)
-│   │   ├── lib/                # API Client Configurations (axios setup)
-│   │   ├── pages/              # Page modules (Issues, ItemRenewal, Replacements, Employees, Reports, etc.)
-│   │   ├── App.jsx             # Main Router and State Manager
-│   │   ├── index.css           # Global Custom Scrollbars & Tailwind Configs
-│   │   └── main.jsx
-│   ├── package.json
-│   └── vite.config.js
-│
-├── server/                     # NodeJS Express Core Backend
-│   ├── config/                 # Database connection configurations (db.js / sql.js)
-│   ├── middleware/             # Auth Verification, Request Logs, File Filters
-│   ├── models/                 # Database Schemas (Employee, Item, Issue, Replacement, etc.)
-│   ├── routes/                 # Express Router Endpoints
-│   ├── uploads/                # Signature proof file directories
-│   ├── .env.example
-│   ├── package.json
-│   └── server.js
-│
-└── ocr_service/                # Python Computer Vision Microservice
-    ├── main.py                 # FastAPI Application with OCR pipeline
-    ├── requirements.txt        # Python library dependencies
-    └── test_images/            # Pre-loaded mock images for test execution
+    A[React SPA Client - User Interface] -->|HTTPS REST API / JSON| B[Node.js / Express API Gateway]
+    A -->|Webcam Image Base64| C[Python FastAPI OCR Microservice]
+    C -->|Extracts Text & Regex ID| B
+    B -->|Mongoose Schema Queries| D[(MongoDB Primary Database)]
+    B -->|Write File Streams| E[Local Disk /uploads/signatures/]
+    B -->|Generates Binary| F[Excel Reports Engine]
 ```
 
 ---
 
-## ⚙️ Environment Variables Configuration
+## 5. Installation & Execution Guide
 
-Create a `.env` file in the root of the `/server` directory:
+### Prerequisites
+* **Node.js**: v18.0.0+
+* **Python**: v3.9+ (For PyTorch/EasyOCR stability)
+* **MongoDB**: Active local instance (Port 27017)
 
+### Environment Setup
+Create a `.env` in the `/server` directory:
 ```env
-# Server Network Settings
 PORT=5000
-NODE_ENV=production
-
-# JSON Web Token Secret
-JWT_SECRET=PROVEXA_SECURE_JWT_ENCRYPTION_HASH_KEY_2026
-
-# Primary Database Connection String
+JWT_SECRET=PROVEXA_ENTERPRISE_SECRET_KEY_2026
 MONGODB_URL=mongodb://localhost:27017/provexa
-
-# SQL Server Integration Settings (Enterprise Optional)
-SQL_SERVER=localhost
-SQL_DATABASE=provexa_enterprise
-SQL_USER=sa
-SQL_PASSWORD=EnterprisePasswordSecure123!
-SQL_TRUST_SERVER_CERTIFICATE=true
-
-# Python Microservices URL
 OCR_SERVICE_URL=http://localhost:8001
 ```
 
----
+### Running the System (3 Terminals Required)
 
-## 🗄️ Database Setup & Configurations
-
-### 1. MongoDB Setup (Primary)
-PROVEXA works out-of-the-box with MongoDB. 
-1. Install **MongoDB Community Server** local database from the official website.
-2. Start the service (runs on default port `27017`):
-   ```bash
-   net start MongoDB
-   ```
-3. The database connection will automatically initialize the `provexa` collection structures upon backend launch.
-
-### 2. SQL Server Configuration (Enterprise Migration)
-To bind the system to enterprise-grade MS SQL Server:
-1. Enable SQL Server authentication mode (SQL & Windows Auth).
-2. Create a blank database named `provexa_enterprise`.
-3. Enable SQL TCP/IP Protocols on port `1433` via **SQL Server Configuration Manager**.
-4. In `/server/config/db.js`, toggle the initialization flag to active SQL queries. The schema tables (`Employees`, `Items`, `Issues`, `Replacements`) will be automatically synchronized.
-
----
-
-## 🚀 Installation & Execution Guide
-
-### Prerequisite Checklist
-* **Node.js**: v18.0.0 or higher
-* **npm**: v9.0.0 or higher
-* **Python**: v3.9.0 to v3.11.0 (Recommended for PyTorch and OpenCV compatibility)
-* **MongoDB**: Active instance running
-
----
-
-### Step-by-Step System Launch
-
-#### 1. Launch the Python OCR Microservice
-Navigate to `/ocr_service` directory:
+**Terminal 1: Python AI Service**
 ```bash
 cd ocr_service
-
-# Create a virtual environment
 python -m venv venv
-
-# Activate the virtual environment
-# On Windows:
-venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
-
-# Install essential dependencies
+venv\Scripts\activate      # Windows
+# source venv/bin/activate # Mac/Linux
 pip install -r requirements.txt
-
-# Start the FastAPI server on Port 8001
 python -m uvicorn main:app --host 0.0.0.0 --port 8001
 ```
 
-#### 2. Launch the NodeJS Backend Server
-Navigate to `/server` directory:
+**Terminal 2: Node Backend**
 ```bash
 cd server
-
-# Install node dependencies
 npm install
-
-# Start the development server (runs on Port 5000)
 npm run dev
 ```
 
-#### 3. Launch the React Frontend Single Page App
-Navigate to `/client` directory:
+**Terminal 3: React Frontend**
 ```bash
 cd client
-
-# Install packages
 npm install
-
-# Start the local development web server
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your preferred web browser to access the SaaS panel.
+Open `http://localhost:5173` to access the application.
 
 ---
 
-## 🔌 Detailed API Endpoints Documentation
+## 6. Mobile & Tablet Local Network Setup
 
-| HTTP Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| **POST** | `/api/auth/login` | HR Officer Login Authentication | No |
-| **GET** | `/api/employees` | Fetch and query employee listings | Yes (JWT) |
-| **POST** | `/api/employees` | Register new employee record | Yes (JWT) |
-| **GET** | `/api/items` | List of items available for allocation | Yes (JWT) |
-| **POST** | `/api/issues` | Distribute assets/items to employees | Yes (JWT) |
-| **PATCH** | `/api/issues/:id/acknowledge` | Sign and verify asset handover | Yes (JWT) |
-| **GET** | `/api/replacements` | Fetch replacement requests | Yes (JWT) |
-| **POST** | `/api/replacements` | File item replacement claim | Yes (JWT) |
-| **GET** | `/api/reports/export` | Download auto-formatted Excel reports | Yes (JWT) |
-| **POST** | `http://localhost:8001/ocr/scan` | OpenCV base64 image parsing (OCR) | No |
+To use PROVEXA's Digital Signature or Camera OCR features on a tablet (like an iPad) or a mobile phone, the devices must be connected to the same Wi-Fi network as the host server.
 
----
+### Step 1: Expose the Frontend to the Local Network
+By default, Vite only serves to `localhost`. You must expose it to your Local Area Network (LAN):
+1. Open `client/package.json`.
+2. Change your dev script from `"dev": "vite"` to `"dev": "vite --host"`.
+3. Restart the React frontend. The terminal will output a **Network URL** (e.g., `http://192.168.1.100:5173`).
 
-### Sample Request/Response Payloads
+### Step 2: Ensure API Endpoints Point to the Network IP
+If your phone connects to `192.168.1.100`, it cannot use `localhost` to hit the backend or OCR service (because `localhost` on a phone means the phone itself).
+1. Update your React frontend API client (e.g., `/client/src/lib/api.js` or environment variables) to point to `http://192.168.1.100:5000` instead of `localhost:5000`.
+2. Update the backend `.env` so that `OCR_SERVICE_URL=http://192.168.1.100:8001`.
 
-#### 1. HR Officer Authentication (`POST /api/auth/login`)
-* **Request JSON**:
-  ```json
-  {
-    "username": "admin",
-    "password": "password123"
-  }
-  ```
-* **Success Response (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "64ef2899",
-      "username": "admin",
-      "role": "SuperAdmin"
-    }
-  }
-  ```
+### Step 3: Browser Permissions & HTTPS Requirements (CRITICAL)
+Modern browsers (Chrome, Safari, iOS, Android) **strictly block** access to `navigator.mediaDevices.getUserMedia()` (the camera API) unless the site is loaded over a secure `https://` connection, EXCEPT for `localhost`.
+Since your phone is accessing `192.168.1.100` (which is HTTP, not HTTPS), the camera will fail silently or throw a permission error.
 
-#### 2. OCR ID Scanner Service (`POST http://localhost:8001/ocr/scan`)
-* **Request JSON**:
-  ```json
-  {
-    "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQ..."
-  }
-  ```
-* **Success Response (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "emp_code": "11333",
-    "raw_texts": ["PROVEXA CORP", "Emp.No: 11333", "Name: Keerthana", "Dept: QA"],
-    "process_time_seconds": 0.285
-  }
-  ```
+**How to fix this for development/testing:**
+* **Chrome (Android/Desktop/Tablet):**
+  1. Open Chrome on the device.
+  2. Type `chrome://flags/#unsafely-treat-insecure-origin-as-secure` in the URL bar.
+  3. Enter your host IP (e.g., `http://192.168.1.100:5173`) in the text box.
+  4. Enable the flag and click **Relaunch**.
+* **Safari (iOS/iPad):**
+  1. Testing on raw IPs via HTTP is strictly blocked. You must use a local tunneling service (like **ngrok** or **localtunnel**) which provides a temporary `https://` URL that tunnels securely back to your local port.
 
-#### 3. Asset Handover Acknowledgement (`PATCH /api/issues/:id/acknowledge`)
-* **Request JSON**:
-  ```json
-  {
-    "acknowledged": true,
-    "signature_data": "data:image/png;base64,iVBORw0KGgoAAA...",
-    "verification_method": "OCR ID Scan",
-    "ocr_emp_code": "11333"
-  }
-  ```
-* **Success Response (200 OK)**:
-  ```json
-  {
-    "success": true,
-    "message": "Asset handover successfully verified and archived.",
-    "signature_path": "/uploads/signatures/sign_64ef2981.png"
-  }
-  ```
+**Production Fix:** You must serve the React build over HTTPS using a reverse proxy (like NGINX or IIS) with a valid SSL certificate. Once served over HTTPS, the browser will automatically prompt the user with: *"PROVEXA wants to Use your Camera. [Allow] / [Block]"*.
 
 ---
 
-## 📮 Postman Testing & API Integration Guide
+## 7. API Endpoints & Integration
 
-Testing dynamic features like base64 signature submissions and image files uploading requires specific setups in Postman.
+The backend provides a secure REST API. All endpoints (except Login) require a Bearer token in the Authorization header.
 
-### Setting Up Authentication Headers
-1. Authenticate using the `/api/auth/login` endpoint.
-2. Copy the resulting `token` string.
-3. In your active Postman folder, navigate to **Authorization** -> Select **Bearer Token** -> Paste the token. It will apply to all subsequent queries.
+### Key Endpoints
 
-### Testing OCR Scanner (FastAPI API)
-1. Set HTTP request method to `POST` and set target URL to `http://localhost:8001/ocr/scan`.
-2. Under the **Headers** tab, add `Content-Type: application/json`.
-3. Under the **Body** tab, choose **raw** -> **JSON**.
-4. Paste the JSON request carrying a Base64 string payload:
-   ```json
-   {
-     "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEA..."
-   }
-   ```
-5. Click **Send** to view extracted data.
+| HTTP Method | Endpoint | Purpose |
+| :--- | :--- | :--- |
+| **POST** | `/api/auth/login` | Authenticates HR user, returns JWT. |
+| **GET** | `/api/employees` | Fetches active workforce data. |
+| **POST** | `/api/issues` | Creates a new asset allocation record. |
+| **PATCH** | `/api/issues/:id/acknowledge` | Processes signature/OCR and locks record. |
+| **GET** | `/api/reports/export` | Triggers backend Excel generation stream. |
+| **POST** | `http://localhost:8001/ocr/scan` | Direct pipeline to Python AI image processor. |
 
-### Testing Excel Export Download
-1. Send a `GET` request to `/api/reports/export`.
-2. Ensure you have the `Authorization` header attached.
-3. In Postman, instead of clicking "Send", click the dropdown next to it and select **Send and Download**. Save the file as `provexa_report.xlsx`.
+### Postman Testing Flow
+1. Hit `POST /api/auth/login` with your credentials.
+2. Copy the `token` from the JSON response.
+3. In Postman, go to the **Authorization** tab for your request, select **Bearer Token**, and paste.
+4. For the **Excel Report**, hit `GET /api/reports/export`. Instead of clicking "Send", click the dropdown arrow and select **Send and Download** to save the actual `.xlsx` file.
 
 ---
 
-## 🔄 Core Workflows & Handover Protocols
+## 7. Enterprise Troubleshooting
 
-```
-               ┌───────────────────────────────────────────┐
-               │    HR Allocates Item to Employee          │
-               └─────────────────────┬─────────────────────┘
-                                     │
-                                     ▼
-               ┌───────────────────────────────────────────┐
-               │   Employee Proceeds to Signature Screen   │
-               └─────────────────────┬─────────────────────┘
-                                     │
-                  ┌──────────────────┴──────────────────┐
-                  ▼                                     ▼
-      ┌───────────────────────┐             ┌───────────────────────┐
-      │   Digital Signature   │             │   OCR ID Verification │
-      └───────────┬───────────┘             └───────────┬───────────┘
-                  │                                     │
-                  │   Touchscreen drawing captured      │   Camera takes snapshot of ID
-                  │   and posted as Base64 payload.     │   FastAPI processes CV steps.
-                  │                                     │   Employee Code validated.
-                  └──────────────────┬──────────────────┘
-                                     │
-                                     ▼
-               ┌───────────────────────────────────────────┐
-               │  System matches ID details with database  │
-               └─────────────────────┬─────────────────────┘
-                                     │
-                                     ▼
-               ┌───────────────────────────────────────────┐
-               │  Status set to Verified / Proof Archived  │
-               └───────────────────────────────────────────┘
+#### Issue: PyTorch / EasyOCR Fails to Install on Windows
+**Why it happens**: Python PIP attempts to compile C++ libraries from source if pre-compiled binaries aren't found for your system architecture.
+**Solution**: Force install the pre-compiled CPU wheel directly from PyTorch servers:
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install easyocr
 ```
 
----
-
-## 🧠 OCR Technical Architecture Details
-
-Our OCR service features a tailored Computer Vision pipeline developed for high stability on office ID cards.
-
-### The 5-Step Computer Vision Pipeline
-
-```
-┌──────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐    ┌──────────────┐
-│ Base64 Image │───>│ Grayscale/Otsu  │───>│ Dual-Pass CLAHE │───>│ PyTorch Text │───>│ Regex Filter │
-│ Stream Input │    │ Adaptive Thres. │    │ Contrast Boost  │    │  Extraction  │    │ Match Return │
-└──────────────┘    └─────────────────┘    └─────────────────┘    └──────────────┘    └──────────────┘
+#### Issue: `[winerror 10048] only one usage of each socket address`
+**Why it happens**: You closed a terminal window, but the Node or Python process is still running silently in the background, holding port 5000 or 8001 hostage.
+**Solution**: Kill the ghost process:
+```powershell
+netstat -ano | findstr :5000
+taskkill /PID <PID_NUMBER> /F
 ```
 
-1. **CLAHE Color Contrast Normalization**: Enhances subtle text differences in poorly lit capture environments.
-2. **Sharpened Otsu Dual-Threshold Binarization**: Dual-pass checks run over the image matrix to separate background glare from foreground text.
-3. **Region of Interest (ROI) Dynamic Cropping**: Minimizes the processing bounds by cropping out outer edge details (5% margin filters).
-4. **PyTorch Deep Learning Evaluation**: Runs PyTorch character detection and joins segmented horizontal tokens.
-5. **Regex Employee Identifier Matching**:
-   * Evaluates strings using patterns designed to capture employee codes: `(?:EMP[.-]?)?(\d{5})` or `(?:EMP[.-]?)?(\d{4})`.
-   * Standardizes alphanumeric codes (e.g. `EMP11333`) to target outputs like `11333`.
+#### Issue: Webcam Not Activating in Browser
+**Why it happens**: Modern browsers (Chrome, Safari, Edge) strict-block `getUserMedia()` access on non-secure origins to prevent spying.
+**Solution**: The application must be accessed via `http://localhost` or served over a valid `https://` SSL certificate. Local network IPs (e.g. `http://192.168.1.5`) will block the camera unless SSL is configured or the IP is added to the browser's "Insecure origins treated as secure" flag.
 
 ---
 
-## 🛡️ Security & Compliance Engineering
-
-* **JWT Route Enforcements**: Any requests outside authentication are locked and require robust authorization.
-* **CORS Policies**: Strict configurations on the Express and FastAPI gateways allow only designated origins to protect against Cross-Origin attacks.
-* **Storage Encryption**: Handover signature paths are hashed and saved under custom path models to prevent malicious directory traversals.
-* **Stable Capture-Trigger Action**: The scanner works via triggered user snapshot actions instead of aggressive live-frame reading. This saves battery power, minimizes API spamming, and provides maximum accuracy.
-
----
-
-## 🎨 UI/UX & Interactive Design System
-
-PROVEXA boasts a sleek, state-of-the-art interface tailored for high accessibility and premium feel:
-* **Glassmorphism Components**: Translucent backdrop blurring, harmonic shadows, and sleek borders.
-* **Dynamic Table Density**: Table boundaries restricted to `500px` with sticky table headers so that tracking views stay tidy and comfortable.
-* **Status Badging**: High-impact, color-coded visual indicator chips for instant tracking (e.g., green for Verified, amber for Pending, blue for Processed).
-* **Smooth Micro-animations**: Transitions, interactive scaling on buttons, and fade-in visual components.
-
----
-
-## 🩺 Enterprise Troubleshooting Guide
-
-#### 1. EasyOCR Python Installation Fails
-* **Cause**: PyTorch dependency compatibility conflict or missing compiler tools on Windows systems.
-* **Resolution**: Install standard CPU-based PyTorch first:
-  ```bash
-  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-  pip install easyocr
-  ```
-
-#### 2. Backend Port Conflict: `[winerror 10048] only one usage of each socket address`
-* **Cause**: An active FastAPI (8001) or NodeJS (5000) server process was left running in the background.
-* **Resolution**: Kill the existing task holding the port:
-  ```powershell
-  # Locate PID using netstat:
-  netstat -ano | findstr :8001
-  # Kill task using PID:
-  taskkill /PID <PID_NUMBER> /F
-  ```
-
-#### 3. Frontend Camera Fails to Access Device
-* **Cause**: Browsers block camera access unless served over secure `https://` contexts or localhost.
-* **Resolution**: Ensure your domain runs on `localhost` or set up local self-signed SSL certificates for mobile browser testing over local networks.
-
----
-
-## 🔮 Future Enhancements
-
-* **Facial Verification Integration**: Supplementing ID cards scanning with facial match authentication for biometric verification.
-* **Offline Fallback Queues**: Local client-side sync caching using IndexedDB when connection drops in offsite hubs.
-* **Native Android/iOS Mobile Wrapper**: Packaging the single page client using Capacitor / Cordova to leverage native device camera drivers.
-
----
-
-## 👥 License & Developer Info
-
-Developed with ❤️ for organizations aiming for absolute operational excellence.
-
-**Project Developer**: PROVEXA Engineering Team  
-**Documentation Version**: 6.1 (Enterprise Ready)  
-**Academic Submission / Showcase Code**: SECURE-ID-6.1  
-*For questions or enterprise migration support, open a pull request on your organization's repository panel.*
+**Developed for absolute operational excellence. PROVEXA brings industrial asset accountability into the AI era.**
