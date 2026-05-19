@@ -45,7 +45,57 @@ export default function Replacements() {
         deduction_amount: 0
     });
 
+    const [showSettings, setShowSettings] = useState(false);
+    const [tempConfigs, setTempConfigs] = useState({
+        Pant: { permanent: 2, newcomer: 3 },
+        Shirt: { permanent: 2, newcomer: 2 },
+        'T-Shirt': { permanent: 1, newcomer: 1 }
+    });
+
     const queryClient = useQueryClient();
+
+    const { data: configs } = useQuery({
+        queryKey: ['allocation-configs'],
+        queryFn: async () => {
+            const { data } = await api.get('/replacements/configs');
+            const mapping = {
+                Pant: { permanent: 2, newcomer: 3 },
+                Shirt: { permanent: 2, newcomer: 2 },
+                'T-Shirt': { permanent: 1, newcomer: 1 }
+            };
+            data.forEach(c => {
+                mapping[c.item_type] = {
+                    permanent: c.permanent_quantity ?? c.standard_quantity ?? 0,
+                    newcomer: c.newcomer_quantity ?? c.standard_quantity ?? 0
+                };
+            });
+            setTempConfigs(mapping);
+            return data;
+        }
+    });
+
+    const updateConfigsMutation = useMutation({
+        mutationFn: async (payload) => {
+            const { data } = await api.post('/replacements/configs', { configs: payload });
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['allocation-configs'] });
+            queryClient.invalidateQueries({ queryKey: ['replacements'] });
+            toast.success('Uniform limits updated successfully!');
+            setShowSettings(false);
+        },
+        onError: () => toast.error('Failed to update allocation limits')
+    });
+
+    const handleSaveConfigs = () => {
+        const payload = Object.entries(tempConfigs).map(([type, limits]) => ({
+            item_type: type,
+            permanent_quantity: limits.permanent,
+            newcomer_quantity: limits.newcomer
+        }));
+        updateConfigsMutation.mutate(payload);
+    };
 
     const { data: requests, isLoading } = useQuery({
         queryKey: ['replacements', activeTab],
@@ -77,13 +127,11 @@ export default function Replacements() {
             );
         }
         return [...result].sort((a, b) => {
-            // Sort by requested_date descending (recent on top)
             const dateA = dayjs(a.requested_date);
             const dateB = dayjs(b.requested_date);
             if (!dateA.isSame(dateB)) {
                 return dateB.isAfter(dateA) ? 1 : -1;
             }
-            // Secondary: Completed/Resolved first
             const statusA = a.status === 'completed' || a.status === 'resolved' ? 1 : 0;
             const statusB = b.status === 'completed' || b.status === 'resolved' ? 1 : 0;
             return statusB - statusA;
@@ -102,7 +150,7 @@ export default function Replacements() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['replacements'] });
             queryClient.invalidateQueries({ queryKey: ['replacements-summary'] });
-            toast.success('Replacement approved and costs recorded!');
+            toast.success('Request approved successfully!');
             setActionModal({ isOpen: false, type: '', request: null, notes: '', unit_cost: 0, deduction_amount: 0 });
         },
         onError: () => toast.error('Failed to approve request')
@@ -158,22 +206,102 @@ export default function Replacements() {
             {/* Header & Stats */}
             <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="space-y-1">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Replacement Management</h2>
-                    <p className="text-slate-500 font-medium">Approve requests, track costs, and verify item handovers.</p>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Uniform Allocation & Replacements</h2>
+                    <p className="text-slate-500 font-medium">Verify standard free allocations, approve additional requests, and track payroll deductions.</p>
                 </div>
-                <button
-                    onClick={() => setShowForm(true)}
-                    className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-xl shadow-blue-600/20 active:scale-95"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    New Request
-                </button>
+                <div className="flex gap-3 w-full md:w-auto">
+                    <button
+                        onClick={() => setShowSettings(!showSettings)}
+                        className="flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold transition-all active:scale-95"
+                    >
+                        <LayoutTemplate className="w-5 h-5 mr-2 text-slate-550" />
+                        Allocation Settings
+                    </button>
+                    <button
+                        onClick={() => setShowForm(true)}
+                        className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+                    >
+                        <Plus className="w-5 h-5 mr-2" />
+                        New Request
+                    </button>
+                </div>
             </div>
+
+            {/* Dynamic settings drawer */}
+            {showSettings && (
+                <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-4 animate-slide-down">
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <div className="space-y-0.5">
+                            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Default Standard Uniform Allocations</h3>
+                            <p className="text-xs text-slate-400">Configure free company-approved default quantities for Permanent employees vs Newcomers.</p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {['Pant', 'Shirt', 'T-Shirt'].map(type => {
+                            const limits = tempConfigs[type] || { permanent: 2, newcomer: 3 };
+                            return (
+                                <div key={type} className="space-y-3 p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                                    <span className="block text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-1">{type} Allocations</span>
+                                    
+                                    <div className="space-y-1">
+                                        <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Permanent Limit</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={limits.permanent}
+                                                onChange={e => setTempConfigs({
+                                                    ...tempConfigs,
+                                                    [type]: { ...limits, permanent: parseInt(e.target.value) || 0 }
+                                                })}
+                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold text-slate-700"
+                                            />
+                                            <span className="text-[10px] text-slate-400 font-medium">Units</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Newcomer Limit</label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={limits.newcomer}
+                                                onChange={e => setTempConfigs({
+                                                    ...tempConfigs,
+                                                    [type]: { ...limits, newcomer: parseInt(e.target.value) || 0 }
+                                                })}
+                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold text-slate-700"
+                                            />
+                                            <span className="text-[10px] text-slate-400 font-medium">Units</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <button
+                            onClick={() => setShowSettings(false)}
+                            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSaveConfigs}
+                            disabled={updateConfigsMutation.isPending}
+                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-750 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-500/10 transition-all"
+                        >
+                            {updateConfigsMutation.isPending ? 'Saving...' : 'Save Limits'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
                     { label: 'Total Replacement Cost', value: summary?.total_cost, icon: LayoutTemplate, bg: 'bg-indigo-50', text: 'text-indigo-600' },
-                    { label: 'Total Salary Deductions', value: summary?.total_deductions, icon: DollarSign, bg: 'bg-amber-50', text: 'text-amber-600' },
+                    { label: 'Total Additional Cost', value: summary?.total_deductions, icon: DollarSign, bg: 'bg-amber-50', text: 'text-amber-600' },
                     { label: 'Verified Handovers', value: summary?.paid_count, icon: ShieldCheck, bg: 'bg-emerald-50', text: 'text-emerald-600', isCount: true },
                     { label: 'Awaiting Handover', value: summary?.pending_count, icon: Clock, bg: 'bg-blue-50', text: 'text-blue-600', isCount: true }
                 ].map((stat, i) => (
@@ -287,7 +415,13 @@ export default function Replacements() {
                                             <td className="px-6 py-2.5">
                                                 <div className="space-y-1">
                                                     <div className="font-bold text-slate-800 text-xs leading-none">{req.item_name || req.item?.name}</div>
-                                                    <div className="flex gap-1.5 mt-1 leading-none">
+                                                    <div className="flex flex-wrap gap-1.5 mt-1 items-center leading-none">
+                                                        <Badge color={
+                                                            req.allocation_type === 'Standard' ? 'blue' : 
+                                                            req.allocation_type === 'Additional' ? 'purple' : 'slate'
+                                                        }>
+                                                            {req.allocation_type || 'Standard'}
+                                                        </Badge>
                                                         <span className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase">Qty: {req.quantity}</span>
                                                         <span className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase">Size: {req.size}</span>
                                                     </div>
@@ -544,7 +678,7 @@ export default function Replacements() {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Salary Deduction (₹)</label>
+                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Additional Cost (₹)</label>
                                     <div className="relative">
                                         <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                         <input
@@ -558,14 +692,14 @@ export default function Replacements() {
                                 </div>
                             </div>
 
-                            {/* Salary Deduction Calculator */}
+                            {/* Additional Cost Billing Calculator */}
                             <div className="bg-blue-900 rounded-2xl p-5 text-white shadow-lg space-y-4">
                                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">Base Monthly Salary</span>
                                     <span className="text-sm font-bold">₹{(actionModal.request?.employee?.salary || 0).toLocaleString()}</span>
                                 </div>
                                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">Deduction Amount</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">Additional Charge</span>
                                     <span className="text-sm font-bold text-red-300">- ₹{(Number(actionModal.deduction_amount) || 0).toLocaleString()}</span>
                                 </div>
                                 <div className="flex items-center justify-between pt-1">

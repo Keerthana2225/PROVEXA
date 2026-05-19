@@ -8,6 +8,32 @@ const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware);
 
+// Get configs
+router.get('/configs', async (req, res) => {
+    try {
+        const configs = await replacementService.getConfigs();
+        res.json(configs);
+    } catch (error) {
+        console.error('Replacement Get Configs Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// Update configs
+router.post('/configs', async (req, res) => {
+    try {
+        const { configs } = req.body;
+        if (!Array.isArray(configs)) {
+            return res.status(400).json({ message: 'configs must be an array' });
+        }
+        const updated = await replacementService.updateConfigs(configs);
+        res.json(updated);
+    } catch (error) {
+        console.error('Replacement Update Configs Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
+    }
+});
+
 // Get all requests
 router.get('/', async (req, res) => {
     try {
@@ -33,7 +59,7 @@ router.get('/summary', async (req, res) => {
 // Create new request
 router.post('/', async (req, res) => {
     try {
-        const { employee_id, item_id, reason, quantity, size, unit_cost, total_cost, deduction_amount, payment_status } = req.body;
+        const { employee_id, item_id, reason, quantity, size, unit_cost, total_cost, deduction_amount, payment_status, allocation_type, is_salary_deduction, approved_standard_quantity } = req.body;
         
         const item = await itemService.getById(item_id);
         if (!item) return res.status(404).json({ message: 'Item not found' });
@@ -49,7 +75,10 @@ router.post('/', async (req, res) => {
             unit_cost: parseFloat(unit_cost) || 0,
             total_cost: parseFloat(total_cost) || (qty * (parseFloat(unit_cost) || 0)),
             deduction_amount: parseFloat(deduction_amount) || 0,
-            payment_status: payment_status || 'Pending'
+            payment_status,
+            allocation_type,
+            is_salary_deduction,
+            approved_standard_quantity
         });
 
         res.status(201).json(request);

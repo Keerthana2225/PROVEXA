@@ -63,6 +63,10 @@ export default function Reports() {
                 endpoint = '/reports/replacements/uniform';
                 filename = `Uniform_Cost_Report_${timestamp}.xlsx`;
                 if (paymentStatus) params.append('payment_status', paymentStatus);
+            } else if (reportType === 'additional_deductions') {
+                endpoint = '/reports/replacements/additional-deductions';
+                filename = `Additional_Uniform_Cost_Report_${timestamp}.xlsx`;
+                if (paymentStatus) params.append('payment_status', paymentStatus);
             }
 
             const response = await api.get(`${endpoint}?${params.toString()}`, {
@@ -255,25 +259,25 @@ export default function Reports() {
                 {/* Replacement Reports */}
                 <div className="space-y-6">
                     <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm h-full flex flex-col">
-                        <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center justify-between mb-6">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600">
                                     <RefreshCcw className="w-6 h-6" />
                                 </div>
-                                <h4 className="text-xl font-bold text-slate-800 dark:text-white">Replacement Reports</h4>
+                                <h4 className="text-xl font-bold text-slate-800 dark:text-white">Additional Cost & Replacement Reports</h4>
                             </div>
                         </div>
 
                         <div className="space-y-6 flex-grow">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-400 ml-1">Replacement Status</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Status Filter</label>
                                     <select 
                                         value={replacementStatus} 
                                         onChange={(e) => setReplacementStatus(e.target.value)}
-                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
                                     >
-                                        <option value="all">All Statuses</option>
+                                        <option value="">All Statuses</option>
                                         <option value="Pending">Pending</option>
                                         <option value="Approved">Approved</option>
                                         <option value="Completed">Completed</option>
@@ -281,54 +285,40 @@ export default function Reports() {
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-400 ml-1">Payment Status</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Payment Status</label>
                                     <select 
                                         value={paymentStatus} 
                                         onChange={(e) => setPaymentStatus(e.target.value)}
-                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
+                                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
                                     >
-                                        <option value="all">All Statuses</option>
+                                        <option value="">All Statuses</option>
                                         <option value="Pending">Pending</option>
                                         <option value="Deducted">Deducted</option>
                                         <option value="Not Applicable">Not Applicable</option>
                                     </select>
                                 </div>
-                                <div className="sm:col-span-2 space-y-1">
-                                    <label className="text-xs font-bold text-slate-400 ml-1">Item Group</label>
-                                    <select 
-                                        value={itemType} 
-                                        onChange={(e) => setItemType(e.target.value)}
-                                        className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                                    >
-                                        <option value="all">All Items</option>
-                                        <option value="Uniform">Uniforms Only</option>
-                                        <option value="General">Non-Uniform Assets</option>
-                                    </select>
-                                </div>
                             </div>
                         </div>
 
-                        <div className="mt-10 pt-6 border-t border-slate-50 dark:border-slate-800 flex flex-col sm:flex-row gap-3">
+                        <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-800 space-y-3.5">
+                            <button 
+                                onClick={() => handleExport('additional_deductions')}
+                                disabled={!!exporting}
+                                className="w-full group flex items-center justify-center gap-3 p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold transition-all disabled:opacity-50 shadow-lg shadow-emerald-600/10 active:scale-[0.99]"
+                            >
+                                {exporting === 'additional_deductions' ? <Loader2 className="w-5 h-5 animate-spin" /> : <FileSpreadsheet className="w-5 h-5" />}
+                                Export Additional Items Report (.xlsx)
+                            </button>
+                            
                             <button 
                                 onClick={() => handleExport('replacement_history')}
                                 disabled={!!exporting}
-                                className="flex-1 group flex items-center justify-center gap-2 p-3.5 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-700 transition-all disabled:opacity-50"
+                                className="w-full group flex items-center justify-center gap-3 p-4 bg-slate-800 hover:bg-slate-700 text-white rounded-2xl font-bold transition-all disabled:opacity-50 active:scale-[0.99]"
                             >
-                                {exporting === 'replacement_history' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                                History Report
-                            </button>
-                            <button 
-                                onClick={() => handleExport('uniform_cost')}
-                                disabled={!!exporting || itemType === 'General'}
-                                className="flex-1 group flex items-center justify-center gap-2 p-3.5 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-500 transition-all disabled:opacity-50 shadow-lg shadow-emerald-600/10"
-                            >
-                                {exporting === 'uniform_cost' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                                Uniform Cost Report
+                                {exporting === 'replacement_history' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                                Export Replacements Report (.xlsx)
                             </button>
                         </div>
-                        {itemType === 'General' && (
-                            <p className="text-[10px] text-center mt-2 text-slate-500">Note: Uniform Cost Report is only for uniform items.</p>
-                        )}
                     </div>
                 </div>
             </div>

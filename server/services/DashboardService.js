@@ -9,12 +9,18 @@ class DashboardService {
         const thresholdDate = new Date();
         thresholdDate.setDate(thresholdDate.getDate() + 7); // 7 days window
 
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+
         const [
             totalEmployees,
             itemsIssuedThisMonth,
             pendingReplacements,
             upcomingRenewals,
-            itemsRequiringAttention
+            itemsRequiringAttention,
+            additionalRequestsCount,
+            pendingDeductionsCount,
+            deductionAgg
         ] = await Promise.all([
             Employee.countDocuments({ status: 'active' }),
             IssueRecord.countDocuments({ 
@@ -31,15 +37,45 @@ class DashboardService {
                 next_due_date: { $lte: new Date() },
                 archived: false,
                 lifecycle_status: 'Active'
-            })
+            }),
+            ReplacementRequest.countDocuments({ 
+                requested_date: { $gte: todayStart },
+                $or: [
+                    { allocation_type: 'Additional' },
+                    { is_salary_deduction: true },
+                    { deduction_amount: { $gt: 0 } }
+                ]
+            }),
+            ReplacementRequest.countDocuments({ 
+                requested_date: { $gte: todayStart },
+                payment_status: 'Pending',
+                $or: [
+                    { is_salary_deduction: true },
+                    { deduction_amount: { $gt: 0 } }
+                ]
+            }),
+            ReplacementRequest.aggregate([
+                { 
+                    $match: { 
+                        requested_date: { $gte: todayStart },
+                        $or: [{ is_salary_deduction: true }, { deduction_amount: { $gt: 0 } }] 
+                    } 
+                },
+                { $group: { _id: null, total: { $sum: '$deduction_amount' } } }
+            ])
         ]);
+
+        const totalDeductionAmount = deductionAgg.length > 0 ? deductionAgg[0].total : 0;
 
         return {
             totalEmployees,
             itemsIssuedThisMonth,
             pendingReplacements,
             upcomingRenewals,
-            itemsRequiringAttention
+            itemsRequiringAttention,
+            additionalRequestsCount,
+            pendingDeductionsCount,
+            totalDeductionAmount
         };
     }
 

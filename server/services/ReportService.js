@@ -24,7 +24,7 @@ class ReportService {
     }
 
     async getReplacementReport(filters = {}) {
-        const { startDate, endDate, employeeId, itemId, status } = filters;
+        const { startDate, endDate, employeeId, itemId, status, allocation_type, is_salary_deduction } = filters;
         const query = {};
 
         if (startDate && endDate) {
@@ -33,6 +33,23 @@ class ReportService {
         if (employeeId) query.employee = employeeId;
         if (itemId) query.item = itemId;
         if (status) query.status = status;
+        if (allocation_type) {
+            if (allocation_type === 'Additional') {
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+                query.requested_date = { $gte: todayStart };
+                query.$or = [
+                    { allocation_type: 'Additional' },
+                    { is_salary_deduction: true },
+                    { deduction_amount: { $gt: 0 } }
+                ];
+            } else {
+                query.allocation_type = allocation_type;
+            }
+        }
+        if (is_salary_deduction !== undefined) {
+            query.is_salary_deduction = is_salary_deduction === 'true' || is_salary_deduction === true;
+        }
 
         return await ReplacementRequest.find(query)
             .populate('employee')

@@ -19,6 +19,13 @@ const replacementRequestSchema = new mongoose.Schema({
     deduction_amount: { type: Number, default: 0 },
     payment_status: { type: String, default: 'Not Applicable' },
     return_status: { type: String, default: 'Not Required' },
+    allocation_type: { 
+        type: String, 
+        enum: ['Standard', 'Additional', 'Replacement'], 
+        default: 'Standard' 
+    },
+    is_salary_deduction: { type: Boolean, default: false },
+    approved_standard_quantity: { type: Number, default: 0 },
     status: { 
         type: String, 
         default: 'Pending', 

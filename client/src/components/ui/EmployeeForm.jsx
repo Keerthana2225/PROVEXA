@@ -11,6 +11,7 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
     department: '',
     designation: '',
     salary: 0,
+    employee_type: 'Permanent',
     status: 'active',
   });
   const [error, setError] = useState('');
@@ -23,6 +24,7 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
         department: editData?.department || '',
         designation: editData?.designation || '',
         salary: editData?.salary || 0,
+        employee_type: editData?.employee_type || 'Permanent',
         status: editData?.status || 'active',
       });
       setError('');
@@ -137,6 +139,24 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
             onChange={e => setForm(f => ({ ...f, salary: Number(e.target.value) }))}
             className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm font-bold"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Employment Type</label>
+          <div className="flex gap-3">
+            {['Permanent', 'Newcomer'].map(type => (
+              <label key={type} className={`flex-1 flex items-center justify-center p-3 border rounded-xl cursor-pointer capitalize transition-all text-sm font-medium
+                ${form.employee_type === type
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/20 dark:text-blue-400'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <input type="radio" name="employee_type" value={type} checked={form.employee_type === type}
+                  onChange={() => setForm(f => ({ ...f, employee_type: type }))} className="hidden" />
+                {type}
+              </label>
+            ))}
+          </div>
         </div>
 
         {editData && (

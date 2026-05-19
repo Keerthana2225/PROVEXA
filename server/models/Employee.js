@@ -13,6 +13,7 @@ const employeeSchema = new mongoose.Schema({
     designation: { type: String, required: true },
     salary: { type: Number, default: 0 },
     doj: { type: Date },
+    employee_type: { type: String, enum: ['Permanent', 'Newcomer'], default: 'Permanent' },
     status: { type: String, default: 'active' }
 }, schemaOptions);
 

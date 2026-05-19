@@ -95,7 +95,12 @@ export default function Employees() {
                                                 <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-xs flex-shrink-0">
                                                     {emp.name.charAt(0).toUpperCase()}
                                                 </div>
-                                                <span className="font-medium text-slate-900 dark:text-white text-xs">{emp.name}</span>
+                                                <div>
+                                                    <div className="font-medium text-slate-900 dark:text-white text-xs leading-none">{emp.name}</div>
+                                                     <span className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded leading-none uppercase tracking-wide ${emp.employee_type === 'Newcomer' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                                                         {emp.employee_type || 'Permanent'}
+                                                     </span>
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-5 py-2.5 font-mono text-[10px] bg-slate-50 dark:bg-transparent">{emp.emp_code}</td>

@@ -169,9 +169,78 @@ router.get('/replacements/uniform', async (req, res) => {
     }
 });
 
+router.get('/replacements/additional-deductions', async (req, res) => {
+    try {
+        const records = await reportService.getReplacementExportData({ 
+            ...req.query, 
+            allocation_type: 'Additional' 
+        });
+
+        const workbook = new ExcelJS.Workbook();
+        const ws = workbook.addWorksheet('Additional Uniform Costs');
+
+        ws.columns = [
+            { header: 'Employee ID',         key: 'emp_code',         width: 14 },
+            { header: 'Employee Name',       key: 'emp_name',         width: 22 },
+            { header: 'Department',          key: 'department',       width: 16 },
+            { header: 'Extra Item Requested',key: 'item_name',        width: 22 },
+            { header: 'Quantity',            key: 'quantity',         width: 10 },
+            { header: 'Unit Cost (₹)',       key: 'unit_cost',        width: 14 },
+            { header: 'Total Cost (₹)',      key: 'deduction',        width: 16 },
+            { header: 'Payment Status',      key: 'payment_status',   width: 16 },
+            { header: 'Request Date',        key: 'req_date',         width: 16 },
+        ];
+
+        const headerRow = ws.getRow(1);
+        headerRow.eachCell(cell => {
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+        });
+
+        let totalDeduction = 0;
+        records.forEach(r => {
+            totalDeduction += parseFloat(r.deduction_amount) || 0;
+            ws.addRow({
+                emp_code:       r.employee?.emp_code || 'N/A',
+                emp_name:       r.employee?.name || 'N/A',
+                department:     r.employee?.department || 'N/A',
+                item_name:      r.item?.name || r.item_name || 'N/A',
+                quantity:       r.quantity,
+                unit_cost:      r.unit_cost,
+                deduction:      r.deduction_amount,
+                payment_status: r.payment_status || 'Pending',
+                req_date:       dayjs(r.requested_date).format('YYYY-MM-DD'),
+            });
+        });
+
+        ws.addRow([]);
+        ws.addRow({ emp_name: 'TOTAL ADDITIONAL COST', deduction: totalDeduction.toFixed(2) });
+
+        // Auto shading
+        ws.eachRow((row, rowNumber) => {
+            if (rowNumber > 1 && rowNumber % 2 === 0) {
+                row.eachCell(cell => {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'F9FAFBFF' } };
+                });
+            }
+        });
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="Additional_Uniform_Cost_Report_${dayjs().format('YYYY-MM-DD')}.xlsx"`);
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error generating deduction report' });
+    }
+});
+
 router.get('/replacements/history', async (req, res) => {
     try {
-        const records = await reportService.getReplacementExportData(req.query);
+        const records = await reportService.getReplacementExportData({
+            ...req.query,
+            allocation_type: 'Replacement'
+        });
 
         const workbook = new ExcelJS.Workbook();
         const ws = workbook.addWorksheet('Replacement History');

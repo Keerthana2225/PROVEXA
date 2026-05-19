@@ -61,6 +61,42 @@ export default function Dashboard() {
                 </div>
             )}
 
+            {/* Uniform Billing Intelligence Row */}
+            {!statsLoading && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-card-hover transition-all duration-200 group flex items-center justify-between cursor-default">
+                        <div>
+                            <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-1">Additional Allocation Requests</p>
+                            <h3 className="text-3xl font-black text-slate-900">{stats?.additionalRequestsCount ?? '0'}</h3>
+                            <span className="text-[9px] text-slate-400 font-semibold block mt-1">Total items requested beyond free limits</span>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+                            <Package className="w-6 h-6" />
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-card-hover transition-all duration-200 group flex items-center justify-between cursor-default">
+                        <div>
+                            <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Pending Additional Cost</p>
+                            <h3 className="text-3xl font-black text-slate-900">{stats?.pendingDeductionsCount ?? '0'}</h3>
+                            <span className="text-[9px] text-slate-400 font-semibold block mt-1">Billing awaiting payroll cycle</span>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                            <Clock className="w-6 h-6" />
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-card-hover transition-all duration-200 group flex items-center justify-between cursor-default">
+                        <div>
+                            <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Total Additional Cost</p>
+                            <h3 className="text-3xl font-black text-slate-900">₹{(stats?.totalDeductionAmount || 0).toLocaleString()}</h3>
+                            <span className="text-[9px] text-slate-400 font-semibold block mt-1">Aggregated cost of additional uniforms</span>
+                        </div>
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+                            <AlertTriangle className="w-6 h-6" />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
                 {/* Chart */}
                 <div className="xl:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
