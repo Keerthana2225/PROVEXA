@@ -29,7 +29,8 @@ const issueRecordSchema = new mongoose.Schema({
     archived: { type: Boolean, default: false },
     archived_at: { type: Date },
     archived_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
-    archive_reason: { type: String }
+    archive_reason: { type: String },
+    is_renewal: { type: Boolean, default: false }
 }, schemaOptions);
 
 module.exports = mongoose.model('IssueRecord', issueRecordSchema);

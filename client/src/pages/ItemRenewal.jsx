@@ -232,10 +232,10 @@ export default function ItemRenewal() {
                                             {type !== 'history' && (
                                                 <button 
                                                     onClick={() => openRenewModal(item)} 
-                                                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all border shadow-sm ${dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour')) ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200/50'}`}
-                                                    disabled={dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour'))}
+                                                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all border shadow-sm ${(item.is_renewal && dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour'))) ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed' : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200/50'}`}
+                                                    disabled={item.is_renewal && dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour'))}
                                                 >
-                                                    {dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour')) ? 'Renewed Today' : 'Renew'}
+                                                    {(item.is_renewal && dayjs(item.issued_date).isAfter(dayjs().subtract(24, 'hour'))) ? 'Renewed Today' : 'Renew'}
                                                 </button>
                                             )}
                                             {type !== 'history' && (

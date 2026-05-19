@@ -251,7 +251,8 @@ class IssueService {
             notes: notes || 'Renewal',
             issue_status: 'Pending Acknowledgement',
             lifecycle_status: 'Active',
-            item_condition: condition || 'Good'
+            item_condition: condition || 'Good',
+            is_renewal: true
         });
     }
 
