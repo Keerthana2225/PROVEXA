@@ -2,108 +2,145 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
-const replacementService = require('../services/ReplacementService');
+const allocationService = require('../services/AllocationRequestService');
 const itemService = require('../services/ItemService');
 const authMiddleware = require('../middleware/auth');
 
 router.use(authMiddleware);
 
-// Get configs
-router.get('/configs', async (req, res) => {
+// ── Official Price List ───────────────────────────────────────────
+
+// GET all active official prices (used by frontend form)
+router.get('/prices', async (req, res) => {
     try {
-        const configs = await replacementService.getConfigs();
-        res.json(configs);
+        const prices = await allocationService.getOfficialPrices();
+        res.json(prices);
     } catch (error) {
-        console.error('Replacement Get Configs Error:', error);
+        console.error('Price List Error:', error);
         res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
-// Update configs
+// PUT upsert a single price entry
+router.put('/prices', async (req, res) => {
+    try {
+        const { item_name, price, gender, description } = req.body;
+        if (!item_name || price === undefined) {
+            return res.status(400).json({ message: 'item_name and price are required' });
+        }
+        const updated = await allocationService.upsertOfficialPrice(item_name, parseFloat(price), gender, description);
+        res.json(updated);
+    } catch (error) {
+        console.error('Price Upsert Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
+    }
+});
+
+// ── Allocation Configs ────────────────────────────────────────────
+
+router.get('/configs', async (req, res) => {
+    try {
+        const configs = await allocationService.getConfigs();
+        res.json(configs);
+    } catch (error) {
+        console.error('Get Configs Error:', error);
+        res.status(500).json({ message: error.message || 'Server error' });
+    }
+});
+
 router.post('/configs', async (req, res) => {
     try {
         const { configs } = req.body;
-        if (!Array.isArray(configs)) {
-            return res.status(400).json({ message: 'configs must be an array' });
-        }
-        const updated = await replacementService.updateConfigs(configs);
+        if (!Array.isArray(configs)) return res.status(400).json({ message: 'configs must be an array' });
+        const updated = await allocationService.updateConfigs(configs);
         res.json(updated);
     } catch (error) {
-        console.error('Replacement Update Configs Error:', error);
+        console.error('Update Configs Error:', error);
         res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
-// Get all requests
+// ── Get all requests ──────────────────────────────────────────────
+
 router.get('/', async (req, res) => {
     try {
-        const requests = await replacementService.getAll(req.query);
+        const requests = await allocationService.getAll(req.query);
         res.json(requests);
     } catch (error) {
-        console.error('Replacement Get All Error:', error);
+        console.error('Get All Error:', error);
         res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
-// Summary Stats
+// ── Summary stats ─────────────────────────────────────────────────
+
 router.get('/summary', async (req, res) => {
     try {
-        const summary = await replacementService.getSummary();
+        const summary = await allocationService.getSummary();
         res.json(summary);
     } catch (error) {
-        console.error('Replacement Summary Error:', error);
+        console.error('Summary Error:', error);
         res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
-// Create new request
+// ── Create new request ────────────────────────────────────────────
+
 router.post('/', async (req, res) => {
     try {
-        const { employee_id, item_id, reason, quantity, size, unit_cost, total_cost, deduction_amount, payment_status, allocation_type, is_salary_deduction, approved_standard_quantity } = req.body;
-        
+        const {
+            employee_id, item_id, reason, exchange_reason, notes,
+            quantity, size, unit_cost, payment_status,
+            allocation_type, approved_standard_quantity,
+            return_status, previous_issue_id, apply_cost_override
+        } = req.body;
+
         const item = await itemService.getById(item_id);
         if (!item) return res.status(404).json({ message: 'Item not found' });
 
         const qty = parseInt(quantity) || 1;
 
-        const request = await replacementService.create({
+        const request = await allocationService.create({
             employee_id,
             item_id,
             reason,
-            quantity: qty,
-            size: size || 'N/A',
-            unit_cost: parseFloat(unit_cost) || 0,
-            total_cost: parseFloat(total_cost) || (qty * (parseFloat(unit_cost) || 0)),
-            deduction_amount: parseFloat(deduction_amount) || 0,
+            exchange_reason:  exchange_reason || '',
+            notes,
+            quantity:         qty,
+            size:             size || 'N/A',
+            unit_cost:        parseFloat(unit_cost) || 0,
             payment_status,
             allocation_type,
-            is_salary_deduction,
-            approved_standard_quantity
+            approved_standard_quantity,
+            return_status,
+            previous_issue_id,
+            apply_cost_override: !!apply_cost_override,
         });
 
         res.status(201).json(request);
     } catch (error) {
-        console.error('Replacement Create Error:', error);
+        console.error('Create Error:', error);
         res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
-// Approve a request
+// ── Approve ───────────────────────────────────────────────────────
+
 router.put('/:id/approve', async (req, res) => {
     try {
-        const request = await replacementService.approve(req.params.id, req.body, req.admin.id);
+        const request = await allocationService.approve(req.params.id, req.body, req.admin.id);
         res.json({ message: 'Request approved successfully', request });
     } catch (error) {
-        console.error('Replacement Approve Error:', error);
+        console.error('Approve Error:', error);
         res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 
-// Acknowledge and Complete Handover
+// ── Handover / Acknowledge ────────────────────────────────────────
+
 router.put('/:id/acknowledge', async (req, res) => {
     try {
         const { signature, notes, ocr_details, verification_method = 'Signature' } = req.body;
-        
         if (!signature && !ocr_details) {
             return res.status(400).json({ message: 'Signature or OCR verification is required' });
         }
@@ -111,42 +148,34 @@ router.put('/:id/acknowledge', async (req, res) => {
         const id = req.params.id;
         let signature_path = null;
         if (signature) {
-            const base64Data = signature.replace(/^data:image\/\w+;base64,/, "");
+            const base64Data = signature.replace(/^data:image\/\w+;base64,/, '');
             const buffer = Buffer.from(base64Data, 'base64');
             const filename = `sig_replace_${Date.now()}_${id}.png`;
             const dir = path.join(__dirname, '..', 'public', 'signatures');
-            
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-            
-            const filepath = path.join(dir, filename);
-            fs.writeFileSync(filepath, buffer);
+            fs.writeFileSync(path.join(dir, filename), buffer);
             signature_path = `/public/signatures/${filename}`;
         }
-        
-        console.log(`[Handover] Processing for ID: ${id}`);
-        const result = await replacementService.handover(id, {
-            signature_path,
-            notes,
-            ocr_details,
-            verification_method,
-            admin_id: req.admin.id
+
+        const result = await allocationService.handover(id, {
+            signature_path, notes, ocr_details, verification_method, admin_id: req.admin.id
         });
-        
-        console.log(`[Handover] Success for ID: ${id}`);
+
         res.json({ message: 'Handover completed successfully', issue: result });
     } catch (error) {
-        console.error('Replacement Handover Error:', error);
+        console.error('Handover Error:', error);
         res.status(500).json({ message: error.message || 'Server error completing handover' });
     }
 });
 
-// Reject a request
+// ── Reject ────────────────────────────────────────────────────────
+
 router.put('/:id/reject', async (req, res) => {
     try {
-        const request = await replacementService.reject(req.params.id, req.body.notes, req.admin.id);
+        const request = await allocationService.reject(req.params.id, req.body.notes, req.admin.id);
         res.json({ message: 'Request rejected', request });
     } catch (error) {
-        console.error('Replacement Reject Error:', error);
+        console.error('Reject Error:', error);
         res.status(500).json({ message: error.message || 'Server error' });
     }
 });

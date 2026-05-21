@@ -131,6 +131,84 @@ router.put('/acknowledge/:id', async (req, res) => {
     }
 });
 
+// Acknowledge all pending items for an employee (bulk)
+router.put('/acknowledge/employee/:employeeId', async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        const { signature, verification_method, ocr_details } = req.body; 
+
+        if (!signature && !ocr_details) {
+            return res.status(400).json({ message: 'Signature or OCR verification is required' });
+        }
+
+        let signature_path = null;
+        if (signature) {
+            const base64Data = signature.replace(/^data:image\/\w+;base64,/, "");
+            const buffer = Buffer.from(base64Data, 'base64');
+            const filename = `sig_emp_${Date.now()}_${employeeId}.png`;
+            const dir = path.join(__dirname, '..', 'public', 'signatures');
+            
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            
+            const filepath = path.join(dir, filename);
+            fs.writeFileSync(filepath, buffer);
+            signature_path = `/public/signatures/${filename}`;
+        }
+        
+        // Find all pending issues for this employee
+        const { IssueRecord, ReplacementRequest } = require('../models');
+        
+        // Update all unacknowledged standard issues
+        const pendingIssues = await IssueRecord.find({
+            employee: employeeId,
+            acknowledged: false,
+            issue_status: 'Pending Acknowledgement'
+        });
+        
+        for (const issue of pendingIssues) {
+            await issueService.acknowledge(issue._id, {
+                signature_path,
+                verification_method,
+                ocr_details,
+                admin_id: req.admin?.id
+            });
+        }
+        
+        // Update all approved replacement requests that are not completed
+        const pendingReplacements = await ReplacementRequest.find({
+            employee: employeeId,
+            status: { $in: ['Approved', 'pending', 'Pending'] }
+        });
+        
+        for (const rep of pendingReplacements) {
+            rep.status = 'Completed';
+            rep.resolved_date = new Date();
+            rep.acknowledged = true;
+            rep.signature_path = signature_path;
+            rep.verification_method = verification_method;
+            await rep.save();
+        }
+
+        // Create verification log
+        await verificationService.log({
+            type: ocr_details ? (signature ? 'Signature + OCR' : 'OCR Scan') : 'Signature',
+            status: 'Verified',
+            entity_id: employeeId,
+            entity_type: 'EmployeeBulk',
+            details: JSON.stringify({ ocr_details, signature_path, items_verified: pendingIssues.length + pendingReplacements.length }),
+            verified_by: req.admin?.id
+        });
+
+        res.json({ 
+            message: `Successfully verified and acknowledged ${pendingIssues.length + pendingReplacements.length} items.`, 
+            verified_count: pendingIssues.length + pendingReplacements.length 
+        });
+    } catch (error) {
+        console.error('Error in bulk acknowledge:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // Archive / Reset Issues
 router.put('/archive-reset', async (req, res) => {
     try {

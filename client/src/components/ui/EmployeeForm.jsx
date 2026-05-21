@@ -10,22 +10,28 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
     name: '',
     department: '',
     designation: '',
-    salary: 0,
     employee_type: 'Permanent',
+    gender: 'Male',
     status: 'active',
+    sizes: { shirt: '', pant: '', shoe: '' },
   });
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       setForm({
-        emp_code: editData?.emp_code || '',
-        name: editData?.name || '',
-        department: editData?.department || '',
-        designation: editData?.designation || '',
-        salary: editData?.salary || 0,
+        emp_code:      editData?.emp_code || '',
+        name:          editData?.name || '',
+        department:    editData?.department || '',
+        designation:   editData?.designation || '',
         employee_type: editData?.employee_type || 'Permanent',
-        status: editData?.status || 'active',
+        gender:        editData?.gender || 'Male',
+        status:        editData?.status || 'active',
+        sizes: {
+          shirt: editData?.sizes?.shirt || '',
+          pant:  editData?.sizes?.pant  || '',
+          shoe:  editData?.sizes?.shoe  || '',
+        },
       });
       setError('');
     }
@@ -129,25 +135,14 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-            Basic Monthly Salary (₹)
-          </label>
-          <input
-            type="number"
-            placeholder="e.g. 30000"
-            value={form.salary}
-            onChange={e => setForm(f => ({ ...f, salary: Number(e.target.value) }))}
-            className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm font-bold"
-          />
-        </div>
-
-        <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Employment Type</label>
           <div className="flex gap-3">
-            {['Permanent', 'Newcomer'].map(type => (
+            {['Permanent', 'Intern'].map(type => (
               <label key={type} className={`flex-1 flex items-center justify-center p-3 border rounded-xl cursor-pointer capitalize transition-all text-sm font-medium
                 ${form.employee_type === type
-                  ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/20 dark:text-blue-400'
+                  ? type === 'Intern'
+                    ? 'border-amber-500 bg-amber-50 text-amber-700 dark:border-amber-500 dark:bg-amber-900/20 dark:text-amber-400'
+                    : 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900/20 dark:text-blue-400'
                   : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
@@ -155,6 +150,44 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
                   onChange={() => setForm(f => ({ ...f, employee_type: type }))} className="hidden" />
                 {type}
               </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Gender */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">Gender <span className="text-red-500">*</span></label>
+          <div className="flex gap-3">
+            {['Male', 'Female'].map(g => (
+              <label key={g} className={`flex-1 flex items-center justify-center gap-2 p-3 border rounded-xl cursor-pointer transition-all text-sm font-medium
+                ${form.gender === g
+                  ? g === 'Female' ? 'border-pink-500 bg-pink-50 text-pink-700' : 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50'}`}>
+                <input type="radio" name="gender" value={g} checked={form.gender === g}
+                  onChange={() => setForm(f => ({ ...f, gender: g }))} className="hidden" />
+                {g === 'Female' ? '♀' : '♂'} {g}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Uniform Sizes */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            Uniform Sizes <span className="text-slate-400 text-xs font-normal">(fill now to pre-fill issue forms)</span>
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { key: 'shirt', label: 'Shirt', placeholder: 'e.g. 40, M, L' },
+              { key: 'pant',  label: 'Pant',  placeholder: 'e.g. 32, 34' },
+              { key: 'shoe',  label: 'Shoe',  placeholder: 'e.g. 7, 8, 9' },
+            ].map(({ key, label, placeholder }) => (
+              <div key={key}>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{label} Size</label>
+                <input type="text" placeholder={placeholder} value={form.sizes?.[key] || ''}
+                  onChange={e => setForm(f => ({ ...f, sizes: { ...f.sizes, [key]: e.target.value } }))}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm font-bold text-center" />
+              </div>
             ))}
           </div>
         </div>

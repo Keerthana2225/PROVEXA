@@ -25,9 +25,8 @@ router.get('/export', async (req, res) => {
             { header: 'Quantity',             key: 'quantity',      width: 10 },
             { header: 'Issue Date',           key: 'issued_date',   width: 14 },
             { header: 'Next Due Date',        key: 'next_due_date', width: 14 },
-            { header: 'Acknowledgement Status', key: 'ack_status',   width: 20 },
+            { header: 'Acknowledgement Status', key: 'ack_status',   width: 24 },
             { header: 'Verification Method',  key: 'verify_method', width: 18 },
-            { header: 'Verification Time',    key: 'ack_time',      width: 20 },
             { header: 'Return Status',        key: 'return_status', width: 14 },
             { header: 'Renewal Status',       key: 'renewal_status',width: 16 },
             { header: 'Digital Signature',    key: 'signature',     width: 25 },
@@ -45,7 +44,7 @@ router.get('/export', async (req, res) => {
             const hasOcr = !!(issue.verification_method && issue.verification_method.includes('OCR'));
             const hasSig = !!issue.signature_path;
             
-            let ackStatus = 'Pending Verification';
+            let ackStatus = 'Issued – Signature Awaited';
             if (issue.acknowledged) {
                 if (hasOcr && hasSig) ackStatus = 'Fully Verified';
                 else if (hasOcr) ackStatus = 'Verified (OCR)';
@@ -65,12 +64,11 @@ router.get('/export', async (req, res) => {
                 next_due_date: dayjs(issue.next_due_date).format('YYYY-MM-DD'),
                 ack_status:    ackStatus,
                 verify_method: issue.verification_method || 'None',
-                ack_time:      issue.acknowledgement_time ? dayjs(issue.acknowledgement_time).format('YYYY-MM-DD HH:mm') : 'Pending',
                 return_status: issue.lifecycle_status === 'Returned' ? 'Returned' : 'Active',
                 renewal_status: issue.lifecycle_status,
                 signature: hasSig 
                     ? '' 
-                    : (hasOcr ? 'Verified via OCR Scan' : 'Pending Verification')
+                    : (hasOcr ? 'Verified via OCR Scan' : 'Issued – Signature Awaited')
             });
 
             // Set row height to accommodate signature
@@ -87,7 +85,7 @@ router.get('/export', async (req, res) => {
                             extension: 'png',
                         });
                         worksheet.addImage(imageId, {
-                            tl: { col: 13.2, row: index + 1.1 },
+                            tl: { col: 12.1, row: index + 1.1 },
                             ext: { width: 120, height: 50 },
                             editAs: 'oneCell'
                         });
@@ -152,7 +150,7 @@ router.get('/replacements/uniform', async (req, res) => {
                 total_cost:   r.total_cost,
                 deduction:    r.deduction_amount,
                 net_salary:   (parseFloat(r.employee?.salary || 0) - parseFloat(r.deduction_amount || 0)).toFixed(2),
-                rep_date:     r.resolved_date ? dayjs(r.resolved_date).format('YYYY-MM-DD') : 'Pending',
+                rep_date:     r.resolved_date ? dayjs(r.resolved_date).format('YYYY-MM-DD') : 'In Progress',
             });
         });
 
@@ -187,7 +185,6 @@ router.get('/replacements/additional-deductions', async (req, res) => {
             { header: 'Quantity',            key: 'quantity',         width: 10 },
             { header: 'Unit Cost (₹)',       key: 'unit_cost',        width: 14 },
             { header: 'Total Cost (₹)',      key: 'deduction',        width: 16 },
-            { header: 'Payment Status',      key: 'payment_status',   width: 16 },
             { header: 'Request Date',        key: 'req_date',         width: 16 },
         ];
 
@@ -199,7 +196,8 @@ router.get('/replacements/additional-deductions', async (req, res) => {
 
         let totalDeduction = 0;
         records.forEach(r => {
-            totalDeduction += parseFloat(r.deduction_amount) || 0;
+            const cost = parseFloat(r.deduction_amount) || (parseFloat(r.unit_cost || 0) * parseFloat(r.quantity || 1));
+            totalDeduction += cost;
             ws.addRow({
                 emp_code:       r.employee?.emp_code || 'N/A',
                 emp_name:       r.employee?.name || 'N/A',
@@ -207,8 +205,7 @@ router.get('/replacements/additional-deductions', async (req, res) => {
                 item_name:      r.item?.name || r.item_name || 'N/A',
                 quantity:       r.quantity,
                 unit_cost:      r.unit_cost,
-                deduction:      r.deduction_amount,
-                payment_status: r.payment_status || 'Pending',
+                deduction:      cost,
                 req_date:       dayjs(r.requested_date).format('YYYY-MM-DD'),
             });
         });
@@ -238,8 +235,7 @@ router.get('/replacements/additional-deductions', async (req, res) => {
 router.get('/replacements/history', async (req, res) => {
     try {
         const records = await reportService.getReplacementExportData({
-            ...req.query,
-            allocation_type: 'Replacement'
+            ...req.query
         });
 
         const workbook = new ExcelJS.Workbook();
@@ -250,7 +246,8 @@ router.get('/replacements/history', async (req, res) => {
             { header: 'Employee Name',   key: 'emp_name',   width: 22 },
             { header: 'Department',       key: 'department', width: 16 },
             { header: 'Item Name',        key: 'item_name',  width: 22 },
-            { header: 'Replacement Reason', key: 'reason',    width: 30 },
+            { header: 'Request Type',     key: 'allocation_type', width: 18 },
+            { header: 'Reason',           key: 'reason',    width: 30 },
             { header: 'Quantity',         key: 'quantity',   width: 10 },
             { header: 'Size',             key: 'size',       width: 8  },
             { header: 'Status',           key: 'status',     width: 14 },
@@ -282,16 +279,17 @@ router.get('/replacements/history', async (req, res) => {
                 emp_name:    r.employee?.name || 'N/A',
                 department:  r.employee?.department || 'N/A',
                 item_name:   r.item?.name || 'N/A',
+                allocation_type: r.allocation_type || 'Replacement',
                 reason:      r.reason,
                 quantity:    r.quantity,
                 size:        r.size || 'N/A',
                 status:      r.status,
                 req_date:    dayjs(r.requested_date).format('YYYY-MM-DD'),
-                rep_date:    r.resolved_date ? dayjs(r.resolved_date).format('YYYY-MM-DD') : 'Pending',
+                rep_date:    r.resolved_date ? dayjs(r.resolved_date).format('YYYY-MM-DD') : 'In Progress',
                 verify:      verifyStatus,
                 signature: hasSig 
                     ? '' 
-                    : (hasOcr ? 'Verified via OCR Scan' : 'Pending Verification')
+                    : (hasOcr ? 'Verified via OCR Scan' : 'Issued – Signature Awaited')
             });
 
             row.height = 60;
@@ -306,7 +304,7 @@ router.get('/replacements/history', async (req, res) => {
                             extension: 'png',
                         });
                         ws.addImage(imageId, {
-                            tl: { col: 11, row: index + 1.1 },
+                            tl: { col: 12, row: index + 1.1 },
                             ext: { width: 120, height: 50 },
                             editAs: 'oneCell'
                         });

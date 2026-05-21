@@ -60,6 +60,7 @@ export default function UnifiedVerificationModal({ isOpen, onClose, employee, is
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['issues'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
             toast.success(data.message || 'Verification & Acknowledgement completed!');
             setStep(STATUS.SUCCESS);
             setTimeout(() => {

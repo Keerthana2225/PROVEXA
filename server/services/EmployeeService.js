@@ -1,4 +1,5 @@
 const { Employee, IssueRecord, Item } = require('../models');
+const eligibilityService = require('./EligibilityService');
 
 class EmployeeService {
     async getAll(filters = {}) {
@@ -50,6 +51,10 @@ class EmployeeService {
             issues,
             replacements
         };
+    }
+
+    async getAssetProfile(id) {
+        return await eligibilityService.getAssetProfile(id);
     }
 
     async getByCode(code) {

@@ -348,19 +348,7 @@ export default function ItemRenewal() {
                     
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">New Item Condition</label>
-                            <select 
-                                value={itemCondition} 
-                                onChange={e => setItemCondition(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700"
-                            >
-                                <option value="Good">Perfect / New</option>
-                                <option value="Needs Service">Needs Service / Refurbished</option>
-                                <option value="Damaged">Damaged / Worn Out</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Internal Notes (Optional)</label>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Internal Notes <span className="text-slate-300">(Optional)</span></label>
                             <textarea 
                                 value={notes} 
                                 onChange={e => setNotes(e.target.value)}

@@ -1,63 +1,119 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, User, DollarSign, Package, Info, AlertTriangle, HelpCircle } from 'lucide-react';
+import {
+  ChevronDown, User, Package, Info, AlertTriangle, CheckCircle2,
+  PlusCircle, ArrowLeftRight, IndianRupee, Sparkles, X,
+  Search, BadgeAlert, Plus, RotateCcw
+} from 'lucide-react';
 import api from '../../lib/api';
 import Modal from '../ui/Modal';
 import { toast } from '../ui/Toast';
 
+// ── Find official price from fetched list ─────────────────────────
+function lookupPrice(itemName, priceList, gender = null) {
+  if (!itemName || !priceList?.length) return null;
+  const n = itemName.toLowerCase().trim();
+
+  // Try gender-specific first
+  if (gender) {
+    const genderPrices = priceList.filter(p => p.gender === gender);
+    let found = genderPrices.find(p => p.item_name.toLowerCase() === n);
+    if (found) return found.price;
+  }
+
+  // Fallback: any gender (exact match only)
+  let found = priceList.find(p => p.item_name.toLowerCase() === n);
+  return found ? found.price : null;
+}
+
+// ── Only two workflows now ────────────────────────────────────────
+const WORKFLOW_TYPES = [
+  {
+    value: 'Additional',
+    icon: PlusCircle,
+    title: 'Extra / Additional',
+    subtitle: 'Beyond free quota',
+    desc: 'Employee requests more than the standard free allocation. The official item cost is recorded and tracked.',
+    color: 'amber',
+    selectedClass: 'border-amber-500 bg-amber-50 ring-2 ring-amber-400',
+    defaultClass: 'border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/30',
+    iconBg: 'bg-amber-500',
+  },
+  {
+    value: 'Replacement',
+    icon: ArrowLeftRight,
+    title: 'Replace / Exchange',
+    subtitle: 'Swap existing item',
+    desc: 'Replace a damaged, worn-out, or wrong-size item that was already issued. Cost is auto-calculated from official rate.',
+    color: 'purple',
+    selectedClass: 'border-purple-500 bg-purple-50 ring-2 ring-purple-400',
+    defaultClass: 'border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/30',
+    iconBg: 'bg-purple-600',
+  },
+];
+
+const REASON_OPTIONS = {
+  Additional: [
+    { value: 'Additional Request', label: 'Extra uniform beyond free quota' },
+    { value: 'Lost Item',          label: 'Lost item — replacement needed (chargeable)' },
+    { value: 'Other',              label: 'Other' },
+  ],
+  Replacement: [
+    { value: 'Damage',      label: 'Damaged / Torn' },
+    { value: 'Size Change', label: 'Size change — wrong fit' },
+    { value: 'Exchange',    label: 'Exchange for different type' },
+    { value: 'Other',       label: 'Other' },
+  ],
+};
+
+const emptyForm = {
+  employee_id: '',
+  reason: 'Additional Request',
+  notes: '',
+  return_status: 'Not Required',
+  allocation_type: 'Additional'
+};
+
 export default function ReplacementForm({ isOpen, onClose }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({
-      employee_id: '',
-      item_id: '',
-      reason: '',
-      quantity: 1,
-      size: '',
-      unit_cost: 0,
-      deduction_amount: 0,
-      payment_status: 'Not Applicable',
-      return_status: 'Not Required',
-      allocation_type: 'Standard',
-      is_salary_deduction: false,
-      approved_standard_quantity: 0
-  });
+  const [form, setForm] = useState(emptyForm);
+  const [cartItems, setCartItems] = useState([]);
   const [error, setError] = useState('');
-  const [selectedItem, setSelectedItem] = useState(null); // full item object with category
-
-  // Searchable Select State
+  const [itemSearch, setItemSearch] = useState('');
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddForm, setQuickAddForm] = useState({ name: '', category_name: 'Uniform & Apparel', price: '', gender: 'UNISEX' });
+  const [quickAddError, setQuickAddError] = useState('');
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  // ── Queries ──────────────────────────────────────────────────────
   const { data: employees } = useQuery({
     queryKey: ['employees-list'],
-    queryFn: async () => {
-      const { data } = await api.get('/employees?limit=200');
-      return data.employees;
-    },
+    queryFn: async () => { const { data } = await api.get('/employees?limit=200'); return data.employees; },
     enabled: isOpen,
   });
 
   const { data: items } = useQuery({
     queryKey: ['items'],
-    queryFn: async () => {
-      const { data } = await api.get('/items');
-      return data;
-    },
+    queryFn: async () => { const { data } = await api.get('/items'); return data; },
     enabled: isOpen,
   });
 
-  // Query Allocation Configurations
-  const { data: configs } = useQuery({
-    queryKey: ['allocation-configs'],
-    queryFn: async () => {
-      const { data } = await api.get('/replacements/configs');
-      return data;
-    },
+  const { data: categories } = useQuery({
+    queryKey: ['item-categories'],
+    queryFn: async () => { const { data } = await api.get('/items/categories'); return data; },
     enabled: isOpen,
   });
 
-  // Query active issues for the selected employee to run standard allocation limits validation
+  // Official prices from DB — MEN + WOMEN rates
+  const { data: officialPrices } = useQuery({
+    queryKey: ['official-prices'],
+    queryFn: async () => { const { data } = await api.get('/replacements/prices'); return data; },
+    enabled: isOpen,
+    staleTime: 10 * 60 * 1000,
+  });
+
   const { data: activeIssues } = useQuery({
     queryKey: ['active-issues', form.employee_id],
     queryFn: async () => {
@@ -68,512 +124,541 @@ export default function ReplacementForm({ isOpen, onClose }) {
     enabled: isOpen && !!form.employee_id,
   });
 
-  const getItemType = (name) => {
-    const n = (name || '').toLowerCase();
-    if (n.includes('t-shirt') || n.includes('tshirt')) return 'T-Shirt';
-    if (n.includes('shirt')) return 'Shirt';
-    if (n.includes('pant')) return 'Pant';
-    return 'Other';
-  };
+  const selectedEmployee = employees?.find(e => e.id?.toString() === form.employee_id?.toString());
+  const empGender = selectedEmployee?.gender === 'Female' ? 'WOMEN' : 'MEN';
 
-  const getLimit = (itemType, employee) => {
-    const conf = configs?.find(c => c.item_type === itemType);
-    const isNewcomer = employee?.employee_type === 'Newcomer';
-    if (conf) {
-      return isNewcomer ? (conf.newcomer_quantity ?? 3) : (conf.permanent_quantity ?? 2);
-    }
-    const defaults = { 
-      'Pant': isNewcomer ? 3 : 2, 
-      'Shirt': 2, 
-      'T-Shirt': 1 
-    };
-    return defaults[itemType] || 0;
-  };
-
-  // Determine if cost tracking applies based on category or type
-  const isCostTrackingItem = !!selectedItem?.category?.requires_cost_tracking || form.allocation_type === 'Additional';
-
-  // Handle outside click for dropdown
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsDropdownOpen(false);
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => { if (isOpen) resetForm(); }, [isOpen]);
+
+  // When employee changes, recalculate unit costs in cart
   useEffect(() => {
-    if (isOpen) resetForm();
-  }, [isOpen]);
-
-  const filteredEmployees = employees?.filter(emp => {
-    if (!employeeSearch.trim()) return emp.status === 'active';
-    const s = employeeSearch.toLowerCase().trim();
-    return emp.status === 'active' && (
-      emp.name.toLowerCase().includes(s) ||
-      emp.emp_code.toLowerCase().includes(s)
-    );
-  }).sort((a, b) => {
-    const s = employeeSearch.toLowerCase().trim();
-    if (!s) return 0;
-    const aName = a.name.toLowerCase();
-    const bName = b.name.toLowerCase();
-    if (aName.startsWith(s) && !bName.startsWith(s)) return -1;
-    if (bName.startsWith(s) && !aName.startsWith(s)) return 1;
-    return aName.localeCompare(bName);
-  });
-
-  const selectedEmployee = employees?.find(e => e.id?.toString() === form.employee_id?.toString());
-
-  const itemType = selectedItem ? getItemType(selectedItem.name) : 'Other';
-  const limit = getLimit(itemType, selectedEmployee);
-
-  // Automatic excess limits validation and deduction calculation
-  useEffect(() => {
-    if (!selectedItem) return;
-
-    if (form.allocation_type === 'Replacement') {
-      // Keep user choice for replacements (Optional Deduction)
-      return;
-    }
-
-    if (limit > 0 && activeIssues) {
-      let alreadyReceived = 0;
-      activeIssues.forEach(issue => {
-        const name = issue.item_name || issue.item?.name;
-        if (getItemType(name) === itemType) {
-          alreadyReceived += (issue.quantity || 0);
-        }
-      });
-
-      const totalProposed = alreadyReceived + form.quantity;
-      if (totalProposed > limit) {
-        let defaultCost = 200;
-        if (itemType === 'Pant') defaultCost = 250;
-        else if (itemType === 'Shirt') defaultCost = 150;
-        else if (itemType === 'T-Shirt') defaultCost = 100;
-
-        setForm(f => ({
-          ...f,
-          allocation_type: 'Additional',
-          is_salary_deduction: true,
-          unit_cost: f.unit_cost || defaultCost,
-          deduction_amount: f.deduction_amount || (f.quantity * (f.unit_cost || defaultCost)),
-          payment_status: 'Pending'
-        }));
-      } else {
-        setForm(f => ({
-          ...f,
-          allocation_type: 'Standard',
-          is_salary_deduction: false,
-          approved_standard_quantity: f.quantity,
-          unit_cost: 0,
-          deduction_amount: 0,
-          payment_status: 'Not Applicable'
-        }));
-      }
-    } else {
-      // General item allocation
-      setForm(f => ({
-        ...f,
-        allocation_type: 'Standard',
-        is_salary_deduction: false,
-        approved_standard_quantity: f.quantity,
-        unit_cost: 0,
-        deduction_amount: 0,
-        payment_status: 'Not Applicable'
+    if (cartItems.length > 0 && officialPrices) {
+      setCartItems(prev => prev.map(cItem => {
+        const price = lookupPrice(cItem.item.name, officialPrices, empGender);
+        return { ...cItem, unit_cost: price ?? cItem.item.cost ?? 0 };
       }));
     }
-  }, [form.employee_id, form.item_id, form.quantity, form.allocation_type, activeIssues, selectedItem, limit, itemType]);
+  }, [form.employee_id, empGender, officialPrices]);
 
-  // Update selected item reference when dropdown changes
-  const handleItemChange = (e) => {
-    const itemId = e.target.value;
-    const item = items?.find(i => i.id === itemId);
-    setSelectedItem(item || null);
-    
-    let defaultCost = 0;
-    const type = item ? getItemType(item.name) : 'Other';
-    if (type === 'Pant') defaultCost = 250;
-    else if (type === 'Shirt') defaultCost = 150;
-    else if (type === 'T-Shirt') defaultCost = 100;
-
+  const handleWorkflowChange = (val) => {
     setForm(f => ({
       ...f,
-      item_id: itemId,
-      unit_cost: defaultCost,
-      deduction_amount: defaultCost * f.quantity
+      allocation_type: val,
+      reason: REASON_OPTIONS[val][0].value,
+      return_status: val === 'Replacement' ? 'Pending Return' : 'Not Required',
     }));
+    setCartItems([]);
   };
 
-  const mutation = useMutation({
-    mutationFn: async (payload) => {
-      const { data } = await api.post('/replacements', payload);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['replacements'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
-      toast.success('Uniform allocation request recorded successfully!');
-      onClose();
-      resetForm();
-    },
-    onError: (err) => setError(err.response?.data?.message || 'Failed to submit request')
+  const handleItemClick = (item) => {
+    const price = lookupPrice(item.name, officialPrices, empGender);
+    const unit_cost = price ?? item.cost ?? 0;
+    
+    // Auto-fill size
+    let prefilled = '';
+    const n = (item.name || '').toLowerCase();
+    if (n.includes('pant')) prefilled = selectedEmployee?.sizes?.pant || '';
+    else if (n.includes('shoe') || n.includes('safety')) prefilled = selectedEmployee?.sizes?.shoe || '';
+    else if (n.includes('shirt') || n.includes('coat') || n.includes('chudidhar')) prefilled = selectedEmployee?.sizes?.shirt || '';
+
+    setCartItems(prev => [
+      ...prev,
+      {
+        cart_id: Math.random().toString(36).substring(2, 9),
+        item,
+        quantity: 1,
+        size: prefilled,
+        unit_cost,
+        previous_issue_id: ''
+      }
+    ]);
+  };
+
+  const updateCartItem = (cartId, field, value) => {
+    setCartItems(prev => prev.map(i => i.cart_id === cartId ? { ...i, [field]: value } : i));
+  };
+
+  const removeCartItem = (cartId) => {
+    setCartItems(prev => prev.filter(i => i.cart_id !== cartId));
+  };
+
+  // Item filtering: Additional = only official price list items; Replacement = ALL items from master
+  const filteredItems = (items || []).filter(item => {
+    const n = (item.name || '').toLowerCase();
+
+    if (form.allocation_type === 'Additional') {
+      const validForGender = officialPrices?.some(p => {
+         const nameMatch = p.item_name.toLowerCase() === n;
+         const genderMatch = p.gender === 'UNISEX' || p.gender === empGender;
+         return nameMatch && genderMatch;
+      });
+      if (!validForGender) return false;
+    }
+    // For Replacement: ALL items are shown
+
+    if (!itemSearch.trim()) return true;
+    const searchNorm = itemSearch.toLowerCase().trim().replace(/[-\s]+/g, '');
+    const nameNorm   = n.replace(/[-\s]+/g, '');
+    return nameNorm.includes(searchNorm);
   });
 
-  const resetForm = () => {
-    setForm({
-      employee_id: '', item_id: '', reason: '',
-      quantity: 1, size: '', unit_cost: 0, deduction_amount: 0,
-      payment_status: 'Not Applicable', return_status: 'Not Required',
-      allocation_type: 'Standard', is_salary_deduction: false, approved_standard_quantity: 0
-    });
-    setSelectedItem(null);
-    setEmployeeSearch('');
-    setError('');
+  const filteredEmployees = (employees || []).filter(emp => {
+    if (!employeeSearch.trim()) return emp.status === 'active';
+    const s = employeeSearch.toLowerCase().trim();
+    return emp.status === 'active' && (emp.name.toLowerCase().includes(s) || emp.emp_code.toLowerCase().includes(s));
+  });
+
+  const quickAddMutation = useMutation({
+    mutationFn: async (payload) => { const { data } = await api.post('/items', payload); return data; },
+    onSuccess: async (newItem) => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      if (quickAddForm.price) {
+        await api.put('/replacements/prices', { item_name: newItem.name, price: parseFloat(quickAddForm.price), gender: quickAddForm.gender });
+        queryClient.invalidateQueries({ queryKey: ['official-prices'] });
+      }
+      toast.success(`"${newItem.name}" added to Item Master & Price List!`);
+      handleItemClick(newItem);
+      setShowQuickAdd(false);
+      setQuickAddForm({ name: '', category_name: 'Uniform & Apparel', price: '', gender: 'UNISEX' });
+      setQuickAddError('');
+    },
+    onError: (err) => setQuickAddError(err.response?.data?.message || 'Failed to add item'),
+  });
+
+  const handleQuickAdd = () => {
+    if (!quickAddForm.name.trim()) { setQuickAddError('Item name is required'); return; }
+    if (!quickAddForm.price || isNaN(parseFloat(quickAddForm.price))) { setQuickAddError('Valid price is required'); return; }
+    setQuickAddError('');
+    quickAddMutation.mutate({ name: quickAddForm.name.trim(), new_category_name: quickAddForm.category_name || 'Uniform & Apparel', cost: parseFloat(quickAddForm.price), frequency_days: 365 });
   };
 
-  const handleSubmit = (e) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setCartItems([]);
+    setEmployeeSearch('');
+    setItemSearch('');
+    setError('');
+    setShowQuickAdd(false);
+    setQuickAddError('');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.employee_id) { setError('Please select an employee'); return; }
+    if (cartItems.length === 0) { setError('Please add at least one item'); return; }
+    if (form.reason === 'Other' && !form.notes?.trim()) {
+      setError('Please specify the reason'); return;
+    }
+    
+    // Validate cart items
+    for (const item of cartItems) {
+      if (!item.size?.trim()) {
+        setError(`Size is required for ${item.item.name}`); return;
+      }
+      if (form.allocation_type === 'Replacement' && !item.previous_issue_id) {
+        setError(`Please select the item being replaced for ${item.item.name}`); return;
+      }
+    }
+
     setError('');
-    mutation.mutate(form);
+    setIsSubmitting(true);
+
+    try {
+      const promises = cartItems.map(item => {
+        const payload = {
+            ...form,
+            item_id: item.item.id,
+            quantity: item.quantity,
+            size: item.size,
+            unit_cost: item.unit_cost,
+            previous_issue_id: item.previous_issue_id
+        };
+        return api.post('/replacements', payload);
+      });
+
+      await Promise.all(promises);
+      
+      queryClient.invalidateQueries({ queryKey: ['replacements'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+      toast.success(`Success! Recorded ${cartItems.length} items.`);
+      
+      onClose();
+      resetForm();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to submit requests');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const totalCost = form.quantity * form.unit_cost;
-
-  // Compute dynamic form title
-  const getFormTitle = () => {
-    if (form.allocation_type === 'Standard') return 'New Standard Uniform Allocation';
-    if (form.allocation_type === 'Additional') return 'New Additional Uniform Request';
-    return 'New Exchange / Replacement Request';
-  };
+  const totalCost = cartItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.unit_cost)), 0);
+  const activeWorkflow = WORKFLOW_TYPES.find(w => w.value === form.allocation_type);
+  const reasonOptions  = REASON_OPTIONS[form.allocation_type] || REASON_OPTIONS.Additional;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={getFormTitle()}>
-      <form onSubmit={handleSubmit} className="p-4 space-y-6 max-h-[75vh] overflow-y-auto">
+    <Modal isOpen={isOpen} onClose={onClose} title="New Item Request" maxWidth="max-w-2xl">
+      <form onSubmit={handleSubmit} className="p-4 space-y-5 max-h-[85vh] overflow-y-auto">
+
         {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 font-medium">{error}</div>
+          <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 font-medium flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
+          </div>
         )}
 
-        {/* Dynamic standard guidelines reference panel */}
-        <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-              <Info className="w-4 h-4 text-blue-500" />
-              Standard Allocation Guidelines
-            </div>
-            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded leading-none ${selectedEmployee?.employee_type === 'Newcomer' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30'}`}>
-              Quota: {selectedEmployee?.employee_type || 'Permanent'}
-            </span>
+        {/* ── STEP 1: Workflow ─────────────────────────────────── */}
+        <div className="space-y-2">
+          <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Step 1 — Request Type</p>
+          <div className="grid grid-cols-2 gap-3">
+            {WORKFLOW_TYPES.map(wf => {
+              const isSelected = form.allocation_type === wf.value;
+              const Icon = wf.icon;
+              return (
+                <button key={wf.value} type="button" onClick={() => handleWorkflowChange(wf.value)}
+                  className={`relative flex flex-col items-start gap-2 p-4 rounded-2xl border-2 transition-all cursor-pointer text-left ${isSelected ? wf.selectedClass : wf.defaultClass}`}>
+                  {isSelected && <CheckCircle2 className={`absolute top-3 right-3 w-4 h-4 text-${wf.color}-500`} />}
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${isSelected ? wf.iconBg : 'bg-slate-200'}`}>
+                    <Icon className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-black ${isSelected ? `text-${wf.color}-800` : 'text-slate-800'}`}>{wf.title}</p>
+                    <p className={`text-[10px] font-semibold mt-0.5 ${isSelected ? `text-${wf.color}-500` : 'text-slate-400'}`}>{wf.subtitle}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
-          <div className="grid grid-cols-3 gap-3 text-center mt-2">
-            {[
-              { type: 'Pants', limit: getLimit('Pant', selectedEmployee), bg: 'bg-indigo-50/50 text-indigo-700 border-indigo-100/50' },
-              { type: 'Shirts', limit: getLimit('Shirt', selectedEmployee), bg: 'bg-sky-50/50 text-sky-700 border-sky-100/50' },
-              { type: 'T-Shirts', limit: getLimit('T-Shirt', selectedEmployee), bg: 'bg-emerald-50/50 text-emerald-700 border-emerald-100/50' }
-            ].map((item, idx) => (
-              <div key={idx} className={`p-2 py-3 rounded-xl border ${item.bg}`}>
-                <span className="block text-[9px] font-black uppercase tracking-wider opacity-80">{item.type}</span>
-                <span className="text-base font-black mt-1 block">{item.limit} Units</span>
-              </div>
-            ))}
+          <div className={`rounded-xl p-3 text-xs font-medium flex items-start gap-2 ${
+            form.allocation_type === 'Additional' ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-purple-50 text-purple-700 border border-purple-100'
+          }`}>
+            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            {activeWorkflow?.desc}
           </div>
-          <p className="text-[10px] text-slate-400 italic mt-2 leading-relaxed">
-            * Requests exceeding these limits convert automatically to "Additional Requests" and apply deductions.
-          </p>
         </div>
 
-        {/* Section 1: Employee & Item */}
-        <div className="space-y-4">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Allocation Target & Item</h3>
-
-          {/* Searchable Employee Select */}
+        {/* ── STEP 2: Employee ──────────────────────────────────── */}
+        <div className="space-y-2">
+          <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Step 2 — Employee</p>
           <div className="relative" ref={dropdownRef}>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Employee <span className="text-red-500">*</span>
-            </label>
             <div className="relative cursor-pointer" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><User className="w-4 h-4" /></div>
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
-                placeholder={selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.emp_code})` : "Search by name or code..."}
+                placeholder={selectedEmployee ? `${selectedEmployee.name} (${selectedEmployee.emp_code})` : 'Search employee by name or code...'}
                 value={employeeSearch}
                 onChange={(e) => {
                   setEmployeeSearch(e.target.value);
                   setIsDropdownOpen(true);
                   if (form.employee_id) setForm(f => ({ ...f, employee_id: '' }));
                 }}
-                className={`w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all ${selectedEmployee && !employeeSearch ? 'font-semibold text-slate-900' : 'text-slate-600'}`}
+                className={`w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm transition-all ${selectedEmployee && !employeeSearch ? 'font-bold text-slate-900' : 'text-slate-600'}`}
               />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-              </div>
+              <ChevronDown className={`absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
             </div>
             {isDropdownOpen && (
-              <div className="absolute z-50 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl max-h-60 overflow-y-auto">
-                {filteredEmployees?.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-slate-500 italic">No active employees found</div>
-                ) : (
-                  filteredEmployees?.map(emp => (
-                    <div
-                      key={emp.id}
-                      onClick={() => { setForm(f => ({ ...f, employee_id: emp.id.toString() })); setEmployeeSearch(''); setIsDropdownOpen(false); }}
-                      className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between hover:bg-slate-50 ${form.employee_id === emp.id.toString() ? 'bg-blue-50 text-blue-700' : 'text-slate-700'}`}
-                    >
+              <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-52 overflow-y-auto">
+                {filteredEmployees.length === 0
+                  ? <div className="p-4 text-center text-sm text-slate-500 italic">No active employees found</div>
+                  : filteredEmployees.map(emp => (
+                    <div key={emp.id} onClick={() => { setForm(f => ({ ...f, employee_id: emp.id.toString() })); setEmployeeSearch(''); setIsDropdownOpen(false); }}
+                      className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between hover:bg-slate-50 ${form.employee_id === emp.id.toString() ? 'bg-blue-50 text-blue-700' : 'text-slate-700'}`}>
                       <div>
-                        <div className="font-medium">{emp.name}</div>
-                        <div className="text-xs text-slate-500">{emp.emp_code} · {emp.department}</div>
+                        <div className="font-semibold text-sm">{emp.name}</div>
+                        <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                          <span>{emp.emp_code} · {emp.department}</span>
+                          <span className={`font-bold text-[10px] px-1.5 py-0.5 rounded-full ${
+                            emp.employee_type === 'Intern' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                            {emp.employee_type}
+                          </span>
+                          <span className="text-[10px] text-slate-400">· {emp.gender}</span>
+                        </div>
                       </div>
-                      {form.employee_id === emp.id.toString() && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                      {form.employee_id === emp.id.toString() && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
                     </div>
-                  ))
-                )}
+                  ))}
               </div>
             )}
           </div>
 
-          {/* Allocation Type selector */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Allocation Workflow <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={form.allocation_type}
-              onChange={e => {
-                const val = e.target.value;
-                setForm(f => ({
-                  ...f,
-                  allocation_type: val,
-                  is_salary_deduction: val === 'Additional',
-                  payment_status: val === 'Additional' ? 'Pending' : (val === 'Replacement' ? (f.is_salary_deduction ? 'Pending' : 'Not Applicable') : 'Not Applicable')
-                }));
-              }}
-              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
-            >
-              <option value="Standard">Standard Allocation (Free limit check)</option>
-              <option value="Additional">Additional Request (Deduction applies)</option>
-              <option value="Replacement">Exchange / Replacement (Optional deduction)</option>
-            </select>
-          </div>
-
-          {/* Item Select */}
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-              Item Selected <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Package className="w-4 h-4" /></div>
-              <select
-                required
-                value={form.item_id}
-                onChange={handleItemChange}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none font-medium"
-              >
-                <option value="">Select Uniform / Asset</option>
-                {items?.filter(item => {
-                  const catName = (item.category?.name || '').toLowerCase();
-                  const itemName = (item.name || '').toLowerCase();
-                  return catName.includes('uniform') || 
-                         catName.includes('apparel') || 
-                         catName.includes('linen') ||
-                         itemName.includes('uniform') ||
-                         itemName.includes('pant') ||
-                         itemName.includes('shirt') ||
-                         itemName.includes('t-shirt') ||
-                         itemName.includes('tshirt');
-                }).map(item => (
-                  <option key={item.id} value={item.id}>{item.name} ({item.category?.name})</option>
-                ))}
-              </select>
+          {/* Gender badge + pricing notice */}
+          {selectedEmployee && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-[10px] font-black px-2.5 py-1 rounded-full border ${empGender === 'WOMEN' ? 'bg-pink-50 text-pink-600 border-pink-200' : 'bg-blue-50 text-blue-600 border-blue-200'}`}>
+                {empGender === 'WOMEN' ? '♀ Women' : '♂ Men'} Rate Applied
+              </span>
+              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                selectedEmployee.employee_type === 'Intern'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                {selectedEmployee.employee_type}
+              </span>
             </div>
+          )}
+        </div>
+
+        {/* ── STEP 3: Item Selection ──────────────────────────────── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Step 3 — Item Selection</p>
+            <button type="button" onClick={() => { setShowQuickAdd(!showQuickAdd); setQuickAddError(''); }}
+              className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-widest flex items-center gap-1 transition-colors">
+              <Plus className="w-3 h-3" /> Not in list? Add it
+            </button>
           </div>
 
-          {/* Real-time Allocation Exceeded warnings */}
-          {selectedItem && form.allocation_type !== 'Replacement' && activeIssues && (() => {
-            let alreadyReceived = 0;
-            activeIssues.forEach(issue => {
-              const name = issue.item_name || issue.item?.name;
-              if (getItemType(name) === itemType) {
-                alreadyReceived += (issue.quantity || 0);
-              }
-            });
-            const totalProposed = alreadyReceived + form.quantity;
-            if (totalProposed > limit && limit > 0) {
+          {/* Quick-Add panel */}
+          {showQuickAdd && (
+            <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-4 space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black text-indigo-700 uppercase tracking-widest flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> Quick-Add to Item Master + Price List
+                </p>
+                <button type="button" onClick={() => { setShowQuickAdd(false); setQuickAddError(''); }}>
+                  <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+                </button>
+              </div>
+              {quickAddError && <p className="text-xs text-red-600 font-semibold flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {quickAddError}</p>}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Item Name <span className="text-red-500">*</span></label>
+                  <input type="text" placeholder="e.g. Rain Coat, Winter Jacket..." value={quickAddForm.name}
+                    onChange={e => setQuickAddForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Official Price (₹) <span className="text-red-500">*</span></label>
+                  <input type="number" step="0.01" placeholder="e.g. 349.65" value={quickAddForm.price}
+                    onChange={e => setQuickAddForm(f => ({ ...f, price: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-bold" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Rate For</label>
+                  <select value={quickAddForm.gender} onChange={e => setQuickAddForm(f => ({ ...f, gender: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 text-sm">
+                    <option value="UNISEX">Both (Unisex)</option>
+                    <option value="MEN">Men only</option>
+                    <option value="WOMEN">Women only</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-slate-600 mb-1 block">Category</label>
+                  <select value={quickAddForm.category_name} onChange={e => setQuickAddForm(f => ({ ...f, category_name: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-400 text-sm">
+                    <option value="Uniform & Apparel">Uniform & Apparel</option>
+                    {(categories || []).filter(c => c.name !== 'Uniform & Apparel').map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button type="button" onClick={handleQuickAdd} disabled={quickAddMutation.isPending}
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                {quickAddMutation.isPending ? 'Adding...' : <><Plus className="w-3.5 h-3.5" /> Add & Select</>}
+              </button>
+            </div>
+          )}
+
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input type="text" placeholder="Filter items to add..." value={itemSearch}
+              onChange={e => setItemSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium" />
+          </div>
+
+          {/* Item list */}
+          <div className="max-h-56 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white shadow-sm">
+            {filteredItems.length === 0 ? (
+              <div className="py-8 text-center space-y-2">
+                <BadgeAlert className="w-8 h-8 text-slate-300 mx-auto" />
+                <p className="text-xs text-slate-500 font-medium">No uniform items found</p>
+                <button type="button" onClick={() => setShowQuickAdd(true)} className="text-xs font-black text-indigo-600 underline">
+                  + Add this item to master
+                </button>
+              </div>
+            ) : filteredItems.map(item => {
+              const price = lookupPrice(item.name, officialPrices, empGender) ?? lookupPrice(item.name, officialPrices) ?? item.cost ?? 0;
               return (
-                <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl text-xs border border-amber-200/50 space-y-1 shadow-sm">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-900">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 animate-bounce" />
-                    Allocation Limit Exceeded: Classified as Additional
+                <div key={item.id} onClick={() => handleItemClick(item)}
+                  className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors hover:bg-blue-50 group">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-100 group-hover:bg-blue-100 transition-colors">
+                      <Plus className="w-4 h-4 text-slate-400 group-hover:text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-800">{item.name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{item.category?.name}</p>
+                    </div>
                   </div>
-                  <p className="leading-relaxed text-amber-700 font-medium">
-                    Employee has already received <strong>{alreadyReceived} {itemType}s</strong> (Limit is {limit}). This new request makes the total <strong>{totalProposed}</strong>, which creates an excess of <strong>{totalProposed - limit} units</strong>. Payroll deduction of unit cost is automatically configured.
-                  </p>
+                  <div className="text-right flex-shrink-0 ml-2">
+                    {form.allocation_type === 'Replacement' ? (
+                      <span className="text-[10px] text-slate-400 font-medium">Click to add</span>
+                    ) : price > 0 ? (
+                      <>
+                        <p className="text-sm font-black text-slate-700">₹{price.toFixed(2)}</p>
+                        <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">{selectedEmployee ? (empGender === 'WOMEN' ? 'Women Rate' : 'Men Rate') : 'Official Rate'}</p>
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-medium">No rate set</span>
+                    )}
+                  </div>
                 </div>
               );
-            }
-            return null;
-          })()}
-
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Quantity</label>
-              <input 
-                type="number" 
-                min="1" 
-                value={form.quantity} 
-                onChange={e => {
-                  const q = parseInt(e.target.value) || 1;
-                  setForm(f => ({ ...f, quantity: q, deduction_amount: q * f.unit_cost }));
-                }} 
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" 
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Size <span className="text-slate-450 font-normal text-xs">(optional)</span></label>
-              <input type="text" placeholder="e.g. XL, 42, 38" value={form.size} onChange={e => setForm(f => ({ ...f, size: e.target.value }))} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold" />
-            </div>
+            })}
           </div>
         </div>
 
-        {/* Section 2: Cost & Payment - Dynamic Hide/Show rules */}
-        {(form.allocation_type === 'Additional' || form.allocation_type === 'Replacement') && (
-          <div className="space-y-4 pt-4 border-t border-slate-100 animate-fade-in">
+        {/* ── STEP 4: Selected Items Cart ────────────────────────── */}
+        {cartItems.length > 0 && (
+          <div className="space-y-3 animate-fade-in pt-1 border-t border-slate-100">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-amber-600 uppercase tracking-wider">Deduction & Billing details</h3>
-              {form.allocation_type === 'Replacement' && (
-                <label className="flex items-center gap-2 cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded-xl transition-all border border-slate-200">
-                  <input
-                    type="checkbox"
-                    checked={form.is_salary_deduction}
-                    onChange={e => {
-                      const chk = e.target.checked;
-                      setForm(f => ({
-                        ...f,
-                        is_salary_deduction: chk,
-                        payment_status: chk ? 'Pending' : 'Not Applicable',
-                        deduction_amount: chk ? f.quantity * f.unit_cost : 0
-                      }));
-                    }}
-                    className="w-3.5 h-3.5 accent-amber-600 rounded"
-                  />
-                  <span className="text-[10px] font-black uppercase text-slate-600">Apply Deduction</span>
-                </label>
-              )}
+              <p className="text-xs font-black text-slate-500 uppercase tracking-widest pt-1">Step 4 — Selected Items</p>
+              <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-md">{cartItems.length} items</span>
             </div>
 
-            {(form.allocation_type === 'Additional' || form.is_salary_deduction) && (
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Cost per Unit (₹)</label>
-                    <div className="relative">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
-                      <input 
-                        type="number" 
-                        min="0" 
-                        step="0.01" 
-                        value={form.unit_cost} 
-                        onChange={e => {
-                          const val = parseFloat(e.target.value) || 0;
-                          setForm(f => ({ ...f, unit_cost: val, deduction_amount: val * f.quantity }));
-                        }} 
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" 
-                      />
+            <div className="space-y-3">
+              {cartItems.map((cItem) => (
+                <div key={cItem.cart_id} className={`border rounded-xl p-4 relative ${form.allocation_type === 'Additional' ? 'bg-emerald-50/50 border-emerald-100' : 'bg-purple-50/50 border-purple-100'}`}>
+                  
+                  <button type="button" onClick={() => removeCartItem(cItem.cart_id)} className="absolute top-3 right-3 text-slate-400 hover:text-red-500 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+
+                  <div className="mb-3 pr-6">
+                    <p className="font-bold text-slate-800 text-sm leading-tight">{cItem.item.name}</p>
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mt-0.5">{cItem.item.category?.name || 'Item'}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Quantity</label>
+                      <input type="number" min="1" value={cItem.quantity}
+                        onChange={e => updateCartItem(cItem.cart_id, 'quantity', parseInt(e.target.value) || 1)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Size <span className="text-red-500">*</span></label>
+                      <input type="text" required placeholder="e.g. XL, 42" value={cItem.size}
+                        onChange={e => updateCartItem(cItem.cart_id, 'size', e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" />
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Total Cost (₹)</label>
-                    <div className="relative">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
-                      <input 
-                        type="number" 
-                        readOnly
-                        value={totalCost} 
-                        className="w-full pl-9 pr-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl outline-none text-sm font-bold text-slate-500 cursor-not-allowed"
-                      />
+
+                  {form.allocation_type === 'Replacement' && (
+                    <div className="mt-3">
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        <RotateCcw className="w-3 h-3 inline mr-1" />
+                        Item Being Replaced <span className="text-red-500">*</span>
+                      </label>
+                      <select required value={cItem.previous_issue_id} onChange={e => updateCartItem(cItem.cart_id, 'previous_issue_id', e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 text-xs font-medium">
+                        <option value="">Select item being returned / swapped...</option>
+                        {(activeIssues || []).map(issue => (
+                          <option key={issue._id || issue.id} value={issue._id || issue.id}>
+                            {issue.item_name || issue.item?.name} — Qty {issue.quantity} · {issue.issued_date ? new Date(issue.issued_date).toLocaleDateString('en-IN') : 'N/A'}
+                          </option>
+                        ))}
+                      </select>
+                      {cItem.previous_issue_id && (
+                        <div className="mt-1.5 bg-purple-50 text-[9px] text-purple-600 font-semibold rounded p-1">
+                          ✓ Marked for Pending Return
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
+
+                  {form.allocation_type === 'Additional' && cItem.unit_cost > 0 && (
+                    <div className="mt-2 text-right pt-2 border-t border-emerald-100/50">
+                      <p className="text-[10px] text-emerald-700 font-bold uppercase">Line Cost: ₹{(cItem.quantity * cItem.unit_cost).toFixed(2)}</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            
+            {/* ── Running Additional Cost Summary ── */}
+            {form.allocation_type === 'Additional' && totalCost > 0 && (
+              <div className="mt-4 rounded-2xl p-4 text-white flex flex-col shadow-lg bg-gradient-to-r from-amber-600 to-orange-600 shadow-amber-500/20">
+                <div className="flex items-center justify-between mb-2 pb-2 border-b border-white/20">
+                  <p className="text-xs font-black uppercase tracking-widest text-white">Live Additional Cost Summary</p>
+                </div>
+                
+                <div className="space-y-1.5 mb-3">
+                   {cartItems.map(c => (
+                       <div key={c.cart_id} className="flex justify-between text-xs text-white/90">
+                           <span>{c.item.name} ×{c.quantity}</span>
+                           <span className="font-medium">₹{(c.quantity * c.unit_cost).toFixed(2)}</span>
+                       </div>
+                   ))}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Payroll Deduction Amount (₹)</label>
-                  <div className="relative">
-                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</div>
-                    <input 
-                      type="number" 
-                      min="0" 
-                      step="0.01" 
-                      value={form.deduction_amount} 
-                      onChange={e => setForm(f => ({ ...f, deduction_amount: parseFloat(e.target.value) || 0 }))} 
-                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-black text-amber-700" 
-                    />
+                <div className="flex items-center justify-between pt-2 border-t border-white/20">
+                  <p className="text-sm font-bold text-white">Total Amount</p>
+                  <div className="flex items-center gap-0.5 text-2xl font-black">
+                    <IndianRupee className="w-5 h-5" />
+                    {totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Net Take home salary calculator */}
-                {selectedEmployee && (
-                  <div className="bg-slate-900 rounded-2xl p-4 text-white space-y-2.5 border border-slate-800 shadow-lg">
-                    <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      <span>Salary Statement</span>
-                      <span className="text-emerald-400">Calculator</span>
-                    </div>
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Monthly Base Salary</span>
-                        <span className="font-semibold">₹{(selectedEmployee.salary || 18000).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-800 pb-2">
-                        <span className="text-slate-400">This Uniform Deduction</span>
-                        <span className="font-semibold text-red-400">- ₹{(form.deduction_amount || 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between pt-1 font-bold text-sm">
-                        <span className="text-slate-355">Est. Net Take Home</span>
-                        <span className="text-emerald-400">₹{(Math.max(0, (selectedEmployee.salary || 18000) - (form.deduction_amount || 0))).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {/* Old Item Return Status for Replacement Cart */}
+            {form.allocation_type === 'Replacement' && cartItems.length > 0 && (
+              <div className="mt-4">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Old Items Return Status</label>
+                <select value={form.return_status} onChange={e => setForm(f => ({ ...f, return_status: e.target.value }))}
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-purple-400 text-sm font-medium">
+                  <option value="Pending Return">Employee will return during handover</option>
+                  <option value="Returned">Old items already returned to store</option>
+                  <option value="Not Required">No return required (damaged beyond use / lost)</option>
+                </select>
               </div>
             )}
           </div>
         )}
 
-        {/* Section 3: Tracking & Exchange */}
-        <div className="space-y-4 pt-4 border-t border-slate-100">
-          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Auditing & Reason</h3>
+        {/* ── STEP 5: Reason ─────────────────────────────────────── */}
+        <div className="space-y-3 pt-1 border-t border-slate-100">
+          <p className="text-xs font-black text-slate-500 uppercase tracking-widest pt-1">
+            Step 5 — Transaction Reason
+          </p>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Return Status for Old Item</label>
-            <select value={form.return_status} onChange={e => setForm(f => ({ ...f, return_status: e.target.value }))} className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium">
-              <option value="Not Required">Not Required (First allocation / Extra purchase)</option>
-              <option value="Pending Return">Pending Return (Bring damaged item during handover)</option>
-              <option value="Returned">Already Returned (Old item handed over to stores)</option>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason <span className="text-red-500">*</span></label>
+            <select required value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value, notes: '' }))}
+              className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium">
+              {reasonOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Remarks / Reason <span className="text-red-500">*</span></label>
-            <textarea
-              required
-              rows={2}
-              value={form.reason}
-              onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-              placeholder="e.g., Exceeded limits / Damaged replacement / Size swap..."
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none font-medium"
-            />
-          </div>
+          {form.reason === 'Other' && (
+            <div className="animate-fade-in">
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Please Specify <span className="text-red-500">*</span></label>
+              <input type="text" required value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="Enter custom reason..."
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium" />
+            </div>
+          )}
         </div>
 
-        <div className="sticky bottom-0 bg-white pt-4 border-t border-slate-100 flex justify-end">
-          <button
-            type="submit"
-            disabled={mutation.isPending}
-            className="bg-blue-600 hover:bg-blue-750 text-white font-black text-[10px] uppercase tracking-widest px-8 py-3.5 rounded-2xl shadow-xl shadow-blue-500/10 transition-all active:scale-95 disabled:opacity-70"
-          >
-            {mutation.isPending ? 'Recording Request...' : 'Confirm Allocation'}
+        {/* Submit */}
+        <div className="sticky bottom-0 bg-white pt-3 border-t border-slate-100">
+          <button type="submit" disabled={isSubmitting || cartItems.length === 0}
+            className={`w-full py-3.5 rounded-2xl text-white font-black text-[11px] uppercase tracking-widest shadow-lg transition-all active:scale-95 disabled:opacity-70 ${
+              form.allocation_type === 'Additional'
+                ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20'
+                : 'bg-purple-600 hover:bg-purple-700 shadow-purple-500/20'
+            }`}>
+            {isSubmitting ? 'Submitting...' : `Confirm — ${activeWorkflow?.title}`}
           </button>
         </div>
+
       </form>
     </Modal>
   );

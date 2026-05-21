@@ -27,6 +27,18 @@ router.get('/stats', async (req, res) => {
     }
 });
 
+// Get employee asset profile
+router.get('/:id/asset-profile', async (req, res) => {
+    try {
+        const profile = await employeeService.getAssetProfile(req.params.id);
+        if (!profile) return res.status(404).json({ message: 'Employee not found' });
+        res.json(profile);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 // Get a single employee by ID
 router.get('/:id', async (req, res) => {
     try {

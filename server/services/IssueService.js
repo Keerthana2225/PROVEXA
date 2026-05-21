@@ -1,5 +1,5 @@
+const mongoose = require('mongoose');
 const { IssueRecord, Employee, Item, VerificationLog } = require('../models');
-
 class IssueService {
     async getAll(filters = {}) {
         const { search, status, lifecycle_status, employeeId, page, limit } = filters;
@@ -163,7 +163,9 @@ class IssueService {
 
     async bulkIssue(employeeIds, items, issuedDate, notes, condition, adminId, override = false) {
         const results = [];
+        
         for (const empId of employeeIds) {
+            const transaction_id = new mongoose.Types.ObjectId().toString();
             const employee = await Employee.findById(empId);
             if (!employee) continue;
 
@@ -206,6 +208,7 @@ class IssueService {
                 nextDue.setMonth(nextDue.getMonth() + (item.validity_period || 12));
 
                 const record = await IssueRecord.create({
+                    transaction_id,
                     employee: empId,
                     employee_name: employee.name,
                     item: itemId,
@@ -219,6 +222,10 @@ class IssueService {
                     lifecycle_status: 'Active',
                     item_condition: condition || 'Good'
                 });
+                
+                // Decrement stock
+                await Item.findByIdAndUpdate(itemId, { $inc: { stock: -(itemInput.quantity || 1) } });
+                
                 results.push(record);
             }
         }
@@ -254,10 +261,15 @@ class IssueService {
             item_condition: condition || 'Good',
             is_renewal: true
         });
+        
+        // Decrement stock for the renewal item
+        await Item.findByIdAndUpdate(oldRecord.item, { $inc: { stock: -(oldRecord.quantity || 1) } });
+        
+        return newRecord;
     }
 
     async return(id, remarks, condition, adminId) {
-        return await IssueRecord.findByIdAndUpdate(id, {
+        const record = await IssueRecord.findByIdAndUpdate(id, {
             lifecycle_status: 'Returned',
             issue_status: 'Acknowledged',
             notes: remarks,
@@ -268,6 +280,13 @@ class IssueService {
             return_date: new Date(),
             returned_condition: condition || 'Good'
         }, { new: true });
+        
+        // Increment stock if condition is Good
+        if (record && (condition === 'Good' || !condition)) {
+            await Item.findByIdAndUpdate(record.item, { $inc: { stock: record.quantity || 1 } });
+        }
+        
+        return record;
     }
 
     async acknowledge(id, data) {

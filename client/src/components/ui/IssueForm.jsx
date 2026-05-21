@@ -6,7 +6,7 @@ import api from '../../lib/api';
 import Modal from '../ui/Modal';
 import { toast } from '../ui/Toast';
 
-export default function IssueForm({ isOpen, onClose, initialData }) {
+export default function IssueForm({ isOpen, onClose, initialData, profileData }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({
     employee_ids: [],
@@ -118,7 +118,17 @@ export default function IssueForm({ isOpen, onClose, initialData }) {
         if (f.item_ids.includes(idStr)) {
             delete item_quantities[idStr];
         } else {
-            item_quantities[idStr] = 1; // Default to 1
+            // Auto-Suggest Standard Quantities for Free Allocation
+            const itemObj = items?.find(i => i.id === id || i._id === id);
+            let suggestedQty = 1;
+            if (itemObj) {
+                const name = (itemObj.name || '').toLowerCase();
+                if (name.includes('intern t-shirt')) suggestedQty = 1;
+                else if (name.includes('t-shirt') || name.includes('tshirt')) suggestedQty = 1;
+                else if (name.includes('shirt')) suggestedQty = 2;
+                else if (name.includes('pant')) suggestedQty = 3;
+            }
+            item_quantities[idStr] = suggestedQty;
         }
         
         return { ...f, item_ids, item_quantities };
@@ -145,6 +155,8 @@ export default function IssueForm({ isOpen, onClose, initialData }) {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       queryClient.invalidateQueries({ queryKey: ['dueTracking'] });
+      // Invalidate ALL employee profiles so Verify Now banner appears immediately
+      queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
       toast.success(`Success! Created ${data.count} issue records.`);
       onClose();
       resetForm();
@@ -175,6 +187,36 @@ export default function IssueForm({ isOpen, onClose, initialData }) {
     if (form.employee_ids.length === 0) return setError('Please select at least one employee');
     if (form.item_ids.length === 0) return setError('Please select at least one item');
     
+    // Custom Validation for Individual Asset Profile Issuance
+    if (profileData && profileData.allocations) {
+        for (const itemId of form.item_ids) {
+            const item = items?.find(i => (i.id || i._id)?.toString() === itemId.toString());
+            if (item && item.category) {
+                const catName = item.category.name;
+                const summary = profileData.allocations.summary.find(s => s.item.toLowerCase() === catName.toLowerCase());
+                const qtyToIssue = form.item_quantities[itemId] || 1;
+                
+                if (summary && summary.allowed > 0 && (summary.issued + qtyToIssue) > summary.allowed) {
+                    setDuplicateWarning({
+                        itemName: item.name,
+                        message: `Employee already reached ${catName} allocation limit. Proceed as Additional Request?`
+                    });
+                    return; // Stop submission
+                }
+                
+                // Duplicate check
+                const active = profileData.allocations.active.find(a => (a.item?._id || a.item?.id)?.toString() === itemId.toString());
+                if (active) {
+                    setDuplicateWarning({
+                        itemName: item.name,
+                        message: `Employee already has an active allocation for ${item.name}. Proceed anyway?`
+                    });
+                    return;
+                }
+            }
+        }
+    }
+
     const itemsPayload = form.item_ids.map(id => ({
         item_id: id,
         quantity: form.item_quantities[id] || 1
@@ -198,12 +240,12 @@ export default function IssueForm({ isOpen, onClose, initialData }) {
       {duplicateWarning ? (
         <div className="space-y-4">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-            <strong>Active issue already exists!</strong> At least one employee already has an active issue for <strong>{duplicateWarning.itemName}</strong>.
-            Do you want to override and create new records for all selected?
+            <strong>Warning: </strong> 
+            {duplicateWarning.message || `At least one employee already has an active issue for ${duplicateWarning.itemName}. Do you want to override and create new records for all selected?`}
           </div>
           <div className="flex gap-3">
             <button onClick={handleOverride} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-xl font-medium transition-colors">
-              Yes, Override All
+              Yes, Proceed
             </button>
             <button onClick={() => setDuplicateWarning(null)} className="flex-1 border border-slate-200 py-2.5 rounded-xl font-medium transition-colors hover:bg-slate-50">
               Cancel
@@ -215,7 +257,7 @@ export default function IssueForm({ isOpen, onClose, initialData }) {
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">{error}</div>}
 
           {/* Employee Selector (Multi-Select) */}
-          <div>
+          <div style={{ display: initialData?.employee_id ? 'none' : 'block' }}>
             <label className="block text-sm font-medium text-slate-700 mb-1.5 flex justify-between">
               Employees <span className="text-red-500">*</span>
               <button type="button" onClick={toggleAllEmployees} className="text-[11px] font-semibold text-blue-600 hover:underline">

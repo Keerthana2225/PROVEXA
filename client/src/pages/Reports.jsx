@@ -19,7 +19,6 @@ export default function Reports() {
     
     // Replacement Filters
     const [replacementStatus, setReplacementStatus] = useState('');
-    const [paymentStatus, setPaymentStatus] = useState('');
     const [itemType, setItemType] = useState('all'); // all | Uniform | General
 
     const [exporting, setExporting] = useState(null); // 'issue' | 'replacement_history' | 'uniform_cost' | null
@@ -62,11 +61,9 @@ export default function Reports() {
             } else if (reportType === 'uniform_cost') {
                 endpoint = '/reports/replacements/uniform';
                 filename = `Uniform_Cost_Report_${timestamp}.xlsx`;
-                if (paymentStatus) params.append('payment_status', paymentStatus);
             } else if (reportType === 'additional_deductions') {
                 endpoint = '/reports/replacements/additional-deductions';
                 filename = `Additional_Uniform_Cost_Report_${timestamp}.xlsx`;
-                if (paymentStatus) params.append('payment_status', paymentStatus);
             }
 
             const response = await api.get(`${endpoint}?${params.toString()}`, {
@@ -105,7 +102,6 @@ export default function Reports() {
         setVerificationStatus('');
         setVerificationMethod('');
         setReplacementStatus('');
-        setPaymentStatus('');
         setItemType('all');
     };
 
@@ -230,7 +226,7 @@ export default function Reports() {
                                         className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
                                     >
                                         <option value="">All Statuses</option>
-                                        <option value="Pending Verification">Pending Verification</option>
+                                        <option value="Issued – Signature Awaited">Signature Awaited (Issued, not yet signed)</option>
                                         <option value="OCR Verified">OCR Verified</option>
                                         <option value="Signature Verified">Signature Verified</option>
                                         <option value="Fully Verified">Fully Verified</option>
@@ -269,7 +265,7 @@ export default function Reports() {
                         </div>
 
                         <div className="space-y-6 flex-grow">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Status Filter</label>
                                     <select 
@@ -278,23 +274,10 @@ export default function Reports() {
                                         className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
                                     >
                                         <option value="">All Statuses</option>
-                                        <option value="Pending">Pending</option>
+                                        <option value="Pending">Awaiting Approval</option>
                                         <option value="Approved">Approved</option>
                                         <option value="Completed">Completed</option>
                                         <option value="Rejected">Rejected</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Payment Status</label>
-                                    <select 
-                                        value={paymentStatus} 
-                                        onChange={(e) => setPaymentStatus(e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm"
-                                    >
-                                        <option value="">All Statuses</option>
-                                        <option value="Pending">Pending</option>
-                                        <option value="Deducted">Deducted</option>
-                                        <option value="Not Applicable">Not Applicable</option>
                                     </select>
                                 </div>
                             </div>

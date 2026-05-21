@@ -7,14 +7,19 @@ const schemaOptions = {
 };
 
 const employeeSchema = new mongoose.Schema({
-    emp_code: { type: String, required: true, unique: true },
-    name: { type: String, required: true },
-    department: { type: String, required: true },
-    designation: { type: String, required: true },
-    salary: { type: Number, default: 0 },
-    doj: { type: Date },
-    employee_type: { type: String, enum: ['Permanent', 'Newcomer'], default: 'Permanent' },
-    status: { type: String, default: 'active' }
+    emp_code:      { type: String, required: true, unique: true },
+    name:          { type: String, required: true },
+    department:    { type: String, required: true },
+    designation:   { type: String, required: true },
+    doj:           { type: Date },
+    gender:        { type: String, enum: ['Male', 'Female'], default: 'Male' },
+    employee_type: { type: String, enum: ['Permanent', 'Intern'], default: 'Permanent' },
+    status:        { type: String, default: 'active' },
+    sizes: {
+        shirt: { type: String, default: '' },
+        pant:  { type: String, default: '' },
+        shoe:  { type: String, default: '' },
+    }
 }, schemaOptions);
 
 module.exports = mongoose.model('Employee', employeeSchema);

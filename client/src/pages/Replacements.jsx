@@ -35,14 +35,12 @@ export default function Replacements() {
     // Proof Modal State
     const [selectedProof, setSelectedProof] = useState(null);
     
-    // Admin Action Modal State (for Approving/Rejecting)
     const [actionModal, setActionModal] = useState({ 
         isOpen: false, 
         type: '', 
         request: null, 
         notes: '',
-        unit_cost: 0,
-        deduction_amount: 0
+        unit_cost: 0
     });
 
     const [showSettings, setShowSettings] = useState(false);
@@ -59,14 +57,14 @@ export default function Replacements() {
         queryFn: async () => {
             const { data } = await api.get('/replacements/configs');
             const mapping = {
-                Pant: { permanent: 2, newcomer: 3 },
-                Shirt: { permanent: 2, newcomer: 2 },
-                'T-Shirt': { permanent: 1, newcomer: 1 }
+                Pant:     { permanent: 2, intern: 3 },
+                Shirt:    { permanent: 2, intern: 2 },
+                'T-Shirt': { permanent: 1, intern: 1 }
             };
             data.forEach(c => {
                 mapping[c.item_type] = {
                     permanent: c.permanent_quantity ?? c.standard_quantity ?? 0,
-                    newcomer: c.newcomer_quantity ?? c.standard_quantity ?? 0
+                    intern:    c.intern_quantity    ?? (c.item_type === 'Pant' ? 3 : c.item_type === 'Shirt' ? 2 : 1)
                 };
             });
             setTempConfigs(mapping);
@@ -92,7 +90,7 @@ export default function Replacements() {
         const payload = Object.entries(tempConfigs).map(([type, limits]) => ({
             item_type: type,
             permanent_quantity: limits.permanent,
-            newcomer_quantity: limits.newcomer
+            intern_quantity: limits.intern
         }));
         updateConfigsMutation.mutate(payload);
     };
@@ -139,11 +137,10 @@ export default function Replacements() {
     }, [requests, search]);
 
     const approveMutation = useMutation({
-        mutationFn: async ({ id, notes, unit_cost, deduction_amount }) => {
+        mutationFn: async ({ id, notes, unit_cost }) => {
             const { data } = await api.put(`/replacements/${id}/approve`, { 
                 notes, 
-                unit_cost, 
-                deduction_amount 
+                unit_cost 
             });
             return data;
         },
@@ -151,7 +148,7 @@ export default function Replacements() {
             queryClient.invalidateQueries({ queryKey: ['replacements'] });
             queryClient.invalidateQueries({ queryKey: ['replacements-summary'] });
             toast.success('Request approved successfully!');
-            setActionModal({ isOpen: false, type: '', request: null, notes: '', unit_cost: 0, deduction_amount: 0 });
+            setActionModal({ isOpen: false, type: '', request: null, notes: '', unit_cost: 0 });
         },
         onError: () => toast.error('Failed to approve request')
     });
@@ -164,7 +161,7 @@ export default function Replacements() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['replacements'] });
             toast.success('Request rejected.');
-            setActionModal({ isOpen: false, type: '', request: null, notes: '', unit_cost: 0, deduction_amount: 0 });
+            setActionModal({ isOpen: false, type: '', request: null, notes: '', unit_cost: 0 });
         },
         onError: () => toast.error('Failed to reject request')
     });
@@ -176,8 +173,7 @@ export default function Replacements() {
             approveMutation.mutate({ 
                 id, 
                 notes: actionModal.notes,
-                unit_cost: actionModal.unit_cost,
-                deduction_amount: actionModal.deduction_amount
+                unit_cost: actionModal.unit_cost
             });
         } else if (actionModal.type === 'reject') {
             rejectMutation.mutate({ id, notes: actionModal.notes });
@@ -196,8 +192,7 @@ export default function Replacements() {
             type: 'approve',
             request: req,
             notes: '',
-            unit_cost: req.unit_cost || 0,
-            deduction_amount: req.deduction_amount || 0
+            unit_cost: req.unit_cost || 0
         });
     };
 
@@ -206,8 +201,8 @@ export default function Replacements() {
             {/* Header & Stats */}
             <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="space-y-1">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Uniform Allocation & Replacements</h2>
-                    <p className="text-slate-500 font-medium">Verify standard free allocations, approve additional requests, and track payroll deductions.</p>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Uniform Allocation & Requests</h2>
+                    <p className="text-slate-500 font-medium">Verify standard free allocations, approve additional requests, and track additional costs.</p>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                     <button
@@ -233,53 +228,74 @@ export default function Replacements() {
                     <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                         <div className="space-y-0.5">
                             <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Default Standard Uniform Allocations</h3>
-                            <p className="text-xs text-slate-400">Configure free company-approved default quantities for Permanent employees vs Newcomers.</p>
+                            <p className="text-xs text-slate-400">Configure company-approved default quantities for Permanent employees and Interns.</p>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {['Pant', 'Shirt', 'T-Shirt'].map(type => {
-                            const limits = tempConfigs[type] || { permanent: 2, newcomer: 3 };
-                            return (
-                                <div key={type} className="space-y-3 p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
-                                    <span className="block text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-1">{type} Allocations</span>
-                                    
-                                    <div className="space-y-1">
-                                        <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Permanent Limit</label>
+                    {/* Permanent allocation limits */}
+                    <div className="space-y-2">
+                        <p className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-2 h-2 bg-blue-500 rounded-full inline-block"></span> Permanent Employees
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {['Pant', 'Shirt', 'T-Shirt'].map(type => {
+                                const limits = tempConfigs[type] || { permanent: 2, intern: 1 };
+                                return (
+                                    <div key={type} className="space-y-1 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+                                        <span className="block text-[10px] font-black text-slate-600 uppercase tracking-wider">{type}</span>
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number"
                                                 min="0"
-                                                value={limits.permanent}
+                                                value={limits.permanent ?? 2}
                                                 onChange={e => setTempConfigs({
                                                     ...tempConfigs,
                                                     [type]: { ...limits, permanent: parseInt(e.target.value) || 0 }
                                                 })}
-                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold text-slate-700"
+                                                className="w-full px-3 py-1.5 bg-white border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-400 text-xs font-bold text-slate-700"
                                             />
-                                            <span className="text-[10px] text-slate-400 font-medium">Units</span>
+                                            <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">Units</span>
                                         </div>
                                     </div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-                                    <div className="space-y-1">
-                                        <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-wider">Newcomer Limit</label>
+                    {/* Intern / Temporary allocation limits */}
+                    <div className="space-y-2">
+                        <p className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span> Intern / Temporary Employees
+                            <span className="text-[9px] font-bold text-slate-400 normal-case tracking-normal ml-1">(Default: Pant 3, Shirt 2, T-Shirt 1)</span>
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {[
+                                { type: 'Pant',   defaultVal: 3 },
+                                { type: 'Shirt',  defaultVal: 2 },
+                                { type: 'T-Shirt', defaultVal: 1 },
+                            ].map(({ type, defaultVal }) => {
+                                const limits = tempConfigs[type] || { permanent: 2, intern: defaultVal };
+                                return (
+                                    <div key={type} className="space-y-1 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50">
+                                        <span className="block text-[10px] font-black text-slate-600 uppercase tracking-wider">{type}</span>
                                         <div className="flex items-center gap-2">
                                             <input
                                                 type="number"
                                                 min="0"
-                                                value={limits.newcomer}
+                                                value={limits.intern ?? defaultVal}
                                                 onChange={e => setTempConfigs({
                                                     ...tempConfigs,
-                                                    [type]: { ...limits, newcomer: parseInt(e.target.value) || 0 }
+                                                    [type]: { ...limits, intern: parseInt(e.target.value) || 0 }
                                                 })}
-                                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold text-slate-700"
+                                                className="w-full px-3 py-1.5 bg-white border border-amber-100 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 text-xs font-bold text-slate-700"
                                             />
-                                            <span className="text-[10px] text-slate-400 font-medium">Units</span>
+                                            <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">Units</span>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                        </div>
                     </div>
+
                     <div className="flex justify-end gap-3 pt-2">
                         <button
                             onClick={() => setShowSettings(false)}
@@ -301,7 +317,6 @@ export default function Replacements() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
                     { label: 'Total Replacement Cost', value: summary?.total_cost, icon: LayoutTemplate, bg: 'bg-indigo-50', text: 'text-indigo-600' },
-                    { label: 'Total Additional Cost', value: summary?.total_deductions, icon: DollarSign, bg: 'bg-amber-50', text: 'text-amber-600' },
                     { label: 'Verified Handovers', value: summary?.paid_count, icon: ShieldCheck, bg: 'bg-emerald-50', text: 'text-emerald-600', isCount: true },
                     { label: 'Awaiting Handover', value: summary?.pending_count, icon: Clock, bg: 'bg-blue-50', text: 'text-blue-600', isCount: true }
                 ].map((stat, i) => (
@@ -432,15 +447,12 @@ export default function Replacements() {
                                             </td>
 
                                             <td className="px-6 py-2.5">
-                                                {(req.total_cost > 0 || req.deduction_amount > 0) ? (
+                                                {(req.total_cost > 0) ? (
                                                     <div className="space-y-1.5">
                                                         <div className="flex items-center gap-1">
                                                             <span className="text-sm font-black text-slate-900 leading-none">₹{(req.total_cost || 0).toLocaleString()}</span>
-                                                            {req.deduction_amount > 0 && (
-                                                                <span className="text-[9px] text-red-500 font-bold bg-red-50 px-1 rounded">-{req.deduction_amount}</span>
-                                                            )}
                                                         </div>
-                                                        <Badge color={req.payment_status === 'Deducted' ? 'emerald' : req.payment_status === 'Pending' ? 'amber' : 'slate'}>
+                                                        <Badge color={req.payment_status === 'Paid' ? 'emerald' : req.payment_status === 'Pending' ? 'amber' : 'slate'}>
                                                             {req.payment_status}
                                                         </Badge>
                                                     </div>
@@ -663,79 +675,56 @@ export default function Replacements() {
 
                     {actionModal.type === 'approve' && (
                         <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Manual Item Cost (₹)</label>
-                                    <div className="relative">
-                                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input
-                                            type="number"
-                                            value={actionModal.unit_cost}
-                                            onChange={e => setActionModal({...actionModal, unit_cost: e.target.value})}
-                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Additional Cost (₹)</label>
-                                    <div className="relative">
-                                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input
-                                            type="number"
-                                            value={actionModal.deduction_amount}
-                                            onChange={e => setActionModal({...actionModal, deduction_amount: e.target.value})}
-                                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
+                            <div className="space-y-2">
+                                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Manual Item Cost (₹)</label>
+                                <div className="relative">
+                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <input
+                                        type="number"
+                                        value={actionModal.unit_cost}
+                                        onChange={e => setActionModal({...actionModal, unit_cost: e.target.value})}
+                                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                                        placeholder="0.00"
+                                    />
                                 </div>
                             </div>
 
                             {/* Additional Cost Billing Calculator */}
                             <div className="bg-blue-900 rounded-2xl p-5 text-white shadow-lg space-y-4">
-                                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">Base Monthly Salary</span>
-                                    <span className="text-sm font-bold">₹{(actionModal.request?.employee?.salary || 0).toLocaleString()}</span>
-                                </div>
-                                <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">Additional Charge</span>
-                                    <span className="text-sm font-bold text-red-300">- ₹{(Number(actionModal.deduction_amount) || 0).toLocaleString()}</span>
-                                </div>
-                                <div className="flex items-center justify-between pt-1">
-                                    <span className="text-xs font-black uppercase tracking-widest text-emerald-400">Net Take Home</span>
-                                    <span className="text-xl font-black">₹{(Math.max(0, (actionModal.request?.employee?.salary || 0) - (Number(actionModal.deduction_amount) || 0))).toLocaleString()}</span>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-300">Total Additional Cost</span>
+                                    <span className="text-2xl font-black text-blue-400">
+                                        ₹{((actionModal.request?.quantity || 1) * (parseFloat(actionModal.unit_cost) || 0)).toLocaleString()}
+                                    </span>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    <div>
-                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Internal Remarks</label>
+                    <div className="space-y-2">
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">
+                            Admin Remarks (Optional)
+                        </label>
                         <textarea
                             value={actionModal.notes}
-                            onChange={e => setActionModal(m => ({ ...m, notes: e.target.value }))}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm h-24"
-                            placeholder="Add notes for audit trail..."
+                            onChange={e => setActionModal({...actionModal, notes: e.target.value})}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                            rows="3"
+                            placeholder="Add internal notes..."
                         ></textarea>
                     </div>
 
-                    <div className="flex gap-3 pt-2">
-                        <button 
-                            type="button" 
-                            onClick={() => setActionModal({ ...actionModal, isOpen: false })} 
-                            className="flex-1 px-6 py-4 text-slate-500 font-bold hover:bg-slate-100 rounded-2xl transition-colors uppercase tracking-widest text-[10px]"
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            type="submit" 
-                            disabled={approveMutation.isPending || rejectMutation.isPending}
-                            className={`flex-[2] px-6 py-4 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px] shadow-xl ${actionModal.type === 'approve' ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' : 'bg-red-500 hover:bg-red-600 shadow-red-500/20'}`}
-                        >
-                            {approveMutation.isPending || rejectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : `Confirm ${actionModal.type}`}
-                        </button>
-                    </div>
+                    <button 
+                        type="submit" 
+                        disabled={approveMutation.isPending || rejectMutation.isPending}
+                        className={`w-full py-4 rounded-xl text-white font-black uppercase tracking-widest text-xs transition-all shadow-lg ${
+                            actionModal.type === 'approve' 
+                            ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' 
+                            : 'bg-red-500 hover:bg-red-600 shadow-red-500/20'
+                        } active:scale-95 disabled:opacity-70`}
+                    >
+                        {approveMutation.isPending || rejectMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (actionModal.type === 'approve' ? 'Confirm Approval' : 'Confirm Rejection')}
+                    </button>
                 </form>
             </Modal>
         </div>

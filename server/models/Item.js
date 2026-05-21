@@ -12,6 +12,7 @@ const itemSchema = new mongoose.Schema({
     validity_period: { type: Number, default: 12 }, // Months
     frequency_days: { type: Number },
     fixed_date: { type: Date },
+    stock: { type: Number, default: 0 },
     description: { type: String }
 }, schemaOptions);
 

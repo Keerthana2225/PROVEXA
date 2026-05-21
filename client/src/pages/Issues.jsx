@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { FileText, Plus, PlusCircle, Search, Archive, History, RotateCcw, CheckCircle2, Clock, AlertTriangle, ShieldCheck, Fingerprint, ScanLine, PenTool } from 'lucide-react';
+import { FileText, Plus, PlusCircle, Search, Archive, History, RotateCcw, CheckCircle2, Clock, AlertTriangle, ShieldCheck, Fingerprint, ScanLine, PenTool, Users } from 'lucide-react';
 import api from '../lib/api';
 import IssueForm from '../components/ui/IssueForm';
 import Modal from '../components/ui/Modal';
 import UnifiedVerificationModal from '../components/ui/UnifiedVerificationModal';
+import EmployeeIdentificationModal from '../components/ui/EmployeeIdentificationModal';
 import { toast } from '../components/ui/Toast';
 
 export default function Issues() {
@@ -13,6 +14,7 @@ export default function Issues() {
 
     const [viewMode, setViewMode] = useState('active');
     const [showForm, setShowForm] = useState(false);
+    const [showIdentification, setShowIdentification] = useState(false);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [viewSignatureUrl, setViewSignatureUrl] = useState(null);
@@ -204,10 +206,16 @@ export default function Issues() {
                         {!isHistory && (
                             <div className="flex flex-wrap items-center gap-3">
                                 <button
-                                    onClick={() => setShowForm(true)}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-lg shadow-indigo-200 transition-all active:scale-95 uppercase tracking-wider"
+                                    onClick={() => setShowIdentification(true)}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl font-bold text-xs shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase tracking-wider"
                                 >
-                                    <PlusCircle className="w-4 h-4" /> Issue New Item
+                                    <ScanLine className="w-4 h-4" /> Identify & Issue
+                                </button>
+                                <button
+                                    onClick={() => setShowForm(true)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-all active:scale-95 tracking-wider"
+                                >
+                                    <Users className="w-4 h-4" /> Bulk Issue
                                 </button>
                             </div>
                         )}
@@ -393,6 +401,7 @@ export default function Issues() {
             </div>
 
             {/* ── Modals ── */}
+            <EmployeeIdentificationModal isOpen={showIdentification} onClose={() => setShowIdentification(false)} />
             <IssueForm isOpen={showForm} onClose={() => setShowForm(false)} />
 
             <UnifiedVerificationModal

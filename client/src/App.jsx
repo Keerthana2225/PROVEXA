@@ -12,6 +12,7 @@ import Issues from './pages/Issues'
 import ItemRenewal from './pages/ItemRenewal'
 import Replacements from './pages/Replacements'
 import Reports from './pages/Reports'
+import EmployeeAssetProfile from './pages/EmployeeAssetProfile'
 
 function App() {
   const navigate = useNavigate();
@@ -55,6 +56,7 @@ function App() {
           <Route path="/item-renewal" element={<ItemRenewal />} />
           <Route path="/replacements" element={<Replacements />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/employees/:id/profile" element={<EmployeeAssetProfile />} />
         </Route>
       </Routes>
     </div>

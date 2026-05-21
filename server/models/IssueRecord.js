@@ -7,6 +7,7 @@ const schemaOptions = {
 };
 
 const issueRecordSchema = new mongoose.Schema({
+    transaction_id: { type: String, index: true },
     employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
     employee_name: { type: String },
     item: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },

@@ -1,6 +1,20 @@
 const { ReplacementRequest, Employee, Item, IssueRecord, AllocationConfig } = require('../models');
 const mongoose = require('mongoose');
 
+// ── Employee-type allocation eligibility ──────────────────────────
+// Maps employee type → array of lowercase item name keywords allowed for FREE allocation
+const EMPLOYEE_ELIGIBILITY = {
+    'Intern':    ['intern t-shirt', 't-shirt'],
+    'Newcomer':  ['shirt', 'pant', 't-shirt', 'safety shoes', 'safety shoe'],
+    'Permanent': ['shirt', 'pant', 't-shirt', 'safety shoes', 'safety shoe', 'liberty shoes', 'shoe', 'coat', 'chudidhar'],
+};
+
+function isItemEligibleForType(itemName, empType) {
+    const eligible = EMPLOYEE_ELIGIBILITY[empType] || EMPLOYEE_ELIGIBILITY['Permanent'];
+    const n = (itemName || '').toLowerCase();
+    return eligible.some(e => n.includes(e));
+}
+
 function getItemType(itemName) {
     const name = (itemName || '').toLowerCase();
     if (name.includes('t-shirt') || name.includes('tshirt')) return 'T-Shirt';
@@ -20,7 +34,8 @@ async function getStandardLimit(itemType, employeeType = 'Permanent') {
     }
     const defaults = {
         'Permanent': { 'Pant': 2, 'Shirt': 2, 'T-Shirt': 1 },
-        'Newcomer': { 'Pant': 3, 'Shirt': 2, 'T-Shirt': 1 }
+        'Newcomer':  { 'Pant': 3, 'Shirt': 2, 'T-Shirt': 1 },
+        'Intern':    { 'T-Shirt': 1 }
     };
     return (defaults[employeeType] || defaults['Permanent'])[itemType] || 0;
 }
@@ -94,12 +109,8 @@ class ReplacementService {
         todayStart.setHours(0, 0, 0, 0);
 
         let totalCost = 0;
-        let totalDeductions = 0;
         completedRequests.forEach(r => {
             totalCost += (r.total_cost || 0);
-            if (r.requested_date >= todayStart) {
-                totalDeductions += (r.deduction_amount || 0);
-            }
         });
 
         const [pendingCount, paidCount] = await Promise.all([
@@ -109,7 +120,6 @@ class ReplacementService {
 
         return { 
             total_cost: totalCost, 
-            total_deductions: totalDeductions,
             pending_count: pendingCount,
             paid_count: paidCount
         };
@@ -133,65 +143,62 @@ class ReplacementService {
 
         const qty = parseInt(data.quantity) || 1;
         const requestedAllocationType = data.allocation_type || 'Standard';
-        
+        const empType = emp.employee_type || 'Permanent';
+
         let finalAllocationType = requestedAllocationType;
-        let isSalaryDeduction = data.is_salary_deduction === true || data.is_salary_deduction === 'true';
         let approvedStandardQuantity = parseInt(data.approved_standard_quantity) || 0;
 
-        const itemType = getItemType(item.name);
-        const limit = await getStandardLimit(itemType, emp.employee_type || 'Permanent');
+        // ── FREE ALLOCATION (Standard) ──────────────────────────────
+        // Force zero cost. Validate against quota. Auto-escalate to Additional if over limit.
+        if (requestedAllocationType === 'Standard') {
+            const itemType = getItemType(item.name);
+            const limit = await getStandardLimit(itemType, empType);
 
-        if (requestedAllocationType !== 'Replacement' && limit > 0) {
-            const activeIssues = await IssueRecord.find({
-                employee: data.employee_id,
-                archived: false,
-                lifecycle_status: 'Active'
-            }).populate('item');
+            if (limit > 0) {
+                const activeIssues = await IssueRecord.find({
+                    employee: data.employee_id,
+                    archived: false,
+                    lifecycle_status: 'Active'
+                }).populate('item');
 
-            let alreadyReceived = 0;
-            for (const issue of activeIssues) {
-                const name = issue.item_name || issue.item?.name;
-                if (getItemType(name) === itemType) {
-                    alreadyReceived += (issue.quantity || 0);
+                let alreadyReceived = 0;
+                for (const issue of activeIssues) {
+                    const name = issue.item_name || issue.item?.name;
+                    if (getItemType(name) === itemType) alreadyReceived += (issue.quantity || 0);
                 }
-            }
 
-            if (alreadyReceived + qty > limit) {
-                finalAllocationType = 'Additional';
-                isSalaryDeduction = true;
-            } else {
-                finalAllocationType = 'Standard';
-                isSalaryDeduction = false;
-                approvedStandardQuantity = qty;
+                if (alreadyReceived + qty > limit) {
+                    // Over free quota → flag as Additional automatically
+                    finalAllocationType = 'Additional';
+                } else {
+                    finalAllocationType = 'Standard';
+                    approvedStandardQuantity = qty;
+                }
             }
         }
 
-        let unitCost = parseFloat(data.unit_cost) || 0;
-        let deductionAmount = parseFloat(data.deduction_amount) || 0;
-        let paymentStatus = data.payment_status || 'Not Applicable';
+        // ── COST LOGIC per workflow ─────────────────────────────────
+        let unitCost = 0;
+        let paymentStatus = 'Not Applicable';
 
         if (finalAllocationType === 'Standard') {
+            // No cost ever for free allocation
             unitCost = 0;
-            deductionAmount = 0;
             paymentStatus = 'Not Applicable';
-            isSalaryDeduction = false;
+
         } else if (finalAllocationType === 'Additional') {
-            isSalaryDeduction = true;
-            if (unitCost === 0) {
-                if (itemType === 'Pant') unitCost = 250;
-                else if (itemType === 'Shirt') unitCost = 150;
-                else if (itemType === 'T-Shirt') unitCost = 100;
-                else unitCost = 200;
-            }
-            if (deductionAmount === 0) {
-                deductionAmount = qty * unitCost;
-            }
-            paymentStatus = 'Pending';
+            // Accept the official price sent from the form
+            unitCost = parseFloat(data.unit_cost) || 0;
+            paymentStatus = unitCost > 0 ? 'Pending' : 'Not Applicable';
+
         } else if (finalAllocationType === 'Replacement') {
-            if (isSalaryDeduction) {
+            // Replacement: NO cost by default
+            // Only apply cost if admin explicitly sets apply_cost_override = true
+            if (data.apply_cost_override && parseFloat(data.unit_cost) > 0) {
+                unitCost = parseFloat(data.unit_cost);
                 paymentStatus = 'Pending';
             } else {
-                deductionAmount = 0;
+                unitCost = 0;
                 paymentStatus = 'Not Applicable';
             }
         }
@@ -204,16 +211,19 @@ class ReplacementService {
             item: data.item_id,
             item_name: item.name,
             reason: data.reason || 'Not specified',
+            notes: data.notes || '',
             quantity: qty,
             size: data.size || 'N/A',
             unit_cost: unitCost,
             total_cost: totalCost,
-            deduction_amount: deductionAmount,
             payment_status: paymentStatus,
             return_status: data.return_status || 'Not Required',
             allocation_type: finalAllocationType,
-            is_salary_deduction: isSalaryDeduction,
             approved_standard_quantity: approvedStandardQuantity,
+            // Replacement: reference to the old issued item being replaced
+            previous_issue_id: data.previous_issue_id && mongoose.Types.ObjectId.isValid(data.previous_issue_id)
+                ? data.previous_issue_id : null,
+            apply_cost_override: finalAllocationType === 'Replacement' ? (!!data.apply_cost_override) : false,
             status: 'Pending',
             lifecycle_status: 'Active'
         };
@@ -236,13 +246,11 @@ class ReplacementService {
             const req = await ReplacementRequest.findById(id);
             if (req) {
                 updateData.total_cost = (req.quantity || 1) * updateData.unit_cost;
-            }
-        }
-        
-        if (data.deduction_amount !== undefined) {
-            updateData.deduction_amount = parseFloat(data.deduction_amount);
-            if (updateData.deduction_amount > 0) {
-                updateData.payment_status = 'Pending';
+                if (updateData.total_cost > 0) {
+                    updateData.payment_status = 'Pending';
+                } else {
+                    updateData.payment_status = 'Not Applicable';
+                }
             }
         }
 
@@ -273,9 +281,9 @@ class ReplacementService {
             acknowledged: true
         };
 
-        // Update payment status if deduction exists
-        if (req.deduction_amount > 0) {
-            updateData.payment_status = 'Deducted';
+        // Update payment status if there was an additional cost
+        if (req.total_cost > 0) {
+            updateData.payment_status = 'Paid';
         }
         
         if (req.return_status === 'Pending Return') {
@@ -283,6 +291,12 @@ class ReplacementService {
         }
 
         const updated = await ReplacementRequest.findByIdAndUpdate(id, updateData, { new: true });
+        
+        // Decrement stock
+        if (req.item) {
+            await Item.findByIdAndUpdate(req.item, { $inc: { stock: -(req.quantity || 1) } });
+        }
+        
         console.log(`[Service] Handover completed for ID: ${id}`);
         return updated;
     }

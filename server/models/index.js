@@ -6,6 +6,7 @@ const IssueRecord = require('./IssueRecord');
 const ReplacementRequest = require('./ReplacementRequest');
 const VerificationLog = require('./VerificationLog');
 const AllocationConfig = require('./AllocationConfig');
+const OfficialPriceList = require('./OfficialPriceList');
 
 module.exports = {
     Admin,
@@ -15,6 +16,7 @@ module.exports = {
     IssueRecord,
     ReplacementRequest,
     VerificationLog,
-    AllocationConfig
+    AllocationConfig,
+    OfficialPriceList
 };
 
