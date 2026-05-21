@@ -316,9 +316,9 @@ export default function Replacements() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                    { label: 'Total Replacement Cost', value: summary?.total_cost, icon: LayoutTemplate, bg: 'bg-indigo-50', text: 'text-indigo-600' },
+                    { label: 'Additional Cost', value: summary?.additional_cost ?? summary?.total_cost, icon: LayoutTemplate, bg: 'bg-indigo-50', text: 'text-indigo-600' },
                     { label: 'Verified Handovers', value: summary?.paid_count, icon: ShieldCheck, bg: 'bg-emerald-50', text: 'text-emerald-600', isCount: true },
-                    { label: 'Awaiting Handover', value: summary?.pending_count, icon: Clock, bg: 'bg-blue-50', text: 'text-blue-600', isCount: true }
+                    { label: 'Awaiting Handover', value: summary?.approved_count, icon: Clock, bg: 'bg-blue-50', text: 'text-blue-600', isCount: true }
                 ].map((stat, i) => (
                     <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-3">
                         <div className={`w-12 h-12 ${stat.bg} ${stat.text} rounded-2xl flex items-center justify-center`}>
@@ -447,14 +447,14 @@ export default function Replacements() {
                                             </td>
 
                                             <td className="px-6 py-2.5">
-                                                {(req.total_cost > 0) ? (
+                                                {req.allocation_type === 'Replacement' ? (
+                                                    <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest leading-none">N/A</span>
+                                                ) : (req.total_cost > 0) ? (
                                                     <div className="space-y-1.5">
                                                         <div className="flex items-center gap-1">
                                                             <span className="text-sm font-black text-slate-900 leading-none">₹{(req.total_cost || 0).toLocaleString()}</span>
                                                         </div>
-                                                        <Badge color={req.payment_status === 'Paid' ? 'emerald' : req.payment_status === 'Pending' ? 'amber' : 'slate'}>
-                                                            {req.payment_status}
-                                                        </Badge>
+                                                        <Badge color="purple">Deducted</Badge>
                                                     </div>
                                                 ) : (
                                                     <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest leading-none">N/A</span>
@@ -463,9 +463,13 @@ export default function Replacements() {
 
                                             <td className="px-6 py-2.5">
                                                 <div className="space-y-1.5">
-                                                    <Badge color={req.return_status === 'Returned' ? 'emerald' : req.return_status === 'Pending Return' ? 'amber' : 'slate'}>
-                                                        Old: {req.return_status}
-                                                    </Badge>
+                                                    {req.allocation_type !== 'Additional' ? (
+                                                        <Badge color={req.return_status === 'Returned' ? 'emerald' : req.return_status === 'Pending Return' ? 'amber' : 'slate'}>
+                                                            Old: {req.item_name || req.item?.name || 'Item'}
+                                                        </Badge>
+                                                    ) : !req.acknowledged && (
+                                                        <span className="text-[9px] text-slate-300 font-black uppercase tracking-widest leading-none">---</span>
+                                                    )}
                                                     {req.acknowledged && (
                                                         <div className="flex items-center text-[9px] text-emerald-600 font-black uppercase tracking-widest gap-0.5 leading-none">
                                                             <ShieldCheck className="w-2.5 h-2.5" /> Verified

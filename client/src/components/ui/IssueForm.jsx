@@ -60,9 +60,9 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
     if (isOpen) {
       if (initialData) {
         setForm({
-          employee_ids: initialData.employee_id ? [initialData.employee_id.toString()] : [],
-          item_ids: initialData.item_id ? [initialData.item_id.toString()] : [],
-          item_quantities: initialData.item_id ? { [initialData.item_id.toString()]: initialData.quantity || 1 } : {},
+          employee_ids: initialData.employee_ids ? initialData.employee_ids.map(String) : (initialData.employee_id ? [initialData.employee_id.toString()] : []),
+          item_ids: initialData.item_ids ? initialData.item_ids.map(String) : (initialData.item_id ? [initialData.item_id.toString()] : []),
+          item_quantities: initialData.item_id ? { [initialData.item_id.toString()]: initialData.quantity || 1 } : (initialData.item_quantities || {}),
           issued_date: dayjs().format('YYYY-MM-DD'),
           notes: '',
           override: initialData.override || false,
@@ -204,8 +204,11 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
                     return; // Stop submission
                 }
                 
-                // Duplicate check
-                const active = profileData.allocations.active.find(a => (a.item?._id || a.item?.id)?.toString() === itemId.toString());
+                // Duplicate check — item field is a string ID, Item (capital I) is the joined object
+                const active = profileData.allocations.active.find(a => {
+                    const aItemId = (typeof a.item === 'string' ? a.item : (a.item?._id || a.item?.id || a.Item?._id || a.Item?.id))?.toString();
+                    return aItemId === itemId.toString();
+                });
                 if (active) {
                     setDuplicateWarning({
                         itemName: item.name,
@@ -257,7 +260,7 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
           {error && <div className="p-3 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100">{error}</div>}
 
           {/* Employee Selector (Multi-Select) */}
-          <div style={{ display: initialData?.employee_id ? 'none' : 'block' }}>
+          <div style={{ display: (initialData?.employee_id || (initialData?.employee_ids && initialData.employee_ids.length > 0)) ? 'none' : 'block' }}>
             <label className="block text-sm font-medium text-slate-700 mb-1.5 flex justify-between">
               Employees <span className="text-red-500">*</span>
               <button type="button" onClick={toggleAllEmployees} className="text-[11px] font-semibold text-blue-600 hover:underline">

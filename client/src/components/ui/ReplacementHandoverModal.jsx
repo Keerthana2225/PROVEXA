@@ -135,37 +135,43 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
                                 <p className="text-xs text-slate-400 font-medium">{request.item_name} (Qty: {request.quantity})</p>
                             </div>
                             <Package className="w-16 h-16 text-white/10 absolute -right-2 -bottom-2" />
-                            <div className="relative z-10 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/20 text-center">
-                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-300">Deduction</p>
-                                <p className="text-lg font-black text-white">₹{request.deduction_amount}</p>
-                            </div>
+                            {request.allocation_type !== 'Replacement' && (
+                                <div className="relative z-10 bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/20 text-center">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                                        {request.allocation_type === 'Additional' ? 'Additional Cost' : 'Deduction'}
+                                    </p>
+                                    <p className="text-lg font-black text-white">₹{request.total_cost || request.deduction_amount || 0}</p>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Asset Exchange Confirmation */}
-                        <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-6 space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-amber-200 rounded-2xl flex items-center justify-center text-amber-700">
-                                    <RefreshCcw className="w-5 h-5" />
+                        {/* Asset Exchange Confirmation - ONLY FOR REPLACEMENTS */}
+                        {request.allocation_type === 'Replacement' && request.return_status !== 'Not Required' && (
+                            <div className="bg-amber-50 border-2 border-amber-200 rounded-3xl p-6 space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-amber-200 rounded-2xl flex items-center justify-center text-amber-700">
+                                        <RefreshCcw className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-black text-slate-800 text-sm uppercase tracking-wide">Old Asset Collection</h4>
+                                        <p className="text-xs text-slate-500 font-medium">Verify if the damaged item is being returned now.</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 className="font-black text-slate-800 text-sm uppercase tracking-wide">Old Asset Collection</h4>
-                                    <p className="text-xs text-slate-500 font-medium">Verify if the damaged item is being returned now.</p>
-                                </div>
+                                
+                                <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${itemCollected ? 'bg-white border-amber-500 shadow-lg shadow-amber-200/50' : 'bg-amber-100/50 border-transparent'}`}>
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-6 h-6 rounded-lg border-2 border-amber-300 text-amber-600 focus:ring-amber-500"
+                                        checked={itemCollected}
+                                        onChange={(e) => setItemCollected(e.target.checked)}
+                                    />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold text-slate-800">I have collected the old/damaged item</p>
+                                        <p className="text-[10px] text-slate-500 font-medium uppercase tracking-tighter">Status: {itemCollected ? 'HANDED OVER TO ADMIN' : 'AWAITING HANDOVER'}</p>
+                                    </div>
+                                </label>
                             </div>
-                            
-                            <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${itemCollected ? 'bg-white border-amber-500 shadow-lg shadow-amber-200/50' : 'bg-amber-100/50 border-transparent'}`}>
-                                <input 
-                                    type="checkbox" 
-                                    className="w-6 h-6 rounded-lg border-2 border-amber-300 text-amber-600 focus:ring-amber-500"
-                                    checked={itemCollected}
-                                    onChange={(e) => setItemCollected(e.target.checked)}
-                                />
-                                <div className="flex-1">
-                                    <p className="text-sm font-bold text-slate-800">I have collected the old/damaged item</p>
-                                    <p className="text-[10px] text-slate-500 font-medium uppercase tracking-tighter">Status: {itemCollected ? 'HANDED OVER TO ADMIN' : 'AWAITING HANDOVER'}</p>
-                                </div>
-                            </label>
-                        </div>
+                        )}
 
                         <div className="space-y-4">
                             <h3 className="text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Identity Verification</h3>
@@ -177,7 +183,7 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
                                 ].map((opt) => (
                                     <button
                                         key={opt.id}
-                                        disabled={!itemCollected && request.return_status !== 'Not Required'}
+                                        disabled={!itemCollected && request.allocation_type === 'Replacement' && request.return_status !== 'Not Required'}
                                         onClick={() => {
                                             setMethod(opt.id);
                                             setStep(opt.id === 'signature' ? STATUS.SIGNATURE : STATUS.OCR_SCANNING);

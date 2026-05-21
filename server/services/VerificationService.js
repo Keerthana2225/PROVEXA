@@ -1,46 +1,77 @@
-const { VerificationLog } = require('../models');
+const { Op } = require('sequelize');
+const { VerificationLog, Employee } = require('../models');
 
 class VerificationService {
+
+    // Unified log function — maps all calling conventions to the actual model fields
     async log(data) {
-        return await VerificationLog.create(data);
+        const logData = {
+            // employee field: accept entity_id (when entity_type=Employee) or direct employee field
+            employee: data.employee || (data.entity_type === 'Employee' ? data.entity_id : null),
+            reference_id: data.reference_id || (data.entity_type !== 'Employee' ? data.entity_id : null),
+            reference_type: data.reference_type || data.entity_type || 'standalone',
+            method: data.method || data.type || 'Manual',
+            status: data.status || 'Verified',
+            ocr_confidence: data.ocr_confidence || null,
+            raw_ocr_text: data.raw_ocr_text || null,
+            signature_path: data.signature_path || null,
+            device_info: data.device_info ? JSON.stringify(data.device_info) : null,
+            timestamp: new Date()
+        };
+        return await VerificationLog.create(logData);
+    }
+
+    async getRecentVerified(employeeId, method, windowMinutes) {
+        const cutoff = new Date();
+        cutoff.setMinutes(cutoff.getMinutes() - windowMinutes);
+        const log = await VerificationLog.findOne({
+            where: {
+                employee: employeeId,
+                method,
+                status: 'Verified',
+                timestamp: { [Op.gte]: cutoff }
+            }
+        });
+        return log ? log.toJSON() : null;
+    }
+
+    async getHistoryByEmployee(employeeId) {
+        const logs = await VerificationLog.findAll({
+            where: { employee: employeeId },
+            order: [['timestamp', 'DESC']]
+        });
+        return logs.map(l => l.toJSON());
+    }
+
+    async getRecentActivity(limit = 10) {
+        const logs = await VerificationLog.findAll({
+            order: [['timestamp', 'DESC']],
+            limit: parseInt(limit)
+        });
+        return logs.map(l => l.toJSON());
     }
 
     async getLogs(filters = {}) {
-        const { type, status, page = 1, limit = 20 } = filters;
-        const query = {};
-        if (type) query.type = type;
-        if (status) query.status = status;
-
-        const logs = await VerificationLog.find(query)
-            .populate('verified_by')
-            .sort({ created_at: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit);
-
-        const total = await VerificationLog.countDocuments(query);
-        return { logs, total };
-    }
-
-    async getRecentVerified(entityId, type, minutes) {
-        const since = new Date(Date.now() - minutes * 60000);
-        return await VerificationLog.findOne({
-            entity_id: entityId,
-            type: type,
-            status: 'Verified',
-            created_at: { $gte: since }
+        const { employeeId, limit = 50 } = filters;
+        const where = {};
+        if (employeeId) where.employee = employeeId;
+        const logs = await VerificationLog.findAll({
+            where,
+            order: [['timestamp', 'DESC']],
+            limit: parseInt(limit)
         });
+        return logs.map(l => l.toJSON());
     }
 
     async getStats() {
-        const totalVerified = await VerificationLog.countDocuments({ status: 'Verified' });
-        const ocrScans = await VerificationLog.countDocuments({ type: 'OCR Scan', status: 'Verified' });
-        const signatures = await VerificationLog.countDocuments({ type: 'Signature', status: 'Verified' });
-        
-        return {
-            total: totalVerified,
-            ocr: ocrScans,
-            signature: signatures
-        };
+        const total = await VerificationLog.count();
+        const verified = await VerificationLog.count({ where: { status: 'Verified' } });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayCount = await VerificationLog.count({
+            where: { timestamp: { [Op.gte]: today } }
+        });
+        return { total, verified, today: todayCount };
     }
 }
 

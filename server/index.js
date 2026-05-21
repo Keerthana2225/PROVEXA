@@ -6,10 +6,10 @@ const path = require('path');
 
 dotenv.config();
 
-const connectDB = require('./config/db');
+const { connectSQL } = require('./config/database');
 
-// MongoDB Connection
-connectDB();
+// SQL Server Connection
+connectSQL();
 
 const authRoutes = require('./routes/auth');
 const employeeRoutes = require('./routes/employees');
@@ -67,5 +67,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📍 Mode: ${process.env.NODE_ENV}`);
-    console.log(`🗄️  Database: MongoDB`);
+    console.log(`🗄️  Database: SQL Server Express (Sequelize)`);
 });

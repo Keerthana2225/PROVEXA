@@ -114,13 +114,16 @@ router.put('/acknowledge/:id', async (req, res) => {
             admin_id: req.admin?.id
         });
 
-        // Create verification log
+        // Create verification log — pass employee for Recent Activity
         await verificationService.log({
             type: ocr_details ? (signature ? 'Signature + OCR' : 'OCR Scan') : 'Signature',
             status: 'Verified',
             entity_id: id,
             entity_type: 'Issue',
-            details: JSON.stringify({ ocr_details, signature_path }),
+            // Pass the employee from the acknowledged issue record
+            employee: issue?.employee?._id || issue?.employee?.id || issue?.employee,
+            reference_id: id,
+            signature_path,
             verified_by: req.admin?.id
         });
 
@@ -155,14 +158,16 @@ router.put('/acknowledge/employee/:employeeId', async (req, res) => {
             signature_path = `/public/signatures/${filename}`;
         }
         
-        // Find all pending issues for this employee
+        const { Op } = require('sequelize');
         const { IssueRecord, ReplacementRequest } = require('../models');
         
         // Update all unacknowledged standard issues
-        const pendingIssues = await IssueRecord.find({
-            employee: employeeId,
-            acknowledged: false,
-            issue_status: 'Pending Acknowledgement'
+        const pendingIssues = await IssueRecord.findAll({
+            where: {
+                employee: employeeId,
+                acknowledged: false,
+                issue_status: 'Pending Acknowledgement'
+            }
         });
         
         for (const issue of pendingIssues) {
@@ -175,9 +180,11 @@ router.put('/acknowledge/employee/:employeeId', async (req, res) => {
         }
         
         // Update all approved replacement requests that are not completed
-        const pendingReplacements = await ReplacementRequest.find({
-            employee: employeeId,
-            status: { $in: ['Approved', 'pending', 'Pending'] }
+        const pendingReplacements = await ReplacementRequest.findAll({
+            where: {
+                employee: employeeId,
+                status: { [Op.in]: ['Approved', 'pending', 'Pending'] }
+            }
         });
         
         for (const rep of pendingReplacements) {
@@ -189,13 +196,15 @@ router.put('/acknowledge/employee/:employeeId', async (req, res) => {
             await rep.save();
         }
 
-        // Create verification log
+        // Create verification log — pass employee for Recent Activity
         await verificationService.log({
             type: ocr_details ? (signature ? 'Signature + OCR' : 'OCR Scan') : 'Signature',
             status: 'Verified',
             entity_id: employeeId,
-            entity_type: 'EmployeeBulk',
-            details: JSON.stringify({ ocr_details, signature_path, items_verified: pendingIssues.length + pendingReplacements.length }),
+            entity_type: 'Employee',
+            employee: employeeId,
+            reference_id: employeeId,
+            signature_path,
             verified_by: req.admin?.id
         });
 

@@ -96,7 +96,7 @@ router.put('/:id', async (req, res) => {
 // Delete item
 router.delete('/:id', async (req, res) => {
     try {
-        const hasIssues = await IssueRecord.findOne({ where: { item_id: req.params.id } });
+        const hasIssues = await IssueRecord.findOne({ where: { item: req.params.id } });
         if (hasIssues) {
             return res.status(400).json({ 
                 message: 'Cannot delete item with active or historical records.' 

@@ -574,7 +574,10 @@ export default function EmployeeAssetProfile() {
                     onSuccess={() => {
                         queryClient.invalidateQueries({ queryKey: ['issues'] });
                         queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+                        // Invalidate this specific employee profile to refresh banner
+                        queryClient.invalidateQueries({ queryKey: ['employee-profile', id] });
                         queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+                        setVerifyIssue(null);
                     }}
                 />
             )}

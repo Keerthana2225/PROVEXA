@@ -1,14 +1,20 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
+const { sequelize } = require('../config/database');
 
-const schemaOptions = {
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
-};
+const ItemCategory = sequelize.define('ItemCategory', {
+    _id: {
+        type: DataTypes.STRING(36),
+        primaryKey: true,
+        defaultValue: () => uuidv4(),
+        field: 'id'
+    },
+    name: { type: DataTypes.STRING, allowNull: false, unique: true },
+    requires_cost_tracking: { type: DataTypes.BOOLEAN, defaultValue: false }
+}, {
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+});
 
-const itemCategorySchema = new mongoose.Schema({
-    name: { type: String, required: true, unique: true },
-    requires_cost_tracking: { type: Boolean, default: false }
-}, schemaOptions);
-
-module.exports = mongoose.model('ItemCategory', itemCategorySchema);
+module.exports = ItemCategory;

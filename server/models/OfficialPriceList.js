@@ -1,18 +1,22 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
+const { sequelize } = require('../config/database');
 
-const officialPriceSchema = new mongoose.Schema({
-    item_name:   { type: String, required: true, trim: true },
-    price:       { type: Number, required: true },
-    gender:      { type: String, enum: ['MEN', 'WOMEN', 'UNISEX'], default: 'UNISEX' },
-    description: { type: String },
-    active:      { type: Boolean, default: true },
+const OfficialPriceList = sequelize.define('OfficialPriceList', {
+    _id: {
+        type: DataTypes.STRING(36),
+        primaryKey: true,
+        defaultValue: () => uuidv4(),
+        field: 'id'
+    },
+    item_name: { type: DataTypes.STRING, allowNull: false },
+    gender: { type: DataTypes.STRING, defaultValue: 'UNISEX' },
+    price: { type: DataTypes.FLOAT, allowNull: false },
+    effective_date: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
 }, {
-    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
 });
 
-// Compound unique index: same item can have different prices for MEN vs WOMEN
-officialPriceSchema.index({ item_name: 1, gender: 1 }, { unique: true });
-
-module.exports = mongoose.model('OfficialPriceList', officialPriceSchema);
+module.exports = OfficialPriceList;

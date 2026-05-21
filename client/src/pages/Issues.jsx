@@ -98,7 +98,8 @@ export default function Issues() {
             setSigningEmployee(employee);
             setPendingCount(1);
         } else {
-            const count = issues.filter(i => i.employee?.id === employee.id && !i.acknowledged).length;
+            const empId = employee._id || employee.id;
+            const count = issues.filter(i => (i.employee?._id || i.employee?.id) === empId && !i.acknowledged).length;
             setPendingCount(count);
             setSigningEmployee(employee);
             setSelectedIssueId(null);
@@ -120,16 +121,25 @@ export default function Issues() {
             );
         }
         return [...result].sort((a, b) => {
-            // Sort by issued_date descending (recent on top)
-            const dateA = dayjs(a.issued_date);
-            const dateB = dayjs(b.issued_date);
-            if (!dateA.isSame(dateB)) {
-                return dateB.isAfter(dateA) ? 1 : -1;
-            }
-            // Secondary: Acknowledged/Verified first
-            const statusA = a.issue_status === 'Acknowledged' || a.acknowledged ? 1 : 0;
-            const statusB = b.issue_status === 'Acknowledged' || b.acknowledged ? 1 : 0;
-            return statusB - statusA;
+            // 1. Sort by issued_date DESC (newest to oldest)
+            const dateA = new Date(a.issued_date || a.created_at).setHours(0,0,0,0);
+            const dateB = new Date(b.issued_date || b.created_at).setHours(0,0,0,0);
+            if (dateB !== dateA) return dateB - dateA; // Day level grouping
+
+            // 2. Group by transaction_id
+            const transA = a.transaction_id || '';
+            const transB = b.transaction_id || '';
+            if (transA !== transB) return transA.localeCompare(transB);
+
+            // 3. Group by employee name
+            const nameA = (a.employee?.name || a.employee_name || '').toLowerCase();
+            const nameB = (b.employee?.name || b.employee_name || '').toLowerCase();
+            if (nameA !== nameB) return nameA.localeCompare(nameB);
+
+            // 4. Fallback to precise time descending
+            const timeA = new Date(a.created_at || a.issued_date).getTime();
+            const timeB = new Date(b.created_at || b.issued_date).getTime();
+            return timeB - timeA;
         });
     }, [issues, search]);
 

@@ -1,8 +1,20 @@
+const { Op } = require('sequelize');
 const { ReplacementRequest, Employee, Item, IssueRecord, AllocationConfig, OfficialPriceList } = require('../models');
-const mongoose = require('mongoose');
 
-// ── Employee-type free allocation eligibility ─────────────────────
-// Maps employee type → lowercase item keywords allowed for FREE (Standard) allocation
+// Normalize Sequelize PascalCase joins → lowercase
+function normalizeRequest(r) {
+    const j = typeof r.toJSON === 'function' ? r.toJSON() : { ...r };
+    if (j.Employee) { j.employee = j.Employee; delete j.Employee; }
+    else if (typeof j.employee === 'string') {
+        j.employee = { _id: j.employee, id: j.employee, name: j.employee_name || 'Unknown', emp_code: 'N/A', department: 'GENERAL' };
+    }
+    if (j.Item) { j.item = j.Item; delete j.Item; }
+    else if (typeof j.item === 'string') {
+        j.item = { _id: j.item, id: j.item, name: j.item_name || 'Unknown' };
+    }
+    return j;
+}
+
 const EMPLOYEE_ELIGIBILITY = {
     'Intern':    ['pant', 'shirt', 'intern t-shirt', 't-shirt'],
     'Permanent': ['shirt', 'pant', 't-shirt', 'safety shoes', 'safety shoe', 'liberty shoes', 'shoe', 'coat', 'chudidhar'],
@@ -23,7 +35,7 @@ function getItemType(itemName) {
 }
 
 async function getStandardLimit(itemType, employeeType = 'Permanent') {
-    const config = await AllocationConfig.findOne({ item_type: itemType });
+    const config = await AllocationConfig.findOne({ where: { item_type: itemType } });
     if (config) {
         if (employeeType === 'Intern') return config.intern_quantity ?? 1;
         return config.permanent_quantity ?? config.standard_quantity;
@@ -37,15 +49,15 @@ async function getStandardLimit(itemType, employeeType = 'Permanent') {
 
 class AllocationRequestService {
 
-    // ── Allocation configs ────────────────────────────────────────
     async getConfigs() {
-        return await AllocationConfig.find({});
+        const configs = await AllocationConfig.findAll();
+        return configs.map(c => c.toJSON());
     }
 
     async updateConfigs(configs) {
         const results = [];
         for (const conf of configs) {
-            const updateFields = {};
+            const updateFields = { item_type: conf.item_type };
             if (conf.permanent_quantity !== undefined) {
                 updateFields.permanent_quantity = parseInt(conf.permanent_quantity) || 0;
                 updateFields.standard_quantity  = parseInt(conf.permanent_quantity) || 0;
@@ -56,30 +68,24 @@ class AllocationRequestService {
             if (conf.standard_quantity !== undefined && updateFields.standard_quantity === undefined) {
                 updateFields.standard_quantity = parseInt(conf.standard_quantity) || 0;
             }
-            const updated = await AllocationConfig.findOneAndUpdate(
-                { item_type: conf.item_type },
-                updateFields,
-                { new: true, upsert: true }
-            );
-            results.push(updated);
+
+            const [updated] = await AllocationConfig.upsert(updateFields, { returning: true });
+            results.push(updated.toJSON());
         }
         return results;
     }
 
-    // ── Official price list ───────────────────────────────────────
     async getOfficialPrices() {
-        const prices = await OfficialPriceList.find({ active: true }).sort({ gender: 1, item_name: 1 });
+        let prices = await OfficialPriceList.findAll({ order: [['gender', 'ASC'], ['item_name', 'ASC']] });
         if (prices.length === 0) {
-            // Seed defaults from company schedule if table is empty
             await this.seedOfficialPrices();
-            return await OfficialPriceList.find({ active: true }).sort({ gender: 1, item_name: 1 });
+            prices = await OfficialPriceList.findAll({ order: [['gender', 'ASC'], ['item_name', 'ASC']] });
         }
-        return prices;
+        return prices.map(p => p.toJSON());
     }
 
     async seedOfficialPrices() {
         const defaults = [
-            // MEN
             { item_name: 'Shirt',             price: 250.95, gender: 'MEN' },
             { item_name: 'Pant',              price: 349.65, gender: 'MEN' },
             { item_name: 'Shirt Full Sleeve', price: 370.65, gender: 'MEN' },
@@ -88,7 +94,6 @@ class AllocationRequestService {
             { item_name: 'Safety Shoes',      price: 588.00, gender: 'MEN' },
             { item_name: 'Liberty Shoes',     price: 1764.10, gender: 'MEN' },
             { item_name: 'Shoe (BATA)',        price: 1475.00, gender: 'MEN' },
-            // WOMEN
             { item_name: 'Shirt',             price: 262.50, gender: 'WOMEN' },
             { item_name: 'Pant',              price: 391.65, gender: 'WOMEN' },
             { item_name: 'Coat',              price: 321.30, gender: 'WOMEN' },
@@ -99,96 +104,94 @@ class AllocationRequestService {
             { item_name: 'Safety Shoe',       price: 840.00, gender: 'WOMEN' },
         ];
         for (const p of defaults) {
-            await OfficialPriceList.findOneAndUpdate(
-                { item_name: p.item_name, gender: p.gender },
-                p,
-                { upsert: true, new: true }
-            );
+            const exists = await OfficialPriceList.findOne({ where: { item_name: p.item_name, gender: p.gender } });
+            if (exists) {
+                await exists.update(p);
+            } else {
+                await OfficialPriceList.create(p);
+            }
         }
     }
 
     async upsertOfficialPrice(item_name, price, gender = 'UNISEX', description = '') {
-        return await OfficialPriceList.findOneAndUpdate(
-            { item_name },
-            { item_name, price, gender, description, active: true },
-            { upsert: true, new: true }
-        );
+        const exists = await OfficialPriceList.findOne({ where: { item_name } });
+        if (exists) {
+            return await exists.update({ price, gender, description });
+        }
+        return await OfficialPriceList.create({ item_name, price, gender, description });
     }
 
-    // Lookup by gender (WOMEN/MEN rates from schedule)
     async lookupPriceByGender(itemName, gender) {
         if (!itemName) return null;
         const n = itemName.toLowerCase().trim();
-        const prices = await OfficialPriceList.find({ active: true, gender });
+        const prices = await OfficialPriceList.findAll({ where: { gender } });
         let found = prices.find(p => p.item_name.toLowerCase() === n);
         if (!found) found = prices.find(p => n.includes(p.item_name.toLowerCase()) || p.item_name.toLowerCase().includes(n));
         return found ? found.price : null;
     }
 
-    // Lookup official price for an item by name (fuzzy match, any gender)
     async lookupPrice(itemName) {
         if (!itemName) return null;
         const n = itemName.toLowerCase().trim();
-        const prices = await OfficialPriceList.find({ active: true });
+        const prices = await OfficialPriceList.findAll();
         let found = prices.find(p => p.item_name.toLowerCase() === n);
         if (!found) found = prices.find(p => n.includes(p.item_name.toLowerCase()) || p.item_name.toLowerCase().includes(n));
         return found ? found.price : null;
     }
 
-    // ── Get all requests ─────────────────────────────────────────
     async getAll(filters = {}) {
         const { status, employeeId, page, limit, allocation_type } = filters;
-        const query = {};
+        const where = {};
         if (status) {
             if (status.includes(',')) {
                 const parts = status.split(',').map(s => s.trim());
-                query.status = { $in: [...parts, ...parts.map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())] };
+                where.status = { [Op.in]: [...parts, ...parts.map(s => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase())] };
             } else {
                 const tc = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-                query.status = { $in: [status, tc] };
+                where.status = { [Op.in]: [status, tc] };
             }
         }
-        if (employeeId)     query.employee = employeeId;
-        if (allocation_type) query.allocation_type = allocation_type;
+        if (employeeId)     where.employee = employeeId;
+        if (allocation_type) where.allocation_type = allocation_type;
 
-        let dbQuery = ReplacementRequest.find(query)
-            .populate('employee').populate('item')
-            .sort({ requested_date: -1 });
+        const queryOptions = {
+            where,
+            include: [{ model: Employee }, { model: Item }],
+            order: [['requested_date', 'DESC']]
+        };
 
         if (page && limit) {
-            dbQuery = dbQuery.skip((parseInt(page) - 1) * parseInt(limit)).limit(parseInt(limit));
-            const items = await dbQuery;
-            const total = await ReplacementRequest.countDocuments(query);
-            return { items, total };
+            queryOptions.offset = (parseInt(page) - 1) * parseInt(limit);
+            queryOptions.limit = parseInt(limit);
+            const { rows, count } = await ReplacementRequest.findAndCountAll(queryOptions);
+            return { items: rows.map(r => normalizeRequest(r)), total: count };
         }
-        return await dbQuery;
+        const records = await ReplacementRequest.findAll(queryOptions);
+        return records.map(r => normalizeRequest(r));
     }
 
-    // ── Summary stats ────────────────────────────────────────────
     async getSummary() {
-        const completedRequests = await ReplacementRequest.find({ status: { $in: ['Completed', 'completed'] } });
-        let totalCost = 0;
-        completedRequests.forEach(r => { totalCost += (r.total_cost || 0); });
-        const [pendingCount, paidCount] = await Promise.all([
-            ReplacementRequest.countDocuments({ status: { $in: ['Approved', 'Pending', 'approved', 'pending'] } }),
-            ReplacementRequest.countDocuments({ status: { $in: ['Completed', 'completed'] } })
+        // Additional cost = sum of all Additional allocation requests (any status)
+        const additionalRequests = await ReplacementRequest.findAll({
+            where: { allocation_type: 'Additional' }
+        });
+        let additionalCost = 0;
+        additionalRequests.forEach(r => { additionalCost += (parseFloat(r.total_cost) || 0); });
+        
+        const [pendingCount, approvedCount, paidCount] = await Promise.all([
+            ReplacementRequest.count({ where: { status: { [Op.in]: ['Pending', 'pending'] } } }),
+            ReplacementRequest.count({ where: { status: { [Op.in]: ['Approved', 'approved'] } } }),
+            ReplacementRequest.count({ where: { status: { [Op.in]: ['Completed', 'completed'] } } })
         ]);
-        return { total_cost: totalCost, pending_count: pendingCount, paid_count: paidCount };
+        return { total_cost: additionalCost, additional_cost: additionalCost, pending_count: pendingCount, approved_count: approvedCount, paid_count: paidCount };
     }
 
-    // ── Create new allocation request ────────────────────────────
     async create(data) {
-        if (!data.employee_id || !mongoose.Types.ObjectId.isValid(data.employee_id)) {
-            throw new Error('Invalid Employee ID');
-        }
-        if (!data.item_id || !mongoose.Types.ObjectId.isValid(data.item_id)) {
-            throw new Error('Invalid Item ID');
-        }
+        if (!data.employee_id) throw new Error('Invalid Employee ID');
+        if (!data.item_id) throw new Error('Invalid Item ID');
 
-        const [emp, item] = await Promise.all([
-            Employee.findById(data.employee_id),
-            Item.findById(data.item_id)
-        ]);
+        const emp = await Employee.findByPk(data.employee_id);
+        const item = await Item.findByPk(data.item_id);
         if (!emp)  throw new Error('Employee not found');
         if (!item) throw new Error('Item not found');
 
@@ -198,24 +201,23 @@ class AllocationRequestService {
         let finalType = requestedType;
         let approvedStdQty = parseInt(data.approved_standard_quantity) || 0;
 
-        // ── FREE ALLOCATION: quota check + auto-escalation ───────
         if (requestedType === 'Standard') {
             const itemType = getItemType(item.name);
             const limit    = await getStandardLimit(itemType, empType);
 
             if (limit > 0) {
-                const activeIssues = await IssueRecord.find({
-                    employee: data.employee_id, archived: false, lifecycle_status: 'Active'
-                }).populate('item');
+                const activeIssues = await IssueRecord.findAll({
+                    where: { employee: data.employee_id, archived: false, lifecycle_status: 'Active' },
+                    include: [{ model: Item }]
+                });
 
                 let alreadyReceived = 0;
                 for (const issue of activeIssues) {
-                    const name = issue.item_name || issue.item?.name;
+                    const name = issue.item_name || issue.Item?.name;
                     if (getItemType(name) === itemType) alreadyReceived += (issue.quantity || 0);
                 }
 
                 if (alreadyReceived + qty > limit) {
-                    // Quota exceeded → escalate to Additional automatically
                     finalType = 'Additional';
                 } else {
                     finalType = 'Standard';
@@ -224,45 +226,37 @@ class AllocationRequestService {
             }
         }
 
-        // ── COST LOGIC per workflow type ─────────────────────────
         let unitCost = 0;
-        let paymentStatus = 'Not Applicable';
+        let paymentStatus = 'Not Required';
 
         if (finalType === 'Standard') {
-            // Company-sponsored: NO cost whatsoever
             unitCost = 0;
-            paymentStatus = 'Not Applicable';
-
+            paymentStatus = 'Not Required';
         } else if (finalType === 'Additional') {
-            // Use price from form (auto-filled from DB price list by frontend)
             unitCost = parseFloat(data.unit_cost) || 0;
             if (unitCost === 0) {
-                // Fallback: look up from DB by item name
                 const dbPrice = await this.lookupPrice(item.name);
                 unitCost = dbPrice || 0;
             }
-            paymentStatus = unitCost > 0 ? 'Pending' : 'Not Applicable';
-
+            paymentStatus = unitCost > 0 ? 'Pending' : 'Not Required';
         } else if (finalType === 'Replacement') {
-            // Auto-calculate cost = qty × official price based on employee gender
-            // Price is looked up automatically — no manual override needed
             const empGender = emp.gender === 'Female' ? 'WOMEN' : 'MEN';
             const dbPrice = await this.lookupPriceByGender(item.name, empGender);
             unitCost = dbPrice ?? (await this.lookupPrice(item.name)) ?? 0;
-            paymentStatus = unitCost > 0 ? 'Pending' : 'Not Applicable';
+            paymentStatus = unitCost > 0 ? 'Pending' : 'Not Required';
         }
 
         const totalCost = qty * unitCost;
 
-        // ── LOCK OLD ITEM for Replacement ────────────────────────
-        // Mark the previous issue as "Pending Replacement Return" so it
-        // can't be double-counted in active allocations
-        if (finalType === 'Replacement' && data.previous_issue_id && mongoose.Types.ObjectId.isValid(data.previous_issue_id)) {
-            await IssueRecord.findByIdAndUpdate(data.previous_issue_id, {
-                lifecycle_status: 'Active',          // stays Active until physically returned
-                issue_status:     'Pending Acknowledgement',
-                notes: (data.notes ? data.notes + ' | ' : '') + 'Pending Replacement Return — new item requested'
-            });
+        if (finalType === 'Replacement' && data.previous_issue_id) {
+            const prevIssue = await IssueRecord.findByPk(data.previous_issue_id);
+            if (prevIssue) {
+                await prevIssue.update({
+                    lifecycle_status: 'Active',
+                    issue_status:     'Pending Acknowledgement',
+                    notes: (data.notes ? data.notes + ' | ' : '') + 'Pending Replacement Return — new item requested'
+                });
+            }
         }
 
         const recordData = {
@@ -271,108 +265,121 @@ class AllocationRequestService {
             item:          data.item_id,
             item_name:     item.name,
             allocation_type:   finalType,
-            allocation_source: finalType,   // immutable snapshot for reporting
             reason:        data.reason || 'Not specified',
-            exchange_reason: data.exchange_reason || '',
             notes:         data.notes || '',
             quantity:      qty,
             size:          data.size || 'N/A',
             unit_cost:     unitCost,
             total_cost:    totalCost,
             payment_status: paymentStatus,
-            return_status: data.return_status || 'Not Required',
-            approved_standard_quantity: approvedStdQty,
-            previous_issue_id: (finalType === 'Replacement' && data.previous_issue_id && mongoose.Types.ObjectId.isValid(data.previous_issue_id))
-                ? data.previous_issue_id : null,
-            apply_cost_override: finalType === 'Replacement' ? (!!data.apply_cost_override) : false,
-            status:           'Pending',
-            lifecycle_status: 'Active'
+            previous_issue: data.previous_issue_id || null,
+            status:        'Pending',
+            requested_date: new Date()
         };
 
-        return await ReplacementRequest.create(recordData);
+        const newRequest = await ReplacementRequest.create(recordData);
+        return await ReplacementRequest.findByPk(newRequest._id, { include: [{ model: Employee }, { model: Item }] });
     }
 
-    // ── Approve ───────────────────────────────────────────────────
-    async approve(id, data, adminId) {
-        if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid Request ID');
-        const updateData = {
-            status:       'Approved',
-            resolved_by:  adminId,
-            resolved_date: new Date(),
-            notes:        data.notes
-        };
-        if (data.unit_cost !== undefined) {
-            updateData.unit_cost = parseFloat(data.unit_cost);
-            const req = await ReplacementRequest.findById(id);
-            if (req) {
-                updateData.total_cost = (req.quantity || 1) * updateData.unit_cost;
-                updateData.payment_status = updateData.total_cost > 0 ? 'Pending' : 'Not Applicable';
+    async getById(id) {
+        const req = await ReplacementRequest.findByPk(id, { include: [{ model: Employee }, { model: Item }] });
+        return req ? req.toJSON() : null;
+    }
+
+    async updateStatus(id, updateData) {
+        const request = await ReplacementRequest.findByPk(id);
+        if (!request) throw new Error('Request not found');
+
+        if (updateData.status === 'Completed' && request.status !== 'Completed') {
+            updateData.resolved_date = new Date();
+
+            const item = await Item.findByPk(request.item);
+            let nextDue = new Date();
+            nextDue.setDate(nextDue.getDate() + (item ? item.frequency_days || 365 : 365));
+
+            await IssueRecord.create({
+                employee: request.employee,
+                employee_name: request.employee_name,
+                item: request.item,
+                item_name: request.item_name,
+                issued_date: new Date(),
+                next_due_date: nextDue,
+                quantity: request.quantity,
+                issued_by: updateData.resolved_by || null,
+                issue_status: 'Acknowledged',
+                lifecycle_status: 'Active',
+                notes: `Issued via ${request.allocation_type} (ID: ${request._id})`
+            });
+
+            if (request.previous_issue) {
+                const oldIssue = await IssueRecord.findByPk(request.previous_issue);
+                if (oldIssue) {
+                    await oldIssue.update({
+                        lifecycle_status: 'Returned',
+                        return_date: new Date(),
+                        returned_condition: 'Replaced'
+                    });
+                }
             }
         }
-        return await ReplacementRequest.findByIdAndUpdate(id, updateData, { new: true });
+
+        await request.update(updateData);
+        const updated = await ReplacementRequest.findByPk(id, { include: [{ model: Employee }, { model: Item }] });
+        return updated ? normalizeRequest(updated) : null;
     }
 
-    // ── Handover / Complete ───────────────────────────────────────
-    async handover(id, data) {
-        if (!mongoose.Types.ObjectId.isValid(id)) throw new Error(`Invalid Replacement Request ID: ${id}`);
-        const req = await ReplacementRequest.findById(id);
-        if (!req) throw new Error(`Replacement request not found with ID: ${id}`);
+    async verifyMultiple(ids, method, ocrDetails, signaturePath, adminId = null) {
+        const results = [];
+        for (const id of ids) {
+            const req = await ReplacementRequest.findByPk(id);
+            if (req) {
+                await req.update({
+                    acknowledged: true,
+                    status: 'Completed',
+                    resolved_date: new Date(),
+                    verification_method: method,
+                    ocr_details: ocrDetails ? JSON.stringify(ocrDetails) : null,
+                    signature_path: signaturePath
+                });
+                
+                // Also create an IssueRecord
+                const item = await Item.findByPk(req.item);
+                let nextDue = new Date();
+                nextDue.setDate(nextDue.getDate() + (item ? item.frequency_days || 365 : 365));
 
-        const updateData = {
-            status:             'Completed',
-            lifecycle_status:   'Completed',
-            signature_path:     data.signature_path,
-            notes:              data.notes || req.notes,
-            ocr_details:        data.ocr_details || req.ocr_details,
-            verification_method: data.verification_method || 'Signature',
-            resolved_by:        data.admin_id,
-            resolved_date:      new Date(),
-            item_collected:     true,
-            acknowledged:       true
-        };
+                await IssueRecord.create({
+                    employee: req.employee,
+                    employee_name: req.employee_name,
+                    item: req.item,
+                    item_name: req.item_name,
+                    issued_date: new Date(),
+                    next_due_date: nextDue,
+                    quantity: req.quantity,
+                    issued_by: adminId,  // now passed from route
+                    issue_status: 'Acknowledged',
+                    lifecycle_status: 'Active',
+                    verification_method: method,
+                    signature_path: signaturePath,
+                    acknowledged: true,
+                    acknowledgement_time: new Date(),
+                    notes: `Issued via ${req.allocation_type} (ID: ${req._id})`
+                });
 
-        if (req.total_cost > 0) updateData.payment_status = 'Paid';
-        if (req.return_status === 'Pending Return') updateData.return_status = 'Returned';
+                if (req.previous_issue) {
+                    const oldIssue = await IssueRecord.findByPk(req.previous_issue);
+                    if (oldIssue) {
+                        await oldIssue.update({
+                            lifecycle_status: 'Returned',
+                            return_date: new Date(),
+                            returned_condition: 'Replaced'
+                        });
+                    }
+                }
 
-        const updated = await ReplacementRequest.findByIdAndUpdate(id, updateData, { new: true });
-
-        // Decrement stock for new item issued
-        if (req.item) {
-            await Item.findByIdAndUpdate(req.item, { $inc: { stock: -(req.quantity || 1) } });
+                results.push(req);
+            }
         }
-
-        // If there was a previous issue being replaced — mark it as Returned now
-        if (req.previous_issue_id) {
-            await IssueRecord.findByIdAndUpdate(req.previous_issue_id, {
-                lifecycle_status: 'Returned',
-                return_date:      new Date(),
-                returned_condition: 'Replaced',
-                notes: 'Item returned as part of replacement/exchange handover'
-            });
-        }
-
-        return updated;
-    }
-
-    // ── Reject ────────────────────────────────────────────────────
-    async reject(id, notes, adminId) {
-        if (!mongoose.Types.ObjectId.isValid(id)) throw new Error('Invalid Request ID');
-
-        const req = await ReplacementRequest.findById(id);
-
-        // If a previous issue was locked, unlock it (restoration)
-        if (req?.previous_issue_id) {
-            await IssueRecord.findByIdAndUpdate(req.previous_issue_id, {
-                $unset: { replacement_lock: 1 }
-            });
-        }
-
-        return await ReplacementRequest.findByIdAndUpdate(id, {
-            status:       'Rejected',
-            resolved_by:  adminId,
-            resolved_date: new Date(),
-            notes
-        }, { new: true });
+        return results;
     }
 }
 

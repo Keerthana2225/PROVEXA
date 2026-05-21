@@ -1,33 +1,55 @@
+const { Op } = require('sequelize');
 const { Item, ItemCategory } = require('../models');
 
 class ItemService {
+    // Normalize Sequelize Item to match frontend expectations (category as object, not just ID)
+    _normalize(item) {
+        const j = (typeof item.toJSON === 'function') ? item.toJSON() : item;
+        // ItemCategory (capital I) is the Sequelize association name — map it to lowercase 'category'
+        if (j.ItemCategory) {
+            j.category = j.ItemCategory;
+        } else if (typeof j.category === 'string') {
+            // category is just the ID string — keep it but also add a category name object if available
+            j.category = { _id: j.category, id: j.category, name: j.category };
+        }
+        return j;
+    }
     async getAll(filters = {}) {
         const { search, categoryId, page, limit } = filters;
-        const query = {};
+        const where = {};
 
-        if (categoryId) query.category = categoryId;
+        if (categoryId) where.category = categoryId;
         if (search) {
-            query.name = { $regex: search, $options: 'i' };
+            where.name = { [Op.like]: `%${search}%` };
         }
 
-        let dbQuery = Item.find(query).populate('category').sort({ name: 1 });
+        const queryOptions = {
+            where,
+            include: [{ model: ItemCategory }],
+            order: [['name', 'ASC']]
+        };
 
         if (page && limit) {
-            dbQuery = dbQuery.skip((parseInt(page) - 1) * parseInt(limit)).limit(parseInt(limit));
-            const items = await dbQuery;
-            const total = await Item.countDocuments(query);
-            return { items, total };
+            queryOptions.offset = (parseInt(page) - 1) * parseInt(limit);
+            queryOptions.limit = parseInt(limit);
+            
+            const { rows, count } = await Item.findAndCountAll(queryOptions);
+            return {
+                items: rows.map(r => r.toJSON()),
+                total: count
+            };
         }
 
-        return await dbQuery;
+        const items = await Item.findAll(queryOptions);
+        return items.map(i => this._normalize(i));
     }
 
     async getById(id) {
-        return await Item.findById(id).populate('category');
+        const item = await Item.findByPk(id, { include: [{ model: ItemCategory }] });
+        return item ? this._normalize(item) : null;
     }
 
     async createItem(data) {
-        // Map category_id to category for Mongoose
         if (data.category_id) {
             data.category = data.category_id;
             delete data.category_id;
@@ -40,15 +62,26 @@ class ItemService {
             data.category = data.category_id;
             delete data.category_id;
         }
-        return await Item.findByIdAndUpdate(id, data, { new: true });
+        const item = await Item.findByPk(id);
+        if (item) {
+            await item.update(data);
+            return item;
+        }
+        return null;
     }
 
     async deleteItem(id) {
-        return await Item.findByIdAndDelete(id);
+        const item = await Item.findByPk(id);
+        if (item) {
+            await item.destroy();
+            return item;
+        }
+        return null;
     }
 
     async getCategories() {
-        return await ItemCategory.find().sort({ name: 1 });
+        const cats = await ItemCategory.findAll({ order: [['name', 'ASC']] });
+        return cats.map(c => c.toJSON());
     }
 
     async createCategory(data) {

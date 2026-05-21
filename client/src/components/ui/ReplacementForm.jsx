@@ -124,7 +124,7 @@ export default function ReplacementForm({ isOpen, onClose }) {
     enabled: isOpen && !!form.employee_id,
   });
 
-  const selectedEmployee = employees?.find(e => e.id?.toString() === form.employee_id?.toString());
+  const selectedEmployee = employees?.find(e => (e._id || e.id)?.toString() === form.employee_id?.toString());
   const empGender = selectedEmployee?.gender === 'Female' ? 'WOMEN' : 'MEN';
 
   useEffect(() => {
@@ -276,7 +276,7 @@ export default function ReplacementForm({ isOpen, onClose }) {
       const promises = cartItems.map(item => {
         const payload = {
             ...form,
-            item_id: item.item.id,
+            item_id: item.item._id || item.item.id,
             quantity: item.quantity,
             size: item.size,
             unit_cost: item.unit_cost,
@@ -368,9 +368,11 @@ export default function ReplacementForm({ isOpen, onClose }) {
               <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl max-h-52 overflow-y-auto">
                 {filteredEmployees.length === 0
                   ? <div className="p-4 text-center text-sm text-slate-500 italic">No active employees found</div>
-                  : filteredEmployees.map(emp => (
-                    <div key={emp.id} onClick={() => { setForm(f => ({ ...f, employee_id: emp.id.toString() })); setEmployeeSearch(''); setIsDropdownOpen(false); }}
-                      className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between hover:bg-slate-50 ${form.employee_id === emp.id.toString() ? 'bg-blue-50 text-blue-700' : 'text-slate-700'}`}>
+                  : filteredEmployees.map(emp => {
+                      const empId = (emp.id || emp._id)?.toString();
+                      return (
+                    <div key={empId} onClick={() => { setForm(f => ({ ...f, employee_id: empId })); setEmployeeSearch(''); setIsDropdownOpen(false); }}
+                      className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between hover:bg-slate-50 ${form.employee_id === empId ? 'bg-blue-50 text-blue-700' : 'text-slate-700'}`}>
                       <div>
                         <div className="font-semibold text-sm">{emp.name}</div>
                         <div className="text-xs text-slate-400 flex items-center gap-1.5">
@@ -382,9 +384,10 @@ export default function ReplacementForm({ isOpen, onClose }) {
                           <span className="text-[10px] text-slate-400">· {emp.gender}</span>
                         </div>
                       </div>
-                      {form.employee_id === emp.id.toString() && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
+                      {form.employee_id === (emp.id || emp._id)?.toString() && <CheckCircle2 className="w-4 h-4 text-blue-500" />}
                     </div>
-                  ))}
+                  )
+                  })}
               </div>
             )}
           </div>

@@ -18,8 +18,10 @@ const STATUS = {
     FAILED: 'failed'
 };
 
-export default function UnifiedVerificationModal({ isOpen, onClose, employee, issueId, pendingCount }) {
+export default function UnifiedVerificationModal({ isOpen, onClose, employee, issueId, pendingCount, onSuccess }) {
     const queryClient = useQueryClient();
+    // Resolve employee ID — SQL uses _id, old Mongo used id
+    const employeeId = employee?._id || employee?.id;
     
     const [step, setStep] = useState(STATUS.SELECT_METHOD);
     const [method, setMethod] = useState(null); // 'ocr' | 'signature' | 'both'
@@ -48,7 +50,11 @@ export default function UnifiedVerificationModal({ isOpen, onClose, employee, is
             const { ocr_details: directOcrDetails, ...rest } = payload;
             const endpoint = issueId 
                 ? `/issues/acknowledge/${issueId}` 
-                : `/issues/acknowledge/employee/${employee.id}`;
+                : `/issues/acknowledge/employee/${employeeId}`;
+            
+            if (!issueId && !employeeId) {
+                throw new Error('No employee or issue ID provided for acknowledgement');
+            }
             
             const { data } = await api.put(endpoint, {
                 ...rest,
@@ -58,11 +64,20 @@ export default function UnifiedVerificationModal({ isOpen, onClose, employee, is
             return data;
         },
         onSuccess: (data) => {
+            // Invalidate all relevant queries so UI updates immediately
             queryClient.invalidateQueries({ queryKey: ['issues'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
             queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+            queryClient.invalidateQueries({ queryKey: ['dueTracking'] });
+            queryClient.invalidateQueries({ queryKey: ['lifecycle'] });
+            // Also refetch the specific employee profile
+            if (employeeId) {
+                queryClient.invalidateQueries({ queryKey: ['employee-profile', employeeId] });
+            }
             toast.success(data.message || 'Verification & Acknowledgement completed!');
             setStep(STATUS.SUCCESS);
+            // Call parent onSuccess callback if provided
+            if (onSuccess) onSuccess();
             setTimeout(() => {
                 onClose();
             }, 1500);

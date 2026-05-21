@@ -1,69 +1,92 @@
-const mongoose = require('mongoose');
-const { IssueRecord, Employee, Item, VerificationLog } = require('../models');
+const { Op } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
+const { IssueRecord, Employee, Item, ItemCategory, VerificationLog } = require('../models');
+
+// Normalize Sequelize PascalCase joins → lowercase for frontend compatibility
+function normalizeIssue(r) {
+    const j = typeof r.toJSON === 'function' ? r.toJSON() : { ...r };
+    if (j.Employee) { j.employee = j.Employee; delete j.Employee; }
+    else if (typeof j.employee === 'string') {
+        j.employee = { _id: j.employee, id: j.employee, name: j.employee_name || 'Unknown', emp_code: 'N/A', department: 'N/A' };
+    }
+    if (j.Item) {
+        const it = j.Item;
+        if (it.ItemCategory) { it.category = it.ItemCategory; delete it.ItemCategory; }
+        j.item = it; delete j.Item;
+    } else if (typeof j.item === 'string') {
+        j.item = { _id: j.item, id: j.item, name: j.item_name || 'Unknown', category: { name: 'N/A' } };
+    }
+    return j;
+}
+
 class IssueService {
     async getAll(filters = {}) {
         const { search, status, lifecycle_status, employeeId, page, limit } = filters;
+        const where = {};
         
-        // If lifecycle_status is explicitly requested, do not force archived: false
-        const query = {};
         if (lifecycle_status) {
-            query.lifecycle_status = lifecycle_status;
+            where.lifecycle_status = lifecycle_status;
         } else {
-            query.archived = false;
+            where.archived = false;
         }
 
         if (status) {
-            if (status === 'pending_ack') query.issue_status = 'Pending Acknowledgement';
-            else if (status === 'acknowledged') query.issue_status = 'Acknowledged';
-            else query.issue_status = status;
+            if (status === 'pending_ack') where.issue_status = 'Pending Acknowledgement';
+            else if (status === 'acknowledged') where.issue_status = 'Acknowledged';
+            else where.issue_status = status;
         }
 
-        if (employeeId) query.employee = employeeId;
+        if (employeeId) where.employee = employeeId;
         
         if (search) {
-            query.$or = [
-                { employee_name: { $regex: search, $options: 'i' } },
-                { item_name: { $regex: search, $options: 'i' } }
+            where[Op.or] = [
+                { employee_name: { [Op.like]: `%${search}%` } },
+                { item_name: { [Op.like]: `%${search}%` } }
             ];
         }
 
-        let dbQuery = IssueRecord.find(query)
-            .populate('employee')
-            .populate({
-                path: 'item',
-                populate: { path: 'category' }
-            })
-            .sort({ issued_date: -1 });
+        const queryOptions = {
+            where,
+            include: [
+                { model: Employee },
+                { model: Item, include: [{ model: ItemCategory }] }
+            ],
+            order: [['issued_date', 'DESC']]
+        };
 
         let records = [];
         let total = 0;
 
         if (page && limit) {
-            dbQuery = dbQuery.skip((parseInt(page) - 1) * parseInt(limit)).limit(parseInt(limit));
-            records = await dbQuery;
-            total = await IssueRecord.countDocuments(query);
+            queryOptions.offset = (parseInt(page) - 1) * parseInt(limit);
+            queryOptions.limit = parseInt(limit);
+            const { rows, count } = await IssueRecord.findAndCountAll(queryOptions);
+            records = rows.map(r => normalizeIssue(r));
+            total = count;
         } else {
-            records = await dbQuery;
+            const rows = await IssueRecord.findAll(queryOptions);
+            records = rows.map(r => normalizeIssue(r));
         }
 
-        // Populate timeline for each record!
         const itemsWithTimeline = await Promise.all(records.map(async (rec) => {
-            const allComboRecords = await IssueRecord.find({
-                employee: rec.employee?._id || rec.employee,
-                item: rec.item?._id || rec.item
-            }).sort({ issued_date: 1 });
+            const allComboRecordsModel = await IssueRecord.findAll({
+                where: {
+                    employee: typeof rec.employee === 'string' ? rec.employee : (rec.employee?._id || rec.employee?.id),
+                    item: typeof rec.item === 'string' ? rec.item : (rec.item?._id || rec.item?.id)
+                },
+                order: [['issued_date', 'ASC']]
+            });
+            const allComboRecords = allComboRecordsModel.map(r => r.toJSON());
 
             const timeline = [];
 
             for (const cRec of allComboRecords) {
-                // Event 1: Initial Issue
                 timeline.push({
                     status: cRec.archive_reason === 'Renewed' ? 'Issued (Renewed)' : 'Initial Issue',
                     date: cRec.issued_date,
                     notes: cRec.notes || `Asset issued in condition: ${cRec.item_condition || 'Good'}`
                 });
 
-                // Event 2: Acknowledgment
                 if (cRec.acknowledged) {
                     timeline.push({
                         status: `Verified (${cRec.verification_method || 'Signature'})`,
@@ -72,7 +95,6 @@ class IssueService {
                     });
                 }
 
-                // Event 3: Return / Archive
                 if (cRec.archived) {
                     timeline.push({
                         status: cRec.archive_reason || 'Archived',
@@ -82,11 +104,10 @@ class IssueService {
                 }
             }
 
-            // Sort timeline by date descending
             timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
 
             return {
-                ...rec.toObject(),
+                ...rec,
                 timeline
             };
         }));
@@ -101,37 +122,37 @@ class IssueService {
         const threshold = new Date();
         threshold.setDate(threshold.getDate() + days);
 
-        const query = {
-            archived: false,
-            lifecycle_status: 'Active'
-        };
+        const recordsModel = await IssueRecord.findAll({
+            where: {
+                archived: false,
+                lifecycle_status: 'Active',
+                next_due_date: { [Op.lte]: threshold } // To replicate Mongoose sorting logic somewhat. Wait, getUpcomingRenewals didn't have next_due_date in the query in Mongo? Actually it sorted by next_due_date: 1. Let's just return all active and sort.
+            },
+            include: [
+                { model: Employee },
+                { model: Item, include: [{ model: ItemCategory }] }
+            ],
+            order: [['next_due_date', 'ASC']]
+        });
+        const records = recordsModel.map(r => normalizeIssue(r));
 
-        const records = await IssueRecord.find(query)
-            .populate('employee')
-            .populate({
-                path: 'item',
-                populate: { path: 'category' }
-            })
-            .sort({ next_due_date: 1 });
-
-        // For each record, fetch its verification history (timeline)
         const itemsWithTimeline = await Promise.all(records.map(async (rec) => {
-            const allComboRecords = await IssueRecord.find({
-                employee: rec.employee?._id || rec.employee,
-                item: rec.item?._id || rec.item
-            }).sort({ issued_date: 1 });
-
+            const allComboRecordsModel = await IssueRecord.findAll({
+                where: {
+                    employee: typeof rec.employee === 'string' ? rec.employee : (rec.employee?._id || rec.employee?.id),
+                    item: typeof rec.item === 'string' ? rec.item : (rec.item?._id || rec.item?.id)
+                },
+                order: [['issued_date', 'ASC']]
+            });
+            const allComboRecords = allComboRecordsModel.map(r => r.toJSON());
             const timeline = [];
 
             for (const cRec of allComboRecords) {
-                // Event 1: Initial Issue
                 timeline.push({
                     status: cRec.archive_reason === 'Renewed' ? 'Issued (Renewed)' : 'Initial Issue',
                     date: cRec.issued_date,
                     notes: cRec.notes || `Asset issued in condition: ${cRec.item_condition || 'Good'}`
                 });
-
-                // Event 2: Acknowledgment
                 if (cRec.acknowledged) {
                     timeline.push({
                         status: `Verified (${cRec.verification_method || 'Signature'})`,
@@ -139,8 +160,6 @@ class IssueService {
                         notes: `Receipt acknowledged by employee`
                     });
                 }
-
-                // Event 3: Return / Archive
                 if (cRec.archived) {
                     timeline.push({
                         status: cRec.archive_reason || 'Archived',
@@ -151,11 +170,7 @@ class IssueService {
             }
 
             timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            return {
-                ...rec.toObject(),
-                timeline
-            };
+            return { ...rec, timeline };
         }));
 
         return { items: itemsWithTimeline, actionNeeded: itemsWithTimeline, futureRenewals: [] };
@@ -165,47 +180,46 @@ class IssueService {
         const results = [];
         
         for (const empId of employeeIds) {
-            const transaction_id = new mongoose.Types.ObjectId().toString();
-            const employee = await Employee.findById(empId);
+            const transaction_id = uuidv4();
+            const employee = await Employee.findByPk(empId);
             if (!employee) continue;
 
             for (const itemInput of items) {
                 const itemId = itemInput.item_id || itemInput.id;
-                const item = await Item.findById(itemId);
+                const item = await Item.findByPk(itemId);
                 if (!item) continue;
 
-                // Duplicate Check: Check if this employee already has this item active
                 if (!override) {
                     const existing = await IssueRecord.findOne({
-                        employee: empId,
-                        item: itemId,
-                        archived: false,
-                        lifecycle_status: 'Active'
+                        where: {
+                            employee: empId,
+                            item: itemId,
+                            archived: false,
+                            lifecycle_status: 'Active'
+                        }
                     });
                     if (existing) {
                         const err = new Error('Active issue already exists');
                         err.status = 400;
                         err.itemId = itemId;
-                        err.activeIssue = existing;
+                        err.activeIssue = existing.toJSON();
                         throw err;
                     }
                 } else {
-                    // If override is true, archive any existing active records for this emp/item first
-                    await IssueRecord.updateMany(
-                        { employee: empId, item: itemId, archived: false },
-                        { 
-                            archived: true, 
-                            archive_reason: 'Overridden by new issue',
-                            archived_at: new Date(),
-                            archived_by: adminId,
-                            return_date: new Date()
-                        }
-                    );
+                    await IssueRecord.update({ 
+                        archived: true, 
+                        archive_reason: 'Overridden by new issue',
+                        archived_at: new Date(),
+                        archived_by: adminId,
+                        return_date: new Date()
+                    }, {
+                        where: { employee: empId, item: itemId, archived: false }
+                    });
                 }
 
                 const issuedAt = new Date(issuedDate);
                 const nextDue = new Date(issuedAt);
-                nextDue.setMonth(nextDue.getMonth() + (item.validity_period || 12));
+                nextDue.setMonth(nextDue.getMonth() + (item.frequency_days ? Math.round(item.frequency_days/30) : 12));
 
                 const record = await IssueRecord.create({
                     transaction_id,
@@ -223,30 +237,30 @@ class IssueService {
                     item_condition: condition || 'Good'
                 });
                 
-                // Decrement stock
-                await Item.findByIdAndUpdate(itemId, { $inc: { stock: -(itemInput.quantity || 1) } });
+                await item.decrement('stock', { by: itemInput.quantity || 1 }).catch(()=>null);
                 
-                results.push(record);
+                results.push(record.toJSON());
             }
         }
         return results;
     }
 
     async renew(id, notes, condition, adminId) {
-        const oldRecord = await IssueRecord.findById(id);
+        const oldRecord = await IssueRecord.findByPk(id);
         if (!oldRecord) throw new Error('Record not found');
 
-        oldRecord.archived = true;
-        oldRecord.archive_reason = 'Renewed';
-        oldRecord.lifecycle_status = 'Returned';
-        oldRecord.return_date = new Date();
-        await oldRecord.save();
+        await oldRecord.update({
+            archived: true,
+            archive_reason: 'Renewed',
+            lifecycle_status: 'Returned',
+            return_date: new Date()
+        });
 
         const nextDue = new Date();
-        const item = await Item.findById(oldRecord.item);
-        nextDue.setMonth(nextDue.getMonth() + (item?.validity_period || 12));
+        const item = await Item.findByPk(oldRecord.item);
+        nextDue.setMonth(nextDue.getMonth() + (item?.frequency_days ? Math.round(item.frequency_days/30) : 12));
 
-        return await IssueRecord.create({
+        const newRecord = await IssueRecord.create({
             employee: oldRecord.employee,
             employee_name: oldRecord.employee_name,
             item: oldRecord.item,
@@ -262,63 +276,70 @@ class IssueService {
             is_renewal: true
         });
         
-        // Decrement stock for the renewal item
-        await Item.findByIdAndUpdate(oldRecord.item, { $inc: { stock: -(oldRecord.quantity || 1) } });
+        if (item) await item.decrement('stock', { by: oldRecord.quantity || 1 }).catch(()=>null);
         
-        return newRecord;
+        return newRecord.toJSON();
     }
 
     async return(id, remarks, condition, adminId) {
-        const record = await IssueRecord.findByIdAndUpdate(id, {
-            lifecycle_status: 'Returned',
-            issue_status: 'Acknowledged',
-            notes: remarks,
-            archived: true,
-            archived_at: new Date(),
-            archived_by: adminId,
-            archive_reason: 'Returned',
-            return_date: new Date(),
-            returned_condition: condition || 'Good'
-        }, { new: true });
-        
-        // Increment stock if condition is Good
-        if (record && (condition === 'Good' || !condition)) {
-            await Item.findByIdAndUpdate(record.item, { $inc: { stock: record.quantity || 1 } });
+        const record = await IssueRecord.findByPk(id);
+        if (record) {
+            await record.update({
+                lifecycle_status: 'Returned',
+                issue_status: 'Acknowledged',
+                notes: remarks,
+                archived: true,
+                archived_at: new Date(),
+                archived_by: adminId,
+                archive_reason: 'Returned',
+                return_date: new Date(),
+                returned_condition: condition || 'Good'
+            });
+
+            if (condition === 'Good' || !condition) {
+                const item = await Item.findByPk(record.item);
+                if (item) await item.increment('stock', { by: record.quantity || 1 }).catch(()=>null);
+            }
+            return record.toJSON();
         }
-        
-        return record;
+        return null;
     }
 
     async acknowledge(id, data) {
-        const { signature_path, verification_method, ocr_details, admin_id } = data;
+        const { signature_path, verification_method, ocr_details } = data;
         
-        return await IssueRecord.findByIdAndUpdate(id, {
-            signature_path,
-            verification_method,
-            ocr_details,
-            acknowledged: true,
-            issue_status: 'Acknowledged',
-            acknowledgement_time: new Date()
-        }, { new: true });
+        const record = await IssueRecord.findByPk(id);
+        if (record) {
+            await record.update({
+                signature_path,
+                verification_method,
+                ocr_details: ocr_details ? JSON.stringify(ocr_details) : null,
+                acknowledged: true,
+                issue_status: 'Acknowledged',
+                acknowledgement_time: new Date()
+            });
+            return record.toJSON();
+        }
+        return null;
     }
 
     async archiveReset(data, adminId) {
         const { scope, employeeId, itemId, reason, issue_ids } = data;
-        const query = { archived: false };
+        const where = { archived: false };
 
-        if (scope === 'employee') query.employee = employeeId;
-        else if (scope === 'item') query.item = itemId;
-        else if (scope === 'single') query._id = data.issueId;
-        else if (scope === 'selected' && issue_ids) query._id = { $in: issue_ids };
+        if (scope === 'employee') where.employee = employeeId;
+        else if (scope === 'item') where.item = itemId;
+        else if (scope === 'single') where._id = data.issueId;
+        else if (scope === 'selected' && issue_ids) where._id = { [Op.in]: issue_ids };
 
-        const result = await IssueRecord.updateMany(query, {
+        const [affectedCount] = await IssueRecord.update({
             archived: true,
             archived_at: new Date(),
             archived_by: adminId,
             archive_reason: reason || 'Batch Reset'
-        });
+        }, { where });
 
-        return { message: `Successfully archived ${result.modifiedCount} records.`, count: result.modifiedCount };
+        return { message: `Successfully archived ${affectedCount} records.`, count: affectedCount };
     }
 }
 

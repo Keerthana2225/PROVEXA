@@ -1,39 +1,76 @@
+const { Op } = require('sequelize');
 const { Employee, IssueRecord, ReplacementRequest, AllocationConfig, Item, ItemCategory } = require('../models');
-const mongoose = require('mongoose');
 const dayjs = require('dayjs');
+
+// Normalize Sequelize PascalCase joins to lowercase
+function normIssue(i) {
+    const j = typeof i.toJSON === 'function' ? i.toJSON() : { ...i };
+    if (j.Item) {
+        const it = j.Item;
+        if (it.ItemCategory) { it.category = it.ItemCategory; delete it.ItemCategory; }
+        j.item = it; delete j.Item;
+    } else if (typeof j.item === 'string') {
+        j.item = { _id: j.item, id: j.item, name: j.item_name || 'Unknown', category: { name: 'N/A' } };
+    }
+    return j;
+}
+function normReplacement(r) {
+    const j = typeof r.toJSON === 'function' ? r.toJSON() : { ...r };
+    if (j.Item) {
+        const it = j.Item;
+        if (it.ItemCategory) { it.category = it.ItemCategory; delete it.ItemCategory; }
+        j.item = it; delete j.Item;
+    } else if (typeof j.item === 'string') {
+        j.item = { _id: j.item, id: j.item, name: j.item_name || 'Unknown' };
+    }
+    return j;
+}
 
 class EligibilityService {
     async getAssetProfile(employeeId) {
-        const employee = await Employee.findById(employeeId);
+        const employee = await Employee.findByPk(employeeId);
         if (!employee) return null;
 
-        // Fetch all active issues
-        const activeIssues = await IssueRecord.find({ 
-            employee: employeeId, 
-            lifecycle_status: 'Active',
-            archived: false
-        }).populate({
-            path: 'item',
-            populate: { path: 'category' }
-        }).sort({ issued_date: -1 });
+        const activeIssuesModel = await IssueRecord.findAll({ 
+            where: {
+                employee: employeeId, 
+                lifecycle_status: 'Active',
+                archived: false
+            },
+            include: [{
+                model: Item,
+                include: [{ model: ItemCategory }]
+            }],
+            order: [['issued_date', 'DESC']]
+        });
+        const activeIssues = activeIssuesModel.map(i => normIssue(i));
 
-        // Fetch all replacements
-        const replacements = await ReplacementRequest.find({ employee: employeeId })
-            .populate({
-                path: 'item',
-                populate: { path: 'category' }
-            }).sort({ requested_date: -1 });
+        const replacementsModel = await ReplacementRequest.findAll({ 
+            where: { employee: employeeId },
+            include: [{
+                model: Item,
+                include: [{ model: ItemCategory }]
+            }],
+            order: [['requested_date', 'DESC']]
+        });
+        const replacements = replacementsModel.map(r => normReplacement(r));
 
-        // Fetch historical issues
-        const historicalIssues = await IssueRecord.find({
-            employee: employeeId,
-            $or: [{ lifecycle_status: 'Returned' }, { archived: true }]
-        }).populate({
-            path: 'item',
-            populate: { path: 'category' }
-        }).sort({ return_date: -1, archived_at: -1, issued_date: -1 });
+        const historicalIssuesModel = await IssueRecord.findAll({
+            where: {
+                employee: employeeId,
+                [Op.or]: [{ lifecycle_status: 'Returned' }, { archived: true }]
+            },
+            include: [{
+                model: Item,
+                include: [{ model: ItemCategory }]
+            }],
+            order: [['return_date', 'DESC'], ['archived_at', 'DESC'], ['issued_date', 'DESC']]
+        });
+        const historicalIssues = historicalIssuesModel.map(h => normIssue(h));
 
-        const configs = await AllocationConfig.find({});
+        const configsModel = await AllocationConfig.findAll();
+        const configs = configsModel.map(c => c.toJSON());
+
         const configMap = {};
         for (const cfg of configs) {
             configMap[cfg.item_type.toLowerCase()] = {
@@ -43,7 +80,6 @@ class EligibilityService {
             };
         }
 
-        // Employee-type eligibility
         const empType = employee.employee_type || 'Permanent';
         const ELIGIBILITY_MAP = {
             'Intern':    ['t-shirt'],
@@ -51,7 +87,6 @@ class EligibilityService {
         };
         const eligibleKeywords = ELIGIBILITY_MAP[empType] || ELIGIBILITY_MAP['Permanent'];
 
-        // Default fallback limits per emp type
         const defaultLimits = {
             'Permanent': { pant: 2, shirt: 2, 't-shirt': 1, shoes: 1 },
             'Intern':    { 't-shirt': 1 },
@@ -59,14 +94,12 @@ class EligibilityService {
         const mockConfig = defaultLimits[empType] || defaultLimits['Permanent'];
 
         const allocationSummary = [];
-
-        // Only show categories relevant to this employee type
         const eligibleCategories = new Set();
         activeIssues.forEach(i => {
-            const cat = i.item?.category?.name || i.item_name;
+            const cat = i.item?.category?.name || i.item?.name || i.item_name;
             if (cat) eligibleCategories.add(cat);
         });
-        // Always add standard categories for this emp type
+
         if (empType === 'Intern') {
             eligibleCategories.add('T-Shirt');
         } else {
@@ -82,10 +115,19 @@ class EligibilityService {
                 ? (cfgEntry.permanent || cfgEntry)
                 : (mockConfig[catNameLower] || 0);
 
-            const issuedInCat = activeIssues.filter(i =>
-                i.item?.category?.name?.toLowerCase() === catNameLower ||
-                (i.item?.name || '').toLowerCase().includes(catNameLower)
-            );
+            const issuedInCat = activeIssues.filter(i => {
+                const cat = (i.item?.category?.name || '').toLowerCase();
+                const name = (i.item?.name || i.item_name || '').toLowerCase();
+                
+                if (cat === catNameLower) return true;
+                
+                // Prevent 'shirt' from falsely counting 't-shirt'
+                if (catNameLower === 'shirt' && (name.includes('t-shirt') || name.includes('tshirt'))) {
+                    return false;
+                }
+                
+                return name.includes(catNameLower);
+            });
             const issuedQty = issuedInCat.reduce((sum, issue) => sum + (issue.quantity || 1), 0);
             const remaining = Math.max(0, allowed - issuedQty);
 
@@ -96,21 +138,11 @@ class EligibilityService {
             allocationSummary.push({ item: cat, allowed, issued: issuedQty, remaining, status });
         }
 
-        // 2. Indicators
         const risks = [];
-
-        replacements.forEach(rep => {
-            // Frequent replacement flag (not payroll — just operational)
-            if (rep.allocation_type === 'Additional' && rep.total_cost > 0) {
-                // just accumulate for cost analytics, no risk flag needed
-            }
-        });
-
         const upcomingRenewals = activeIssues.filter(i => i.next_due_date && dayjs(i.next_due_date).isBefore(dayjs().add(14, 'day')));
         if (upcomingRenewals.length > 0) risks.push({ type: 'renewal', label: 'Renewal Due Soon', severity: 'info' });
         if (excessAllocations > 0) risks.push({ type: 'excess', label: 'Excess Allocation', severity: 'warning' });
 
-        // 3. Build Timeline
         const timeline = [];
         const issuesByTx = {};
         
@@ -157,7 +189,7 @@ class EligibilityService {
         historicalIssues.forEach(issue => {
             if (issue.return_date) {
                 timeline.push({
-                    id: issue._id.toString() + '_return',
+                    id: issue._id + '_return',
                     date: issue.return_date,
                     type: 'return',
                     title: `${issue.item?.name || 'Item'} Returned`,
@@ -172,10 +204,10 @@ class EligibilityService {
                 : rep.allocation_type === 'Replacement' ? 'Replacement / Exchange'
                 : 'Standard Allocation';
             timeline.push({
-                id: rep._id.toString(),
+                id: rep._id,
                 date: rep.requested_date,
                 type: 'replacement',
-                title: `${typeLabel}: ${rep.item?.name || 'Item'}`,
+                title: `${typeLabel}: ${rep.item?.name || rep.item_name || 'Item'}`,
                 subtitle: `Reason: ${rep.reason} · Status: ${rep.status}${
                     rep.total_cost > 0 ? ` · Cost: ₹${rep.total_cost.toLocaleString()}` : ''
                 }`,
@@ -183,11 +215,9 @@ class EligibilityService {
             });
         });
 
-        // 4. Additional Cost Summary (Additional type only — free allocations never contribute)
-        const additionalCostItems = replacements.filter(r => r.allocation_source === 'Additional' && (r.total_cost || 0) > 0);
+        const additionalCostItems = replacements.filter(r => r.allocation_type === 'Additional' && (r.total_cost || 0) > 0);
         const totalAdditionalCost = additionalCostItems.reduce((sum, r) => sum + (r.total_cost || 0), 0);
 
-        // Breakdown by reason
         const additionalCostBreakdown = {};
         additionalCostItems.forEach(r => {
             const reason = r.reason || 'Other';
@@ -195,12 +225,11 @@ class EligibilityService {
             additionalCostBreakdown[reason] += (r.total_cost || 0);
         });
 
-        // Most requested additional item analytics
         const additionalItemCounts = {};
         replacements
-            .filter(r => r.allocation_source === 'Additional')
+            .filter(r => r.allocation_type === 'Additional')
             .forEach(r => {
-                const name = r.item_name || r.item?.name || 'Unknown';
+                const name = r.item_name || r.Item?.name || 'Unknown';
                 additionalItemCounts[name] = (additionalItemCounts[name] || 0) + (r.quantity || 1);
             });
         const mostRequestedAdditional = Object.entries(additionalItemCounts)
@@ -208,17 +237,14 @@ class EligibilityService {
             .slice(0, 3)
             .map(([name, count]) => ({ name, count }));
 
-        // Pending additional cost (not yet resolved)
         const pendingAdditionalCost = replacements
-            .filter(r => r.allocation_source === 'Additional' && r.payment_status === 'Pending')
+            .filter(r => r.allocation_type === 'Additional' && r.payment_status === 'Pending')
             .reduce((sum, r) => sum + (r.total_cost || 0), 0);
 
-        // Lifetime total (including completed)
         const lifetimeAdditionalCost = replacements
-            .filter(r => r.allocation_source === 'Additional')
+            .filter(r => r.allocation_type === 'Additional')
             .reduce((sum, r) => sum + (r.total_cost || 0), 0);
 
-        // 5. Build "currently holding" list: active issues + approved/completed replacements
         const activeReplacementHoldings = replacements.filter(r =>
             (r.status?.toLowerCase() === 'completed' || r.status?.toLowerCase() === 'approved') &&
             r.allocation_type !== 'Standard'
@@ -227,7 +253,7 @@ class EligibilityService {
         timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         return {
-            employee: employee.toObject(),
+            employee: employee.toJSON(),
             employee_type: empType,
             eligibility: eligibleKeywords,
             allocations: {
@@ -244,6 +270,7 @@ class EligibilityService {
                 items: additionalCostItems,
                 mostRequested: mostRequestedAdditional,
             },
+            risks,
             history: {
                 replacements,
                 returned: historicalIssues
@@ -253,16 +280,20 @@ class EligibilityService {
     }
 
     async validateIssue(employeeId, itemIds) {
-        // Evaluate if issuing this item exceeds standard allocation
         const profile = await this.getAssetProfile(employeeId);
         if (!profile) return { valid: false, reason: 'Employee not found' };
 
-        const items = await Item.find({ _id: { $in: itemIds } }).populate('category');
+        const itemsModel = await Item.findAll({ 
+            where: { _id: { [Op.in]: itemIds } },
+            include: [{ model: ItemCategory }] 
+        });
+        const items = itemsModel.map(i => i.toJSON());
+
         const errors = [];
         const warnings = [];
 
         items.forEach(item => {
-            const catName = item.category?.name;
+            const catName = item.ItemCategory?.name;
             if (catName) {
                 const summary = profile.allocations.summary.find(s => s.item.toLowerCase() === catName.toLowerCase());
                 if (summary && summary.remaining <= 0 && summary.allowed > 0) {
@@ -271,7 +302,7 @@ class EligibilityService {
             }
         });
 
-        if (profile.risks.some(r => r.type === 'deduction' || r.type === 'return')) {
+        if (profile.risks && profile.risks.some(r => r.type === 'deduction' || r.type === 'return')) {
             warnings.push(`Employee has active risk flags (Pending Returns or Deductions).`);
         }
 

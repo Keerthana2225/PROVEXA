@@ -128,7 +128,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id/approve', async (req, res) => {
     try {
-        const request = await allocationService.approve(req.params.id, req.body, req.admin.id);
+        const request = await allocationService.updateStatus(req.params.id, { ...req.body, status: 'Approved', resolved_by: req.admin.id });
         res.json({ message: 'Request approved successfully', request });
     } catch (error) {
         console.error('Approve Error:', error);
@@ -157,11 +157,10 @@ router.put('/:id/acknowledge', async (req, res) => {
             signature_path = `/public/signatures/${filename}`;
         }
 
-        const result = await allocationService.handover(id, {
-            signature_path, notes, ocr_details, verification_method, admin_id: req.admin.id
-        });
+        const adminId = req.admin?._id || req.admin?.id || null;
+        const result = await allocationService.verifyMultiple([id], verification_method, ocr_details, signature_path, adminId);
 
-        res.json({ message: 'Handover completed successfully', issue: result });
+        res.json({ message: 'Handover completed successfully', issue: result[0] });
     } catch (error) {
         console.error('Handover Error:', error);
         res.status(500).json({ message: error.message || 'Server error completing handover' });
@@ -172,7 +171,7 @@ router.put('/:id/acknowledge', async (req, res) => {
 
 router.put('/:id/reject', async (req, res) => {
     try {
-        const request = await allocationService.reject(req.params.id, req.body.notes, req.admin.id);
+        const request = await allocationService.updateStatus(req.params.id, { status: 'Rejected', notes: req.body.notes, resolved_by: req.admin.id });
         res.json({ message: 'Request rejected', request });
     } catch (error) {
         console.error('Reject Error:', error);

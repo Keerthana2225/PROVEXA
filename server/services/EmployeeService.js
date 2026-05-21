@@ -1,55 +1,58 @@
-const { Employee, IssueRecord, Item } = require('../models');
+const { Op } = require('sequelize');
+const { Employee, IssueRecord, Item, ReplacementRequest } = require('../models');
 const eligibilityService = require('./EligibilityService');
 
 class EmployeeService {
     async getAll(filters = {}) {
         const { search, department, page, limit } = filters;
-        const query = {};
+        const where = {};
 
-        if (department) query.department = department;
+        if (department) where.department = department;
         if (search) {
-            query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { emp_code: { $regex: search, $options: 'i' } }
+            where[Op.or] = [
+                { name: { [Op.like]: `%${search}%` } },
+                { emp_code: { [Op.like]: `%${search}%` } }
             ];
         }
 
-        let dbQuery = Employee.find(query).sort({ created_at: -1 });
+        const queryOptions = { where, order: [['created_at', 'DESC']] };
 
-        // If pagination OR limit is requested, return the object format
         if (page || limit) {
             const p = parseInt(page) || 1;
             const l = parseInt(limit) || 10;
-            const skip = (p - 1) * l;
+            queryOptions.offset = (p - 1) * l;
+            queryOptions.limit = l;
             
-            dbQuery = dbQuery.skip(skip).limit(l);
-            const items = await dbQuery;
-            const total = await Employee.countDocuments(query);
-            
-            return { 
-                employees: items, 
-                total, 
-                totalPages: Math.ceil(total / l) 
+            const { rows, count } = await Employee.findAndCountAll(queryOptions);
+            return {
+                employees: rows,
+                total: count,
+                totalPages: Math.ceil(count / l)
             };
         }
 
-        // Default: return array directly
-        return await dbQuery;
+        const rows = await Employee.findAll(queryOptions);
+        return rows.map(r => r.toJSON());
     }
 
     async getByIdWithRelations(id) {
-        const employee = await Employee.findById(id);
+        const employee = await Employee.findByPk(id);
         if (!employee) return null;
 
-        const [issues, replacements] = await Promise.all([
-            IssueRecord.find({ employee: id, archived: false }).populate('item'),
-            require('../models').ReplacementRequest.find({ employee: id }).populate('item')
-        ]);
+        const issues = await IssueRecord.findAll({
+            where: { employee: id, archived: false },
+            include: [{ model: Item }]
+        });
+
+        const replacements = await ReplacementRequest.findAll({
+            where: { employee: id },
+            include: [{ model: Item }]
+        });
 
         return {
-            ...employee.toObject(),
-            issues,
-            replacements
+            ...employee.toJSON(),
+            issues: issues.map(i => i.toJSON()),
+            replacements: replacements.map(r => r.toJSON())
         };
     }
 
@@ -60,17 +63,19 @@ class EmployeeService {
     async getByCode(code) {
         if (!code) return null;
         const str = String(code).trim();
-        // Try multiple formats: exact, with EMP prefix, without prefix, leading zero variants
-        return await Employee.findOne({
-            $or: [
-                { emp_code: str },
-                { emp_code: str.toUpperCase() },
-                { emp_code: `EMP${str}` },
-                { emp_code: new RegExp(`^(EMP0*|0*)${str}$`, 'i') },
-                { emp_code: str.replace(/^0+/, '') },
-                { emp_code: str.padStart(str.length + 1, '0') }
-            ]
+        
+        const emp = await Employee.findOne({
+            where: {
+                [Op.or]: [
+                    { emp_code: str },
+                    { emp_code: str.toUpperCase() },
+                    { emp_code: `EMP${str}` },
+                    { emp_code: { [Op.like]: `%${str}` } }
+                ]
+            }
         });
+        // Always return plain JSON so _id is consistently accessible
+        return emp ? emp.toJSON() : null;
     }
 
     async create(data) {
@@ -78,15 +83,21 @@ class EmployeeService {
     }
 
     async update(id, data) {
-        return await Employee.findByIdAndUpdate(id, data, { new: true });
+        const emp = await Employee.findByPk(id);
+        if (emp) {
+            await emp.update(data);
+            return emp;
+        }
+        return null;
     }
 
     async getStats() {
-        const [total, active, departments] = await Promise.all([
-            Employee.countDocuments(),
-            Employee.countDocuments({ status: 'active' }),
-            Employee.distinct('department')
-        ]);
+        const total = await Employee.count();
+        const active = await Employee.count({ where: { status: 'active' } });
+        const departments = await Employee.findAll({
+            attributes: [[require('../config/database').sequelize.fn('DISTINCT', require('../config/database').sequelize.col('department')), 'department']],
+            raw: true
+        });
 
         return { total, active, departmentCount: departments.length };
     }

@@ -1,37 +1,43 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
+const { sequelize } = require('../config/database');
 
-const schemaOptions = {
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true },
-    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
-};
+const IssueRecord = sequelize.define('IssueRecord', {
+    _id: {
+        type: DataTypes.STRING(36),
+        primaryKey: true,
+        defaultValue: () => uuidv4(),
+        field: 'id'
+    },
+    transaction_id: { type: DataTypes.STRING },
+    employee: { type: DataTypes.STRING(36), allowNull: false },
+    employee_name: { type: DataTypes.STRING },
+    item: { type: DataTypes.STRING(36), allowNull: false },
+    item_name: { type: DataTypes.STRING },
+    issued_date: { type: DataTypes.DATE, allowNull: false },
+    next_due_date: { type: DataTypes.DATE, allowNull: false },
+    quantity: { type: DataTypes.INTEGER, defaultValue: 1 },
+    issued_by: { type: DataTypes.STRING(36), allowNull: true },
+    issue_status: { type: DataTypes.STRING, defaultValue: 'Pending Acknowledgement' },
+    lifecycle_status: { type: DataTypes.STRING, defaultValue: 'Active' },
+    signature_path: { type: DataTypes.STRING },
+    acknowledged: { type: DataTypes.BOOLEAN, defaultValue: false },
+    acknowledgement_time: { type: DataTypes.DATE },
+    verification_method: { type: DataTypes.STRING },
+    ocr_details: { type: DataTypes.TEXT }, // Store as JSON string
+    notes: { type: DataTypes.TEXT },
+    item_condition: { type: DataTypes.STRING, defaultValue: 'Good' },
+    returned_condition: { type: DataTypes.STRING },
+    return_date: { type: DataTypes.DATE },
+    archived: { type: DataTypes.BOOLEAN, defaultValue: false },
+    archived_at: { type: DataTypes.DATE },
+    archived_by: { type: DataTypes.STRING(36) },
+    archive_reason: { type: DataTypes.STRING },
+    is_renewal: { type: DataTypes.BOOLEAN, defaultValue: false }
+}, {
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
+});
 
-const issueRecordSchema = new mongoose.Schema({
-    transaction_id: { type: String, index: true },
-    employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-    employee_name: { type: String },
-    item: { type: mongoose.Schema.Types.ObjectId, ref: 'Item', required: true },
-    item_name: { type: String },
-    issued_date: { type: Date, required: true },
-    next_due_date: { type: Date, required: true },
-    quantity: { type: Number, default: 1 },
-    issued_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', required: true },
-    issue_status: { type: String, enum: ['Pending Acknowledgement', 'Acknowledged'], default: 'Pending Acknowledgement' },
-    lifecycle_status: { type: String, enum: ['Active', 'Returned'], default: 'Active' },
-    signature_path: { type: String },
-    acknowledged: { type: Boolean, default: false },
-    acknowledgement_time: { type: Date },
-    verification_method: { type: String },
-    ocr_details: { type: Object },
-    notes: { type: String },
-    item_condition: { type: String, default: 'Good' },
-    returned_condition: { type: String },
-    return_date: { type: Date },
-    archived: { type: Boolean, default: false },
-    archived_at: { type: Date },
-    archived_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
-    archive_reason: { type: String },
-    is_renewal: { type: Boolean, default: false }
-}, schemaOptions);
-
-module.exports = mongoose.model('IssueRecord', issueRecordSchema);
+module.exports = IssueRecord;

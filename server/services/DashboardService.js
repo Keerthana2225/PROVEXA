@@ -1,3 +1,5 @@
+const { Op, fn, col } = require('sequelize');
+const { sequelize } = require('../config/database');
 const { Employee, IssueRecord, ReplacementRequest, Item } = require('../models');
 
 class DashboardService {
@@ -7,7 +9,7 @@ class DashboardService {
         startOfMonth.setHours(0, 0, 0, 0);
 
         const thresholdDate = new Date();
-        thresholdDate.setDate(thresholdDate.getDate() + 7); // 7 days window
+        thresholdDate.setDate(thresholdDate.getDate() + 7);
 
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -20,52 +22,54 @@ class DashboardService {
             itemsRequiringAttention,
             additionalRequestsCount,
             pendingDeductionsCount,
-            deductionAgg
+            totalDeductionAmount
         ] = await Promise.all([
-            Employee.countDocuments({ status: 'active' }),
-            IssueRecord.countDocuments({ 
-                issued_date: { $gte: startOfMonth },
-                archived: false 
+            Employee.count({ where: { status: 'active' } }),
+            IssueRecord.count({ 
+                where: {
+                    issued_date: { [Op.gte]: startOfMonth },
+                    archived: false 
+                }
             }),
-            ReplacementRequest.countDocuments({ status: 'pending' }),
-            IssueRecord.countDocuments({ 
-                next_due_date: { $lte: thresholdDate, $gt: new Date() },
-                archived: false,
-                lifecycle_status: 'Active'
+            ReplacementRequest.count({ where: { status: { [Op.in]: ['pending', 'Pending', 'approved', 'Approved'] } } }),
+            IssueRecord.count({ 
+                where: {
+                    next_due_date: { [Op.lte]: thresholdDate, [Op.gt]: new Date() },
+                    archived: false,
+                    lifecycle_status: 'Active'
+                }
             }),
-            IssueRecord.countDocuments({ 
-                next_due_date: { $lte: new Date() },
-                archived: false,
-                lifecycle_status: 'Active'
+            IssueRecord.count({ 
+                where: {
+                    next_due_date: { [Op.lte]: new Date() },
+                    archived: false,
+                    lifecycle_status: 'Active'
+                }
             }),
-            ReplacementRequest.countDocuments({ 
-                requested_date: { $gte: todayStart },
-                $or: [
-                    { allocation_type: 'Additional' },
-                    { is_salary_deduction: true },
-                    { deduction_amount: { $gt: 0 } }
-                ]
+            ReplacementRequest.count({ 
+                where: {
+                    requested_date: { [Op.gte]: todayStart },
+                    [Op.or]: [
+                        { allocation_type: 'Additional' },
+                        { deduction_amount: { [Op.gt]: 0 } }
+                    ]
+                }
             }),
-            ReplacementRequest.countDocuments({ 
-                requested_date: { $gte: todayStart },
-                payment_status: 'Pending',
-                $or: [
-                    { is_salary_deduction: true },
-                    { deduction_amount: { $gt: 0 } }
-                ]
+            ReplacementRequest.count({ 
+                where: {
+                    requested_date: { [Op.gte]: todayStart },
+                    payment_status: 'Pending',
+                    deduction_amount: { [Op.gt]: 0 }
+                }
             }),
-            ReplacementRequest.aggregate([
-                { 
-                    $match: { 
-                        requested_date: { $gte: todayStart },
-                        $or: [{ is_salary_deduction: true }, { deduction_amount: { $gt: 0 } }] 
-                    } 
-                },
-                { $group: { _id: null, total: { $sum: '$deduction_amount' } } }
-            ])
+            // Total additional cost — all time, all Additional requests
+            ReplacementRequest.sum('total_cost', {
+                where: {
+                    allocation_type: 'Additional',
+                    total_cost: { [Op.gt]: 0 }
+                }
+            })
         ]);
-
-        const totalDeductionAmount = deductionAgg.length > 0 ? deductionAgg[0].total : 0;
 
         return {
             totalEmployees,
@@ -75,7 +79,7 @@ class DashboardService {
             itemsRequiringAttention,
             additionalRequestsCount,
             pendingDeductionsCount,
-            totalDeductionAmount
+            totalDeductionAmount: totalDeductionAmount || 0
         };
     }
 
@@ -85,20 +89,22 @@ class DashboardService {
         sixMonthsAgo.setDate(1);
         sixMonthsAgo.setHours(0, 0, 0, 0);
 
-        const activity = await IssueRecord.aggregate([
-            { $match: { issued_date: { $gte: sixMonthsAgo }, archived: false } },
-            {
-                $group: {
-                    _id: { $month: '$issued_date' },
-                    issues: { $sum: 1 }
-                }
+        const activity = await IssueRecord.findAll({
+            attributes: [
+                [fn('MONTH', col('issued_date')), '_id'],
+                [fn('COUNT', col('id')), 'issues']
+            ],
+            where: {
+                issued_date: { [Op.gte]: sixMonthsAgo },
+                archived: false
             },
-            { $sort: { '_id': 1 } }
-        ]);
+            group: [fn('MONTH', col('issued_date'))],
+            order: [[fn('MONTH', col('issued_date')), 'ASC']],
+            raw: true
+        });
 
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         
-        // Return a plain array of objects for Recharts
         return activity.map(a => ({ 
             name: monthNames[a._id - 1], 
             issues: a.issues 

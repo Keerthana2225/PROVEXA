@@ -1,12 +1,23 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
+const { sequelize } = require('../config/database');
 
-const allocationConfigSchema = new mongoose.Schema({
-    item_type: { type: String, required: true, unique: true }, // 'Pant', 'Shirt', 'T-Shirt'
-    permanent_quantity: { type: Number, required: true, default: 0 },
-    newcomer_quantity: { type: Number, required: true, default: 0 },
-    standard_quantity: { type: Number, default: 0 }
+const AllocationConfig = sequelize.define('AllocationConfig', {
+    _id: {
+        type: DataTypes.STRING(36),
+        primaryKey: true,
+        defaultValue: () => uuidv4(),
+        field: 'id'
+    },
+    item_type: { type: DataTypes.STRING, allowNull: false, unique: true },
+    standard_quantity: { type: DataTypes.INTEGER, defaultValue: 0 },
+    permanent_quantity: { type: DataTypes.INTEGER, defaultValue: 0 },
+    newcomer_quantity: { type: DataTypes.INTEGER, defaultValue: 0 },
+    intern_quantity: { type: DataTypes.INTEGER, defaultValue: 0 }
 }, {
-    timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
 });
 
-module.exports = mongoose.model('AllocationConfig', allocationConfigSchema);
+module.exports = AllocationConfig;

@@ -95,15 +95,15 @@ router.post('/ocr-scan', async (req, res) => {
             });
         }
         
-        console.log(`[OCR] Found Employee: ${employee.name} (ID: ${employee.id})`);
+        console.log(`[OCR] Found Employee: ${employee.name} (ID: ${employee._id})`);
 
         // 4. Duplicate Check
-        const recentLog = await verificationService.getRecentVerified(employee.id, 'OCR Scan', DUPLICATE_WINDOW_MIN);
+        const recentLog = await verificationService.getRecentVerified(employee._id, 'OCR Scan', DUPLICATE_WINDOW_MIN);
         if (recentLog) {
             return res.json({
                 status: 'Duplicate Scan',
                 message: `${employee.name} already verified`,
-                employee
+                employee: employee.toJSON ? employee.toJSON() : employee
             });
         }
 
@@ -111,13 +111,12 @@ router.post('/ocr-scan', async (req, res) => {
         await verificationService.log({
             type: 'OCR Scan',
             status: 'Verified',
-            entity_id: employee.id,
+            entity_id: employee._id,
             entity_type: 'Employee',
-            details: JSON.stringify({
-                confidence: ocrResult.confidence,
-                elapsed_ms: ocrResult.elapsed_ms,
-                device_info
-            })
+            // Must pass employee field for Recent Activity
+            employee: employee._id,
+            ocr_confidence: ocrResult.confidence,
+            raw_ocr_text: ocrResult.raw_text
         });
 
         console.log(`[OCR] ✅ Verified: ${employee.name} (${emp_code})`);
@@ -125,7 +124,7 @@ router.post('/ocr-scan', async (req, res) => {
         return res.json({
             status: 'Verified',
             message: `${employee.name} verified successfully`,
-            employee,
+            employee: employee.toJSON ? employee.toJSON() : employee,
             confidence: ocrResult.confidence
         });
 
@@ -157,9 +156,11 @@ router.post('/signature-log', async (req, res) => {
         await verificationService.log({
             type: 'Signature',
             status: 'Verified',
-            entity_id: employee ? employee.id : null,
+            entity_id: employee ? (employee._id || employee.id) : null,
             entity_type: 'Employee',
-            details: JSON.stringify({ signature_path, device_info, emp_code })
+            // Must pass employee field for Recent Activity
+            employee: employee ? (employee._id || employee.id) : null,
+            signature_path
         });
 
         res.json({ message: 'Signature recorded successfully.', signature_path });
