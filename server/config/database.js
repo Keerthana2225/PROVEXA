@@ -16,8 +16,10 @@ const sequelize = new Sequelize(
         dialect: process.env.SQL_DIALECT || 'mssql',
         dialectOptions: {
             options: {
-                // Try connecting via port if instance fails
-                port: 1433,
+                // If SQL_INSTANCE is specified, use instanceName; otherwise, fall back to port.
+                ...(process.env.SQL_INSTANCE
+                    ? { instanceName: process.env.SQL_INSTANCE }
+                    : { port: parseInt(process.env.SQL_PORT) || 1433 }),
                 encrypt: false,
                 trustServerCertificate: true,
             }

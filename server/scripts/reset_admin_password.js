@@ -1,38 +1,40 @@
 const bcrypt = require('bcryptjs');
-const { Sequelize } = require('sequelize');
-const dotenv = require('dotenv');
-
-dotenv.config();
+const { sequelize } = require('../config/database');
 
 async function resetAdminPassword() {
-    const seq = new Sequelize(
-        process.env.SQL_DATABASE,
-        process.env.SQL_USER,
-        process.env.SQL_PASSWORD,
-        {
-            host: process.env.SQL_SERVER,
-            port: parseInt(process.env.SQL_PORT),
-            dialect: 'mssql',
-            dialectOptions: {
-                options: {
-                    trustServerCertificate: true,
-                    encrypt: true
-                }
-            },
-            logging: false
-        }
-    );
+    try {
+        console.log('🔗 Connecting to database...');
+        await sequelize.authenticate();
+        console.log('✅ Connected successfully.');
 
-    const hash = await bcrypt.hash('admin123', 10);
-    await seq.query(`UPDATE Admins SET password = '${hash}' WHERE username = 'admin@provexa.com'`);
-    console.log('✅ Admin password reset successfully.');
-    console.log('   Email:    admin@provexa.com');
-    console.log('   Password: admin123');
-    await seq.close();
-    process.exit(0);
+        // Hash the new password: admin@123
+        const newPassword = 'admin@123';
+        const saltRounds = 10;
+        console.log(`🔑 Hashing password "${newPassword}"...`);
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+        // Update the password for the admin user
+        // We will update where username is 'admin' or email is 'admin@provexa.com' to be completely safe
+        console.log('📝 Updating admin password in database...');
+        const [result] = await sequelize.query(`
+            UPDATE Admins 
+            SET password = :password 
+            WHERE username = 'admin' OR email = 'admin@provexa.com'
+        `, {
+            replacements: { password: hashedPassword }
+        });
+
+        console.log('✅ Admin password updated successfully!');
+        console.log('   Username: admin');
+        console.log('   Email:    admin@provexa.com');
+        console.log('   Password: admin@123');
+
+        await sequelize.close();
+        process.exit(0);
+    } catch (error) {
+        console.error('❌ Failed to reset admin password:', error);
+        process.exit(1);
+    }
 }
 
-resetAdminPassword().catch(e => {
-    console.error('❌ Failed:', e.message);
-    process.exit(1);
-});
+resetAdminPassword();

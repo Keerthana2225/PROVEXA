@@ -4,8 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "seed": "node seed.js"
+    "dev": "nodemon index.js"
   },
   "keywords": [],
   "author": "",
@@ -21,7 +20,6 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^8.24.0",
     "mssql": "^12.5.3",
     "node-cron": "^4.2.1",
     "pdfkit": "^0.18.0",
