@@ -1,7 +1,7 @@
 const { Sequelize } = require('sequelize');
 const dotenv = require('dotenv');
 dotenv.config();
-
+//
 // 1. Destination is the primary Sequelize instance defined in the project configuration,
 // which currently points to SQLEXPRESS01 because of our .env settings.
 const { sequelize: destSequelize } = require('../config/database');
@@ -59,25 +59,25 @@ async function migrate() {
         console.log('\n🚀 Starting Table Data Migration...');
         for (const table of tablesToCopy) {
             console.log(`📦 Copying table: ${table.name}...`);
-            
+
             // 1. Fetch from source using raw query
             const [rows] = await sourceSequelize.query(`SELECT * FROM [${table.name}]`);
-            
+
             if (rows.length === 0) {
                 console.log(`   -> No records found in source table [${table.name}]. Skipping.`);
                 continue;
             }
 
             console.log(`   -> Found ${rows.length} records in [${table.name}]. Inserting to Destination...`);
-            
+
             // Map raw database columns to fields if they differ, but Sequelize bulkCreate handles this,
             // especially since we are passing database column values.
             // Let's make sure we bulkCreate using the raw rows. We pass ignoreDuplicates: false.
-            await table.model.bulkCreate(rows, { 
-                validate: false, 
-                hooks: false 
+            await table.model.bulkCreate(rows, {
+                validate: false,
+                hooks: false
             });
-            
+
             console.log(`   -> Successfully migrated ${rows.length} records into [${table.name}]`);
         }
 
