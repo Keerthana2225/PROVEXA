@@ -19,20 +19,21 @@ const Employee = sequelize.define('Employee', {
     status: { type: DataTypes.STRING, defaultValue: 'active' },
     sizes_shirt: { type: DataTypes.STRING, defaultValue: '' },
     sizes_pant: { type: DataTypes.STRING, defaultValue: '' },
-    sizes_shoe: { type: DataTypes.STRING, defaultValue: '' }
-}, {
-    timestamps: true,
-    createdAt: 'created_at',
-    updatedAt: 'updated_at',
-    getterMethods: {
-        sizes() {
+    sizes_shoe: { type: DataTypes.STRING, defaultValue: '' },
+    sizes: {
+        type: DataTypes.VIRTUAL,
+        get() {
             return {
-                shirt: this.sizes_shirt,
-                pant: this.sizes_pant,
-                shoe: this.sizes_shoe
+                shirt: this.getDataValue('sizes_shirt') || '',
+                pant: this.getDataValue('sizes_pant') || '',
+                shoe: this.getDataValue('sizes_shoe') || ''
             };
         }
     }
+}, {
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at'
 });
 
 module.exports = Employee;

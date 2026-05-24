@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import Modal from '../ui/Modal';
+import { toast } from './Toast';
 
 export default function EmployeeForm({ isOpen, onClose, editData = null }) {
   const queryClient = useQueryClient();
@@ -28,9 +29,9 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
         gender:        editData?.gender || 'Male',
         status:        editData?.status || 'active',
         sizes: {
-          shirt: editData?.sizes?.shirt || '',
-          pant:  editData?.sizes?.pant  || '',
-          shoe:  editData?.sizes?.shoe  || '',
+          shirt: editData?.sizes?.shirt || editData?.sizes_shirt || '',
+          pant:  editData?.sizes?.pant  || editData?.sizes_pant  || '',
+          shoe:  editData?.sizes?.shoe  || editData?.sizes_shoe  || '',
         },
       });
       setError('');
@@ -40,7 +41,8 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
   const mutation = useMutation({
     mutationFn: async (payload) => {
       if (editData) {
-        const { data } = await api.put(`/employees/${editData.id}`, payload);
+        const empId = editData._id || editData.id;
+        const { data } = await api.put(`/employees/${empId}`, payload);
         return data;
       }
       const { data } = await api.post('/employees', payload);
@@ -49,10 +51,14 @@ export default function EmployeeForm({ isOpen, onClose, editData = null }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+      toast.success(editData ? 'Employee updated successfully!' : 'Employee added successfully!');
       onClose();
     },
     onError: (err) => {
-      setError(err.response?.data?.message || 'Failed to save employee');
+      const msg = err.response?.data?.message || 'Failed to save employee';
+      setError(msg);
+      toast.error(msg);
     }
   });
 

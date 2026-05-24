@@ -281,7 +281,7 @@ export default function ReplacementForm({ isOpen, onClose }) {
     
     // Validate cart items
     for (const item of cartItems) {
-      const isSizeRequired = ['uniform', 'shoe', 'apparel', 'ppe'].some(k => (item.item.category?.name || '').toLowerCase().includes(k));
+      const isSizeRequired = ['uniform', 'shoe', 'apparel', 'ppe'].some(k => (item.item.category?.name || '').toLowerCase().includes(k)) && !(item.item.name || '').toLowerCase().includes('towel');
       if (isSizeRequired && !item.size?.trim()) {
         setError(`Size is required for ${item.item.name}`); return;
       }
@@ -569,7 +569,7 @@ export default function ReplacementForm({ isOpen, onClose }) {
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" />
                     </div>
                     {(() => {
-                        const isSizeRequired = ['uniform', 'shoe', 'apparel', 'ppe'].some(k => (cItem.item.category?.name || '').toLowerCase().includes(k));
+                        const isSizeRequired = ['uniform', 'shoe', 'apparel', 'ppe'].some(k => (cItem.item.category?.name || '').toLowerCase().includes(k)) && !(cItem.item.name || '').toLowerCase().includes('towel');
                         return (
                           <div>
                             <label className="block text-xs font-semibold text-slate-700 mb-1">

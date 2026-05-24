@@ -79,12 +79,24 @@ class EmployeeService {
     }
 
     async create(data) {
+        if (data.sizes) {
+            data.sizes_shirt = data.sizes.shirt || '';
+            data.sizes_pant = data.sizes.pant || '';
+            data.sizes_shoe = data.sizes.shoe || '';
+            delete data.sizes; // remove nested object so VIRTUAL field isn't set directly
+        }
         return await Employee.create(data);
     }
 
     async update(id, data) {
         const emp = await Employee.findByPk(id);
         if (emp) {
+            if (data.sizes) {
+                data.sizes_shirt = data.sizes.shirt || '';
+                data.sizes_pant = data.sizes.pant || '';
+                data.sizes_shoe = data.sizes.shoe || '';
+                delete data.sizes; // remove nested object so VIRTUAL field isn't set directly
+            }
             await emp.update(data);
             return emp;
         }

@@ -252,8 +252,16 @@ class EligibilityService {
 
         timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+        const empJson = employee.toJSON();
+        // VIRTUAL fields are stripped by toJSON() — manually add sizes back
+        empJson.sizes = {
+            shirt: employee.getDataValue('sizes_shirt') || '',
+            pant:  employee.getDataValue('sizes_pant')  || '',
+            shoe:  employee.getDataValue('sizes_shoe')  || ''
+        };
+
         return {
-            employee: employee.toJSON(),
+            employee: empJson,
             employee_type: empType,
             eligibility: eligibleKeywords,
             allocations: {
