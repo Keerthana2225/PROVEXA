@@ -15,7 +15,8 @@ class ItemService {
         return j;
     }
     async getAll(filters = {}) {
-        const { search, categoryId, page, limit } = filters;
+        const { search, page, limit } = filters;
+        const categoryId = filters.categoryId || filters.category_id;
         const where = {};
 
         if (categoryId) where.category = categoryId;

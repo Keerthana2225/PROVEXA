@@ -39,27 +39,17 @@ export default function Employees() {
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-fade-in">
-            {/* Header Banner */}
-            <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
-                
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight mb-2">Employee Directory</h1>
-                        <p className="text-blue-200/80 font-medium max-w-xl">
-                            Manage your workforce, track allocations, and oversee asset distribution across departments from a centralized hub.
-                        </p>
-                    </div>
-                    
-                    <button
-                        onClick={() => { setEditData(null); setShowForm(true); }}
-                        className="flex items-center gap-2 bg-white text-indigo-600 hover:bg-blue-50 px-6 py-3.5 rounded-2xl font-black text-sm transition-all shadow-lg shadow-black/20 hover:scale-105 active:scale-95 whitespace-nowrap group"
-                    >
-                        <Plus className="w-5 h-5 transition-transform group-hover:rotate-90" />
-                        Add Employee
-                    </button>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Employee Directory</h1>
+                    <p className="text-sm text-slate-500 mt-1">Manage your workforce, track allocations, and oversee asset distribution across departments.</p>
                 </div>
+                <button
+                    onClick={() => { setEditData(null); setShowForm(true); }}
+                    className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-medium text-sm transition-colors shadow-sm"
+                >
+                    <Plus className="w-5 h-5" /> Add Employee
+                </button>
             </div>
 
             {/* Main Content Area */}

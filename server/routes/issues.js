@@ -229,4 +229,57 @@ router.put('/archive-reset', async (req, res) => {
     }
 });
 
+// Cancel/delete all pending unacknowledged items for an employee
+router.delete('/cancel/employee/:employeeId', async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        const { IssueRecord } = require('../models');
+        
+        // Find and delete unacknowledged standard issues for this employee
+        const deletedIssuesCount = await IssueRecord.destroy({
+            where: {
+                employee: employeeId,
+                acknowledged: false,
+                issue_status: 'Pending Acknowledgement'
+            }
+        });
+        
+        res.json({
+            message: `Successfully cancelled ${deletedIssuesCount} mistakenly issued items.`,
+            count: deletedIssuesCount
+        });
+    } catch (error) {
+        console.error('Error in cancelling pending issues:', error);
+        res.status(500).json({ message: 'Server error cancelling pending issues' });
+    }
+});
+
+// Cancel/delete a single unacknowledged item
+router.delete('/cancel/single/:issueId', async (req, res) => {
+    try {
+        const { issueId } = req.params;
+        const { IssueRecord } = require('../models');
+        
+        const deletedIssuesCount = await IssueRecord.destroy({
+            where: {
+                id: issueId,
+                acknowledged: false,
+                issue_status: 'Pending Acknowledgement'
+            }
+        });
+        
+        if (deletedIssuesCount === 0) {
+            return res.status(404).json({ message: 'Issue not found or already acknowledged' });
+        }
+        
+        res.json({
+            message: 'Successfully cancelled the mistakenly issued item.',
+            count: deletedIssuesCount
+        });
+    } catch (error) {
+        console.error('Error in cancelling single pending issue:', error);
+        res.status(500).json({ message: 'Server error cancelling pending issue' });
+    }
+});
+
 module.exports = router;

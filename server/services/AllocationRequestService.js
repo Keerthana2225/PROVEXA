@@ -42,7 +42,7 @@ async function getStandardLimit(itemType, employeeType = 'Permanent') {
     }
     const defaults = {
         'Permanent': { 'Pant': 2, 'Shirt': 2, 'T-Shirt': 1 },
-        'Intern':    { 'Pant': 3, 'Shirt': 2, 'T-Shirt': 1 },
+        'Intern':    { 'Pant': 2, 'Shirt': 2, 'T-Shirt': 1 },
     };
     return (defaults[employeeType] || defaults['Permanent'])[itemType] || 0;
 }
@@ -65,12 +65,20 @@ class AllocationRequestService {
             if (conf.newcomer_quantity !== undefined) {
                 updateFields.newcomer_quantity = parseInt(conf.newcomer_quantity) || 0;
             }
+            if (conf.intern_quantity !== undefined) {
+                updateFields.intern_quantity = parseInt(conf.intern_quantity) || 0;
+            }
             if (conf.standard_quantity !== undefined && updateFields.standard_quantity === undefined) {
                 updateFields.standard_quantity = parseInt(conf.standard_quantity) || 0;
             }
 
-            const [updated] = await AllocationConfig.upsert(updateFields, { returning: true });
-            results.push(updated.toJSON());
+            let record = await AllocationConfig.findOne({ where: { item_type: conf.item_type } });
+            if (record) {
+                await record.update(updateFields);
+            } else {
+                record = await AllocationConfig.create(updateFields);
+            }
+            results.push(record.toJSON());
         }
         return results;
     }

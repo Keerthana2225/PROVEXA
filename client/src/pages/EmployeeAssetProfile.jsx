@@ -11,6 +11,7 @@ import {
 import api from '../lib/api';
 import IssueForm from '../components/ui/IssueForm';
 import UnifiedVerificationModal from '../components/ui/UnifiedVerificationModal';
+import { toast } from '../components/ui/Toast';
 
 /* ─────────────────────────────────────────────
    Small reusable helpers
@@ -97,6 +98,38 @@ export default function EmployeeAssetProfile() {
 
     const { employee, allocations, additionalCosts, timeline } = profile;
 
+    const handleCancelPendingIssues = async () => {
+        if (window.confirm("Are you sure you want to cancel these mistakenly issued items? This will remove the pending allocation records permanently.")) {
+            try {
+                await api.delete(`/issues/cancel/employee/${id}`);
+                toast.success("Mistaken issues cancelled successfully!");
+                queryClient.invalidateQueries({ queryKey: ['employee-profile', id] });
+                queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+                queryClient.invalidateQueries({ queryKey: ['issues'] });
+                queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            } catch (err) {
+                console.error(err);
+                toast.error(err.response?.data?.message || "Failed to cancel pending issues.");
+            }
+        }
+    };
+
+    const handleCancelSingleIssue = async (issueId) => {
+        if (window.confirm("Are you sure you want to cancel this mistakenly issued item?")) {
+            try {
+                await api.delete(`/issues/cancel/single/${issueId}`);
+                toast.success("Item cancelled successfully!");
+                queryClient.invalidateQueries({ queryKey: ['employee-profile', id] });
+                queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
+                queryClient.invalidateQueries({ queryKey: ['issues'] });
+                queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+            } catch (err) {
+                console.error(err);
+                toast.error(err.response?.data?.message || "Failed to cancel item.");
+            }
+        }
+    };
+
     // Combine standard issues + additional holdings for "currently with employee"
     const allCurrentItems = [
         ...(allocations.active || []).map(i => ({ ...i, _source: 'issue' })),
@@ -136,27 +169,27 @@ export default function EmployeeAssetProfile() {
         <div className="space-y-0 max-w-7xl mx-auto animate-fade-in">
 
             {/* ── TOP HEADER BANNER ── */}
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl p-6 mb-6 shadow-xl">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm mb-6">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <button
                             onClick={() => navigate('/employees')}
-                            className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors"
+                            className="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
                         >
-                            <ArrowLeft className="w-4 h-4 text-white" />
+                            <ArrowLeft className="w-4 h-4 text-slate-600" />
                         </button>
                         <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-black text-2xl shadow-lg">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xl shadow-md">
                                 {employee.name?.charAt(0).toUpperCase()}
                             </div>
                             <div>
-                                <h1 className="text-2xl font-black text-white tracking-tight">{employee.name}</h1>
-                                <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                    <span className="text-blue-300 font-mono text-xs font-bold">{employee.emp_code}</span>
-                                    <span className="w-1 h-1 rounded-full bg-slate-600" />
-                                    <span className="text-slate-300 text-xs font-medium">{employee.department}</span>
-                                    <span className="w-1 h-1 rounded-full bg-slate-600" />
-                                    <span className="text-slate-300 text-xs font-medium">{employee.designation || 'N/A'}</span>
+                                <h1 className="text-xl font-bold text-slate-800">{employee.name}</h1>
+                                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    <span className="text-slate-500 font-mono text-xs font-semibold">{employee.emp_code}</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                    <span className="text-slate-500 text-xs">{employee.department}</span>
+                                    <span className="w-1 h-1 rounded-full bg-slate-300" />
+                                    <span className="text-slate-500 text-xs">{employee.designation || 'N/A'}</span>
                                     <Badge color={employee.status === 'active' ? 'emerald' : 'slate'}>
                                         {employee.status}
                                     </Badge>
@@ -167,27 +200,27 @@ export default function EmployeeAssetProfile() {
                                         {employee.gender || 'Male'}
                                     </Badge>
                                 </div>
+                                {/* Sizes row */}
+                                {(employee.sizes?.shirt || employee.sizes?.pant || employee.sizes?.shoe) && (
+                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Sizes:</span>
+                                        {employee.sizes?.shirt && (
+                                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Shirt: {employee.sizes.shirt}</span>
+                                        )}
+                                        {employee.sizes?.pant && (
+                                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Pant: {employee.sizes.pant}</span>
+                                        )}
+                                        {employee.sizes?.shoe && (
+                                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Shoe: {employee.sizes.shoe}</span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            {/* Sizes row */}
-                            {(employee.sizes?.shirt || employee.sizes?.pant || employee.sizes?.shoe) && (
-                                <div className="flex items-center gap-4 mt-2 flex-wrap">
-                                    <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Sizes:</span>
-                                    {employee.sizes?.shirt && (
-                                        <span className="text-[10px] font-bold text-blue-300 bg-white/10 px-2 py-0.5 rounded-full">Shirt: {employee.sizes.shirt}</span>
-                                    )}
-                                    {employee.sizes?.pant && (
-                                        <span className="text-[10px] font-bold text-blue-300 bg-white/10 px-2 py-0.5 rounded-full">Pant: {employee.sizes.pant}</span>
-                                    )}
-                                    {employee.sizes?.shoe && (
-                                        <span className="text-[10px] font-bold text-blue-300 bg-white/10 px-2 py-0.5 rounded-full">Shoe: {employee.sizes.shoe}</span>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
                     <button
                         onClick={() => setShowIssueForm(true)}
-                        className="flex items-center gap-2 bg-blue-500 hover:bg-blue-400 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg transition-all active:scale-95"
+                        className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95"
                     >
                         <PlusCircle className="w-4 h-4" /> Issue Item
                     </button>
@@ -196,12 +229,12 @@ export default function EmployeeAssetProfile() {
                 {/* Quick Stats Row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
                     {[
-                        { label: 'Items Currently Held', value: allCurrentItems.length, icon: Package, color: 'text-blue-300' },
-                        { label: 'Pending Signatures', value: pendingAcknowledgements.length, icon: PenTool, color: pendingAcknowledgements.length > 0 ? 'text-amber-400' : 'text-emerald-300' },
-                        { label: 'Additional Requests', value: allocations.additional?.length || 0, icon: ArrowRightLeft, color: 'text-purple-300' },
-                        { label: 'Total Additional Cost', value: `₹${(additionalCosts?.total || 0).toLocaleString()}`, icon: IndianRupee, color: 'text-amber-300', isText: true },
+                        { label: 'Items Currently Held', value: allCurrentItems.length, icon: Package, color: 'text-blue-500', bg: 'bg-blue-50' },
+                        { label: 'Pending Signatures', value: pendingAcknowledgements.length, icon: PenTool, color: pendingAcknowledgements.length > 0 ? 'text-amber-500' : 'text-emerald-500', bg: pendingAcknowledgements.length > 0 ? 'bg-amber-50' : 'bg-emerald-50' },
+                        { label: 'Additional Requests', value: allocations.additional?.length || 0, icon: ArrowRightLeft, color: 'text-purple-500', bg: 'bg-purple-50' },
+                        { label: 'Total Additional Cost', value: `₹${(additionalCosts?.total || 0).toLocaleString()}`, icon: IndianRupee, color: 'text-amber-500', bg: 'bg-amber-50', isText: true },
                     ].map((stat, i) => (
-                        <div key={i} className="bg-white/5 rounded-xl p-3 border border-white/10 relative">
+                        <div key={i} className="bg-slate-50 rounded-xl p-3 border border-slate-100 relative">
                             {stat.label === 'Pending Signatures' && stat.value > 0 && (
                                 <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
@@ -209,7 +242,7 @@ export default function EmployeeAssetProfile() {
                                 </span>
                             )}
                             <stat.icon className={`w-4 h-4 ${stat.color} mb-1.5`} />
-                            <p className={`${stat.isText ? 'text-base' : 'text-2xl'} font-black text-white leading-none`}>{stat.value}</p>
+                            <p className={`${stat.isText ? 'text-base' : 'text-2xl'} font-black text-slate-800 leading-none`}>{stat.value}</p>
                             <p className="text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-wider">{stat.label}</p>
                         </div>
                     ))}
@@ -246,12 +279,20 @@ export default function EmployeeAssetProfile() {
                             <p className="text-amber-100 text-sm font-medium">Items have been physically issued but the employee hasn't signed for them yet.</p>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setVerifyIssue({ employee, issueId: null, pendingCount: pendingAcknowledgements.length })}
-                        className="bg-white text-orange-600 hover:bg-orange-50 px-6 py-3 rounded-xl font-black text-sm shadow-md transition-all whitespace-nowrap active:scale-95 flex items-center gap-2 uppercase tracking-widest"
-                    >
-                        <ShieldCheck className="w-4 h-4" /> Verify Now
-                    </button>
+                    <div className="flex items-center gap-3 shrink-0 whitespace-nowrap flex-wrap md:flex-nowrap">
+                        <button
+                            onClick={handleCancelPendingIssues}
+                            className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-6 py-3 rounded-xl font-bold text-sm shadow-md transition-all active:scale-95 flex items-center gap-2 uppercase tracking-widest"
+                        >
+                            Cancel Issue
+                        </button>
+                        <button
+                            onClick={() => setVerifyIssue({ employee, issueId: null, pendingCount: pendingAcknowledgements.length })}
+                            className="bg-white text-orange-600 hover:bg-orange-50 px-6 py-3 rounded-xl font-black text-sm shadow-md transition-all active:scale-95 flex items-center gap-2 uppercase tracking-widest"
+                        >
+                            <ShieldCheck className="w-4 h-4" /> Verify Now
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -392,11 +433,13 @@ export default function EmployeeAssetProfile() {
                                                         )}
                                                     </div>
                                                 </div>
-                                                {isReplacement ? (
-                                                    <Badge color="purple">Additional</Badge>
-                                                ) : (
-                                                    <Badge color="blue">Standard</Badge>
-                                                )}
+                                                <Badge color={
+                                                    item.allocation_type?.toLowerCase() === 'replacement' ? 'purple' : 
+                                                    item.allocation_type?.toLowerCase() === 'additional' ? 'amber' : 
+                                                    isReplacement ? 'purple' : 'blue'
+                                                }>
+                                                    {item.allocation_type || (isReplacement ? 'Additional' : 'Standard')}
+                                                </Badge>
                                             </div>
                                             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                                                 <div className="flex items-center gap-1">
@@ -414,8 +457,18 @@ export default function EmployeeAssetProfile() {
                                                         <ShieldCheck className="w-3 h-3" /> Verified
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-1 text-amber-500 text-[10px] font-black">
-                                                        <Clock className="w-3 h-3" /> Pending
+                                                    <div className="flex items-center gap-2">
+                                                        {!isReplacement && (
+                                                            <button 
+                                                                onClick={() => handleCancelSingleIssue(item._id || item.id)}
+                                                                className="text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        )}
+                                                        <div className="flex items-center gap-1 text-amber-500 text-[10px] font-black">
+                                                            <Clock className="w-3 h-3" /> Pending
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

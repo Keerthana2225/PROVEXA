@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { Check, X, Clock, Plus, RefreshCw, DollarSign, PenTool, Search, CheckCircle2, LayoutTemplate, ArrowRightLeft, User, Package, ShieldCheck, Loader2, Fingerprint, ScanLine } from 'lucide-react';
+import { X, Clock, Plus, DollarSign, PenTool, Search, CheckCircle2, LayoutTemplate, ArrowRightLeft, User, Package, ShieldCheck, Loader2, Fingerprint, ScanLine } from 'lucide-react';
 import api from '../lib/api';
 import ReplacementForm from '../components/ui/ReplacementForm';
 import ReplacementHandoverModal from '../components/ui/ReplacementHandoverModal';
 import Modal from '../components/ui/Modal';
 import { toast } from '../components/ui/Toast';
 
+// eslint-disable-next-line react/prop-types
 const Badge = ({ children, color }) => {
     const colors = {
         emerald: 'bg-emerald-50 text-emerald-700 border-emerald-100',
@@ -45,26 +46,26 @@ export default function Replacements() {
 
     const [showSettings, setShowSettings] = useState(false);
     const [tempConfigs, setTempConfigs] = useState({
-        Pant: { permanent: 2, newcomer: 3 },
-        Shirt: { permanent: 2, newcomer: 2 },
-        'T-Shirt': { permanent: 1, newcomer: 1 }
+        Pant: { permanent: 2, intern: 2 },
+        Shirt: { permanent: 2, intern: 2 },
+        'T-Shirt': { permanent: 1, intern: 1 }
     });
 
     const queryClient = useQueryClient();
 
-    const { data: configs } = useQuery({
+    useQuery({
         queryKey: ['allocation-configs'],
         queryFn: async () => {
             const { data } = await api.get('/replacements/configs');
             const mapping = {
-                Pant:     { permanent: 2, intern: 3 },
+                Pant:     { permanent: 2, intern: 2 },
                 Shirt:    { permanent: 2, intern: 2 },
                 'T-Shirt': { permanent: 1, intern: 1 }
             };
             data.forEach(c => {
                 mapping[c.item_type] = {
                     permanent: c.permanent_quantity ?? c.standard_quantity ?? 0,
-                    intern:    c.intern_quantity    ?? (c.item_type === 'Pant' ? 3 : c.item_type === 'Shirt' ? 2 : 1)
+                    intern:    c.intern_quantity    ?? (c.item_type === 'Pant' ? 2 : c.item_type === 'Shirt' ? 2 : 1)
                 };
             });
             setTempConfigs(mapping);
@@ -197,26 +198,25 @@ export default function Replacements() {
     };
 
     return (
-        <div className="max-w-[1600px] mx-auto space-y-8 animate-fade-in pb-12">
-            {/* Header & Stats */}
-            <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div className="space-y-1">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Uniform Allocation & Requests</h2>
-                    <p className="text-slate-500 font-medium">Verify standard free allocations, approve additional requests, and track additional costs.</p>
+        <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Uniform Allocation & Requests</h1>
+                    <p className="text-sm text-slate-500 mt-1">Verify standard free allocations, approve additional requests, and track additional costs.</p>
                 </div>
-                <div className="flex gap-3 w-full md:w-auto">
+                <div className="flex gap-3 w-full md:w-auto shrink-0 justify-end">
                     <button
                         onClick={() => setShowSettings(!showSettings)}
-                        className="flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold transition-all active:scale-95"
+                        className="flex items-center gap-2 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-xl font-medium text-sm transition-colors shadow-sm"
                     >
-                        <LayoutTemplate className="w-5 h-5 mr-2 text-slate-550" />
+                        <LayoutTemplate className="w-4 h-4" />
                         Allocation Settings
                     </button>
                     <button
                         onClick={() => setShowForm(true)}
-                        className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+                        className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-2 rounded-xl font-medium text-sm transition-colors shadow-sm"
                     >
-                        <Plus className="w-5 h-5 mr-2" />
+                        <Plus className="w-5 h-5" />
                         New Request
                     </button>
                 </div>
@@ -265,11 +265,11 @@ export default function Replacements() {
                     <div className="space-y-2">
                         <p className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-1.5">
                             <span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span> Intern / Temporary Employees
-                            <span className="text-[9px] font-bold text-slate-400 normal-case tracking-normal ml-1">(Default: Pant 3, Shirt 2, T-Shirt 1)</span>
+                            <span className="text-[9px] font-bold text-slate-400 normal-case tracking-normal ml-1">(Default: Pant 2, Shirt 2, T-Shirt 1)</span>
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {[
-                                { type: 'Pant',   defaultVal: 3 },
+                                { type: 'Pant',   defaultVal: 2 },
                                 { type: 'Shirt',  defaultVal: 2 },
                                 { type: 'T-Shirt', defaultVal: 1 },
                             ].map(({ type, defaultVal }) => {
@@ -441,7 +441,7 @@ export default function Replacements() {
                                                         <span className="text-[8px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase">Size: {req.size}</span>
                                                     </div>
                                                     <div className="text-[10px] text-slate-500 italic bg-slate-50 p-1.5 rounded-lg border border-slate-100 line-clamp-1 mt-1">
-                                                        "{req.reason}"
+                                                        &quot;{req.reason}&quot;
                                                     </div>
                                                 </div>
                                             </td>
@@ -644,7 +644,7 @@ export default function Replacements() {
                             {selectedProof.notes && (
                                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
                                     <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Handover Notes / Remarks</span>
-                                    <p className="text-xs text-slate-600 font-medium italic">"{selectedProof.notes}"</p>
+                                    <p className="text-xs text-slate-600 font-medium italic">&quot;{selectedProof.notes}&quot;</p>
                                 </div>
                             )}
                         </div>
@@ -677,7 +677,7 @@ export default function Replacements() {
                         </p>
                     </div>
 
-                    {actionModal.type === 'approve' && (
+                    {actionModal.type === 'approve' && actionModal.request?.allocation_type !== 'Replacement' && (
                         <div className="space-y-6">
                             <div className="space-y-2">
                                 <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">Manual Item Cost (₹)</label>

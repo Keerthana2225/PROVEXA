@@ -26,7 +26,7 @@ export default function Items() {
     const { data: items, isLoading } = useQuery({
         queryKey: ['items', filterCategory],
         queryFn: async () => {
-            const url = filterCategory ? `/items?category_id=${filterCategory}` : '/items';
+            const url = filterCategory ? `/items?categoryId=${filterCategory}` : '/items';
             const { data } = await api.get(url);
             return data;
         }
@@ -71,7 +71,14 @@ export default function Items() {
     };
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-fade-in">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Items Master</h1>
+                    <p className="text-sm text-slate-500 mt-1">Configure company-approved inventory, set renewal intervals, and manage standard catalog items.</p>
+                </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex gap-2 flex-wrap">
                     <button
@@ -82,9 +89,9 @@ export default function Items() {
                     </button>
                     {categories?.map(c => (
                         <button
-                            key={c.id}
-                            onClick={() => setFilterCategory(c.id)}
-                            className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${filterCategory === c.id ? 'bg-primary text-white border-primary shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                            key={c._id || c.id}
+                            onClick={() => setFilterCategory(c._id || c.id)}
+                            className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${filterCategory === (c._id || c.id) ? 'bg-primary text-white border-primary shadow-sm' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                         >
                             {c.name}
                         </button>
@@ -123,7 +130,10 @@ export default function Items() {
                                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                                     <Package className="w-6 h-6" />
                                 </div>
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[item.category.name] || 'bg-slate-100 text-slate-600'}`}>
+                                <span 
+                                    onClick={() => setFilterCategory(item.category._id || item.category.id)}
+                                    className={`cursor-pointer hover:opacity-80 px-2.5 py-1 rounded-full text-xs font-semibold ${categoryColors[item.category.name] || 'bg-slate-100 text-slate-600'}`}
+                                >
                                     {item.category.name}
                                 </span>
                             </div>

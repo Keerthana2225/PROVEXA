@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Admin } = require('../models');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 class AuthService {
     async login(identifier, password) {
@@ -13,7 +14,19 @@ class AuthService {
             }
         });
 
-        if (!admin || admin.password !== password) {
+        if (!admin) {
+            throw new Error('Invalid credentials');
+        }
+
+        // Check password using bcrypt if it's hashed, otherwise do a plain-text check
+        let isMatch = false;
+        if (admin.password && admin.password.startsWith('$2')) {
+            isMatch = await bcrypt.compare(password, admin.password);
+        } else {
+            isMatch = admin.password === password;
+        }
+
+        if (!isMatch) {
             throw new Error('Invalid credentials');
         }
 

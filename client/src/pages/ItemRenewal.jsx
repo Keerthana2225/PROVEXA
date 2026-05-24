@@ -258,21 +258,20 @@ export default function ItemRenewal() {
     };
 
     return (
-        <div className="max-w-[1600px] mx-auto space-y-8 animate-fade-in pb-12">
-            {/* Header section */}
-            <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div className="space-y-1">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Lifecycle Management</h2>
-                    <p className="text-slate-500 font-medium">Monitor active assets, process renewals, and manage returns.</p>
+        <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-12">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Lifecycle Management</h1>
+                    <p className="text-sm text-slate-500 mt-1">Monitor active assets, process renewals, and manage returns.</p>
                 </div>
-                <div className="flex gap-3">
-                    <div className="px-6 py-3 bg-blue-50 rounded-2xl border border-blue-100 text-center">
-                        <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Active Assets</p>
-                        <p className="text-xl font-black text-blue-900">{activeItems?.length || 0}</p>
+                <div className="flex gap-4">
+                    <div className="px-5 py-2.5 bg-white rounded-xl border border-slate-200 text-center shadow-sm">
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Active Assets</p>
+                        <p className="text-lg font-black text-slate-800">{activeItems?.length || 0}</p>
                     </div>
-                    <div className="px-6 py-3 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                    <div className="px-5 py-2.5 bg-amber-50 rounded-xl border border-amber-200 text-center shadow-sm">
                         <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">Renewal Due</p>
-                        <p className="text-xl font-black text-amber-900">{upcomingData?.actionNeeded?.length || 0}</p>
+                        <p className="text-lg font-black text-amber-700">{upcomingData?.actionNeeded?.length || 0}</p>
                     </div>
                 </div>
             </div>

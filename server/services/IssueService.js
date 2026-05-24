@@ -26,6 +26,9 @@ class IssueService {
         
         if (lifecycle_status) {
             where.lifecycle_status = lifecycle_status;
+            if (lifecycle_status === 'Active') {
+                where.archived = false;
+            }
         } else {
             where.archived = false;
         }

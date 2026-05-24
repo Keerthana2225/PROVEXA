@@ -30,10 +30,9 @@ export default function Issues() {
     const isHistory = viewMode === 'history';
 
     const { data: issues, isLoading } = useQuery({
-        queryKey: ['issues', statusFilter, viewMode],
+        queryKey: ['issues', viewMode], // removed statusFilter to fetch all and filter in frontend
         queryFn: async () => {
             const params = new URLSearchParams();
-            if (statusFilter) params.set('status', statusFilter);
             if (isHistory) {
                 params.set('lifecycle_status', 'Returned');
             } else {
@@ -109,6 +108,30 @@ export default function Issues() {
     const filtered = useMemo(() => {
         if (!issues) return [];
         let result = issues;
+
+        // Apply status filter
+        if (statusFilter) {
+            const today = dayjs().startOf('day');
+            const nextWeek = today.add(7, 'day');
+
+            result = result.filter(issue => {
+                if (statusFilter === 'pending_ack') {
+                    return issue.issue_status === 'Pending Acknowledgement' && !issue.archived;
+                }
+                if (statusFilter === 'acknowledged') {
+                    return issue.issue_status === 'Acknowledged' && !issue.archived;
+                }
+                if (statusFilter === 'renewal_due') {
+                    return dayjs(issue.next_due_date).isBefore(today) && !issue.archived;
+                }
+                if (statusFilter === 'upcoming') {
+                    const due = dayjs(issue.next_due_date);
+                    return due.isAfter(today.subtract(1, 'ms')) && due.isBefore(nextWeek) && !issue.archived;
+                }
+                return true;
+            });
+        }
+
         if (search) {
             const q = search.trim().toLowerCase();
             const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -141,7 +164,7 @@ export default function Issues() {
             const timeB = new Date(b.created_at || b.issued_date).getTime();
             return timeB - timeA;
         });
-    }, [issues, search]);
+    }, [issues, search, statusFilter]);
 
     const toggleSelect = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     const toggleSelectAll = () => {
@@ -158,7 +181,13 @@ export default function Issues() {
     ];
 
     return (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-fade-in">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">Issue Management</h1>
+                    <p className="text-sm text-slate-500 mt-1">Monitor active company asset assignments, trace history logs, verify signatures, and reissue equipment.</p>
+                </div>
+            </div>
 
             {/* ── Toolbar ── */}
             <div className="flex flex-col gap-4">

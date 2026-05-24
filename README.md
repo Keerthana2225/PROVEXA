@@ -297,3 +297,14 @@ Since PROVEXA runs its AI service on standard corporate hardware without a dedic
 ---
 
 **Developed for absolute operational excellence. PROVEXA brings industrial asset accountability into the AI era.**
+
+---
+
+## 10. Recent Updates (Changelog)
+
+**Date: 2026-05-24**
+* **UI/UX Refinements**: Redesigned the admin layout to resolve spacing issues and optimize data presentation.
+* **Replacement Forms**: Fixed bug where the "Size" field was improperly validated in the background, causing form submissions to fail silently for non-apparel items.
+* **Asset Profile Status**: Fixed hardcoded badges in the Employee Asset Profile. The profile now dynamically displays correct `Replacement`, `Additional`, and `Standard` asset tags based on true `allocation_type`.
+* **Approval Modal Cost Visibility**: Fixed an issue where manual cost fields were erroneously displayed during standard free Replacements/Exchanges. The cost fields are now correctly hidden unless the workflow requires a deduction (e.g., Additional items).
+* **Additional Cost Report Export**: Resolved an issue in `ReportService.js` where the "Additional Cost" Excel export artificially constrained the dataset to the current day. The export now accurately captures all historical records to match the dashboard totals perfectly.

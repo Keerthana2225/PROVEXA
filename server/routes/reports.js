@@ -196,7 +196,7 @@ router.get('/replacements/additional-deductions', async (req, res) => {
 
         let totalDeduction = 0;
         records.forEach(r => {
-            const cost = parseFloat(r.deduction_amount) || (parseFloat(r.unit_cost || 0) * parseFloat(r.quantity || 1));
+            const cost = parseFloat(r.total_cost) || 0;
             totalDeduction += cost;
             ws.addRow({
                 emp_code:       r.employee?.emp_code || 'N/A',

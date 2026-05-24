@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronDown, User, Package, Info, AlertTriangle, CheckCircle2,
@@ -168,6 +168,15 @@ export default function ReplacementForm({ isOpen, onClose }) {
     else if (n.includes('shoe') || n.includes('safety')) prefilled = selectedEmployee?.sizes?.shoe || '';
     else if (n.includes('shirt') || n.includes('coat') || n.includes('chudidhar')) prefilled = selectedEmployee?.sizes?.shirt || '';
 
+    // Auto-select previous_issue_id if it's a replacement
+    let autoIssueId = '';
+    if (form.allocation_type === 'Replacement' && activeIssues) {
+       const matchingIssues = activeIssues.filter(i => (i.item?._id || i.item?.id)?.toString() === (item._id || item.id)?.toString());
+       if (matchingIssues.length === 1) {
+           autoIssueId = matchingIssues[0]._id || matchingIssues[0].id;
+       }
+    }
+
     setCartItems(prev => [
       ...prev,
       {
@@ -176,7 +185,7 @@ export default function ReplacementForm({ isOpen, onClose }) {
         quantity: 1,
         size: prefilled,
         unit_cost,
-        previous_issue_id: ''
+        previous_issue_id: autoIssueId
       }
     ]);
   };
@@ -189,25 +198,36 @@ export default function ReplacementForm({ isOpen, onClose }) {
     setCartItems(prev => prev.filter(i => i.cart_id !== cartId));
   };
 
-  // Item filtering: Additional = only official price list items; Replacement = ALL items from master
-  const filteredItems = (items || []).filter(item => {
-    const n = (item.name || '').toLowerCase();
+  // Item filtering
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
 
-    if (form.allocation_type === 'Additional') {
-      const validForGender = officialPrices?.some(p => {
-         const nameMatch = p.item_name.toLowerCase() === n;
-         const genderMatch = p.gender === 'UNISEX' || p.gender === empGender;
-         return nameMatch && genderMatch;
-      });
-      if (!validForGender) return false;
+    let baseItems = items;
+
+    if (form.allocation_type === 'Replacement') {
+        if (!activeIssues || !form.employee_id) return [];
+        // Only show items that are currently issued to the employee
+        const issuedItemIds = new Set(activeIssues.map(issue => (issue.item?._id || issue.item?.id)?.toString()));
+        baseItems = items.filter(item => issuedItemIds.has((item._id || item.id)?.toString()));
+    } else if (form.allocation_type === 'Additional') {
+        // Only show official price list items matching gender
+        baseItems = items.filter(item => {
+            const n = (item.name || '').toLowerCase();
+            return officialPrices?.some(p => {
+               const nameMatch = p.item_name.toLowerCase() === n;
+               const genderMatch = p.gender === 'UNISEX' || p.gender === empGender;
+               return nameMatch && genderMatch;
+            });
+        });
     }
-    // For Replacement: ALL items are shown
 
-    if (!itemSearch.trim()) return true;
+    if (!itemSearch.trim()) return baseItems;
     const searchNorm = itemSearch.toLowerCase().trim().replace(/[-\s]+/g, '');
-    const nameNorm   = n.replace(/[-\s]+/g, '');
-    return nameNorm.includes(searchNorm);
-  });
+    return baseItems.filter(item => {
+        const nameNorm = (item.name || '').toLowerCase().replace(/[-\s]+/g, '');
+        return nameNorm.includes(searchNorm);
+    });
+  }, [items, form.allocation_type, activeIssues, form.employee_id, officialPrices, empGender, itemSearch]);
 
   const filteredEmployees = (employees || []).filter(emp => {
     if (!employeeSearch.trim()) return emp.status === 'active';
@@ -261,7 +281,8 @@ export default function ReplacementForm({ isOpen, onClose }) {
     
     // Validate cart items
     for (const item of cartItems) {
-      if (!item.size?.trim()) {
+      const isSizeRequired = ['uniform', 'shoe', 'apparel', 'ppe'].some(k => (item.item.category?.name || '').toLowerCase().includes(k));
+      if (isSizeRequired && !item.size?.trim()) {
         setError(`Size is required for ${item.item.name}`); return;
       }
       if (form.allocation_type === 'Replacement' && !item.previous_issue_id) {
@@ -547,12 +568,19 @@ export default function ReplacementForm({ isOpen, onClose }) {
                         onChange={e => updateCartItem(cItem.cart_id, 'quantity', parseInt(e.target.value) || 1)}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" />
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Size <span className="text-red-500">*</span></label>
-                      <input type="text" required placeholder="e.g. XL, 42" value={cItem.size}
-                        onChange={e => updateCartItem(cItem.cart_id, 'size', e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" />
-                    </div>
+                    {(() => {
+                        const isSizeRequired = ['uniform', 'shoe', 'apparel', 'ppe'].some(k => (cItem.item.category?.name || '').toLowerCase().includes(k));
+                        return (
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Size {isSizeRequired && <span className="text-red-500">*</span>}
+                            </label>
+                            <input type="text" required={isSizeRequired} placeholder={isSizeRequired ? "e.g. XL, 42" : "Optional"} value={cItem.size || ''}
+                              onChange={e => updateCartItem(cItem.cart_id, 'size', e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm font-bold" />
+                          </div>
+                        );
+                    })()}
                   </div>
 
                   {form.allocation_type === 'Replacement' && (

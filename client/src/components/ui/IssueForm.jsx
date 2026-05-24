@@ -126,7 +126,7 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
                 if (name.includes('intern t-shirt')) suggestedQty = 1;
                 else if (name.includes('t-shirt') || name.includes('tshirt')) suggestedQty = 1;
                 else if (name.includes('shirt')) suggestedQty = 2;
-                else if (name.includes('pant')) suggestedQty = 3;
+                else if (name.includes('pant')) suggestedQty = 2;
             }
             item_quantities[idStr] = suggestedQty;
         }

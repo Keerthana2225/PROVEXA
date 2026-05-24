@@ -87,17 +87,7 @@ class ReportService {
         if (itemId) where.item = itemId;
         if (status) where.status = status;
         if (allocation_type) {
-            if (allocation_type === 'Additional') {
-                const todayStart = new Date();
-                todayStart.setHours(0, 0, 0, 0);
-                where.requested_date = { [Op.gte]: todayStart };
-                where[Op.or] = [
-                    { allocation_type: 'Additional' },
-                    { deduction_amount: { [Op.gt]: 0 } }
-                ];
-            } else {
-                where.allocation_type = allocation_type;
-            }
+            where.allocation_type = allocation_type;
         }
         if (is_salary_deduction !== undefined) {
             if (is_salary_deduction === 'true' || is_salary_deduction === true) {
