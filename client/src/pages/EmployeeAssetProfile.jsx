@@ -138,10 +138,10 @@ export default function EmployeeAssetProfile() {
 
     // Compute missing sizes from active items
     const activeSizes = allCurrentItems.reduce((acc, item) => {
-        if (item.size) {
+        if (item.size && item.size !== 'N/A') {
             const n = (item.item_name || item.item?.name || '').toLowerCase();
-            if (n.includes('shirt') && !acc.shirt) acc.shirt = item.size;
-            else if (n.includes('pant') && !acc.pant) acc.pant = item.size;
+            if ((n.includes('shirt') || n.includes('top') || n.includes('coat')) && !acc.shirt) acc.shirt = item.size;
+            else if ((n.includes('pant') || n.includes('bottom')) && !acc.pant) acc.pant = item.size;
             else if ((n.includes('shoe') || n.includes('safety')) && !acc.shoe) acc.shoe = item.size;
         }
         return acc;
@@ -200,21 +200,7 @@ export default function EmployeeAssetProfile() {
                                         {employee.gender || 'Male'}
                                     </Badge>
                                 </div>
-                                {/* Sizes row */}
-                                {(employee.sizes?.shirt || employee.sizes?.pant || employee.sizes?.shoe) && (
-                                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Sizes:</span>
-                                        {employee.sizes?.shirt && (
-                                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Shirt: {employee.sizes.shirt}</span>
-                                        )}
-                                        {employee.sizes?.pant && (
-                                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Pant: {employee.sizes.pant}</span>
-                                        )}
-                                        {employee.sizes?.shoe && (
-                                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Shoe: {employee.sizes.shoe}</span>
-                                        )}
-                                    </div>
-                                )}
+
                             </div>
                         </div>
                     </div>
@@ -311,8 +297,8 @@ export default function EmployeeAssetProfile() {
                                     { icon: CheckCircle2, label: 'Status', value: employee.status },
                                     { icon: Tag, label: 'Employee Code', value: employee.emp_code },
                                     { icon: Ruler, label: 'Recorded Sizes', value: [
-                                        displaySizes.shirt && `Shirt: ${displaySizes.shirt}`,
-                                        displaySizes.pant && `Pant: ${displaySizes.pant}`,
+                                        displaySizes.shirt && `Top: ${displaySizes.shirt}`,
+                                        displaySizes.pant && `Bottom: ${displaySizes.pant}`,
                                         displaySizes.shoe && `Shoe: ${displaySizes.shoe}`
                                     ].filter(Boolean).join(' | ') || 'Not specified' },
                                 ].map((item, i) => (

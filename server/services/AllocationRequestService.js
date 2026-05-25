@@ -286,6 +286,19 @@ class AllocationRequestService {
         };
 
         const newRequest = await ReplacementRequest.create(recordData);
+
+        if (data.size && data.size !== 'N/A' && emp) {
+            const itemNameLower = item.name.toLowerCase();
+            let sizeField = null;
+            if (itemNameLower.includes('shirt') || itemNameLower.includes('top') || itemNameLower.includes('coat')) sizeField = 'sizes_shirt';
+            else if (itemNameLower.includes('pant') || itemNameLower.includes('bottom')) sizeField = 'sizes_pant';
+            else if (itemNameLower.includes('shoe') || itemNameLower.includes('safety')) sizeField = 'sizes_shoe';
+
+            if (sizeField) {
+                await emp.update({ [sizeField]: data.size });
+            }
+        }
+
         return await ReplacementRequest.findByPk(newRequest._id, { include: [{ model: Employee }, { model: Item }] });
     }
 
