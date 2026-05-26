@@ -6,7 +6,7 @@ import {
     ArrowLeft, PlusCircle, Package, ShieldCheck, FileText,
     RotateCcw, RefreshCw, Loader2, User, Calendar, Briefcase,
     Tag, IndianRupee, TrendingUp, CheckCircle2, Clock, AlertCircle,
-    Layers, ArrowRightLeft, PenTool, ScanLine, Bell, Ruler
+    Layers, ArrowRightLeft, PenTool, ScanLine, Bell, Ruler, Heart
 } from 'lucide-react';
 import api from '../lib/api';
 import IssueForm from '../components/ui/IssueForm';
@@ -161,6 +161,8 @@ export default function EmployeeAssetProfile() {
     const tabs = [
         { key: 'overview',  label: 'Overview',        icon: Layers },
         { key: 'items',     label: 'Current Holdings', icon: Package },
+        { key: 'welfare',   label: 'Welfare & Benefits',icon: Heart },
+        { key: 'renewals',  label: 'Renewal Calendar', icon: Calendar },
         { key: 'costs',     label: 'Additional Costs', icon: IndianRupee },
         { key: 'timeline',  label: 'Activity Log',     icon: Clock },
     ];
@@ -292,15 +294,22 @@ export default function EmployeeAssetProfile() {
                                 {[
                                     { icon: Briefcase, label: 'Department', value: employee.department },
                                     { icon: Tag, label: 'Designation', value: employee.designation || 'N/A' },
-                                    { icon: Calendar, label: 'Joined', value: employee.joining_date ? dayjs(employee.joining_date).format('DD MMM YYYY') : 'N/A' },
-                                    { icon: User, label: 'Employee Type', value: employee.employee_type || 'Permanent' },
+                                    { icon: Calendar, label: 'Joined', value: employee.doj ? dayjs(employee.doj).format('DD MMM YYYY') : 'N/A' },
+                                    { icon: User, label: 'Employee Type', value: employee.employee_type || 'Permanent Employee' },
                                     { icon: CheckCircle2, label: 'Status', value: employee.status },
                                     { icon: Tag, label: 'Employee Code', value: employee.emp_code },
+                                    { icon: ShieldCheck, label: 'Union Status', value: employee.is_union_member ? 'Active Union' : 'Non-Union' },
+                                    { icon: Tag, label: 'Grade Level', value: employee.grade || 'None Specified' },
                                     { icon: Ruler, label: 'Recorded Sizes', value: [
                                         displaySizes.shirt && `Top: ${displaySizes.shirt}`,
                                         displaySizes.pant && `Bottom: ${displaySizes.pant}`,
                                         displaySizes.shoe && `Shoe: ${displaySizes.shoe}`
                                     ].filter(Boolean).join(' | ') || 'Not specified' },
+                                    ...(employee.gender === 'Female' ? [{
+                                        icon: Heart,
+                                        label: 'Attire Option',
+                                        value: employee.is_alternative_attire ? 'Chudidhar Selection' : 'Standard Attire Selection'
+                                    }] : [])
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-start gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0 border border-slate-100">
@@ -464,6 +473,228 @@ export default function EmployeeAssetProfile() {
                             </div>
                         )}
                     </Section>
+                </div>
+            )}
+
+            {/* ── TAB: WELFARE & BENEFITS ── */}
+            {activeTab === 'welfare' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-scale-up">
+                    
+                    {/* Soap Quotas Card */}
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-sm">
+                                <Heart className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-base leading-tight">Operator Soap Allocation</h3>
+                                <p className="text-[10px] text-slate-400 font-medium">Bathing Soap (Quarterly Distribution)</p>
+                            </div>
+                            <span className="ml-auto">
+                                <Badge color={profile.welfareBenefits?.soap?.eligible ? 'emerald' : 'slate'}>
+                                    {profile.welfareBenefits?.soap?.eligible ? 'Soap Eligible' : 'Not Soap Eligible'}
+                                </Badge>
+                            </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                            <div>
+                                <p className="text-[10px] text-slate-400 font-black uppercase">Quarterly Limit</p>
+                                <p className="text-xl font-black text-slate-800 mt-1">{profile.welfareBenefits?.soap?.allowedQuarterly || 0} Soaps</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-slate-400 font-black uppercase">Issued This Quarter</p>
+                                <p className="text-xl font-black text-slate-800 mt-1">{profile.welfareBenefits?.soap?.issuedQuarterly || 0} Soaps</p>
+                            </div>
+                        </div>
+
+                        {profile.welfareBenefits?.soap?.eligible && (
+                            <div className="space-y-1.5 pt-2">
+                                <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                                    <span>Annual Progress ({profile.welfareBenefits?.soap?.totalAnnualSoaps || 0} / 15 soaps issued)</span>
+                                    <span>{Math.round(((profile.welfareBenefits?.soap?.totalAnnualSoaps || 0)/15)*100)}%</span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2 border border-slate-200">
+                                    <div
+                                        className="h-2 rounded-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all"
+                                        style={{ width: `${Math.min(((profile.welfareBenefits?.soap?.totalAnnualSoaps || 0)/15)*100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Towel Quotas Card */}
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-sm">
+                                <Heart className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-base leading-tight">Union Towel Allocation</h3>
+                                <p className="text-[10px] text-slate-400 font-medium">Towel splits (Quarterly Distribution)</p>
+                            </div>
+                            <span className="ml-auto">
+                                <Badge color={profile.welfareBenefits?.towel?.eligible ? 'blue' : 'slate'}>
+                                    {profile.welfareBenefits?.towel?.eligible ? 'Union Towel Eligible' : 'Non-Union'}
+                                </Badge>
+                            </span>
+                        </div>
+                        
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
+                            <div className="flex justify-between">
+                                <span className="text-[10px] text-slate-400 font-black uppercase">Current Quarter Item</span>
+                                <span className="text-xs font-black text-indigo-600 uppercase">{profile.welfareBenefits?.towel?.currentQuarterItem || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-[10px] text-slate-400 font-black uppercase">Target Issue Cycle</span>
+                                <span className="text-xs font-bold text-slate-700">{profile.welfareBenefits?.towel?.nextIssueDate || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between pt-1.5 border-t border-slate-200/50">
+                                <span className="text-[10px] text-slate-400 font-black uppercase">Total Issued (This Year)</span>
+                                <span className="text-xs font-black text-slate-800">{profile.welfareBenefits?.towel?.totalIssuedThisYear || 0} Units</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sweet Box History Card */}
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-sm">
+                                <Heart className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-base leading-tight">Sweet Box Events</h3>
+                                <p className="text-[10px] text-slate-400 font-medium">New Year, Ayudha Pooja, Founders Day</p>
+                            </div>
+                        </div>
+                        
+                        <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs text-slate-600 font-medium leading-relaxed">
+                            <div className="flex justify-between font-bold mb-1">
+                                <span>Per-Event Standard Quota</span>
+                                <span>{profile.welfareBenefits?.sweetBox?.standardBoxes || 0} Box</span>
+                            </div>
+                            <div className="flex justify-between font-bold mb-1.5 pb-1.5 border-b border-slate-200/50 text-amber-700">
+                                <span>Union Bonus Quota</span>
+                                <span>+{profile.welfareBenefits?.sweetBox?.bonusBoxes || 0} Box</span>
+                            </div>
+                            <div className="flex justify-between text-slate-800 font-black">
+                                <span>Total Box Quota Per Event</span>
+                                <span>{profile.welfareBenefits?.sweetBox?.totalPerEvent || 0} Box(es)</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 max-h-28 overflow-y-auto pr-1">
+                            <p className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Distribution History</p>
+                            {profile.welfareBenefits?.sweetBox?.eventsReceived?.length === 0 ? (
+                                <p className="text-xs text-slate-400 italic">No sweet boxes issued yet</p>
+                            ) : (
+                                profile.welfareBenefits?.sweetBox?.eventsReceived?.map((ev, idx) => (
+                                    <div key={idx} className="flex justify-between items-center py-1.5 border-b border-slate-100 text-xs">
+                                        <div>
+                                            <span className="font-bold text-slate-700">{ev.event}</span>
+                                            <span className="text-[9px] text-slate-400 block">{dayjs(ev.date).format('DD MMM YYYY')}</span>
+                                        </div>
+                                        <Badge color="amber">{ev.qty} Box(es)</Badge>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Boost Packet History Card */}
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center shadow-sm">
+                                <Heart className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-800 text-base leading-tight">Boost Packet (1 KG)</h3>
+                                <p className="text-[10px] text-slate-400 font-medium">Blood Donation Benefit Distribution</p>
+                            </div>
+                            <span className="ml-auto bg-rose-50 border border-rose-100 px-2 py-0.5 rounded text-[10px] font-bold text-rose-600 uppercase">
+                                Active Benefit
+                            </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center p-3.5 bg-rose-50/30 border border-rose-100/50 rounded-xl">
+                            <span className="text-xs font-bold text-rose-800">Total Packets Received (Lifetime)</span>
+                            <span className="text-2xl font-black text-rose-700">{profile.welfareBenefits?.boost?.totalBoostPackets || 0} Packets</span>
+                        </div>
+
+                        <div className="space-y-2 max-h-28 overflow-y-auto pr-1">
+                            <p className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Donation Records & Issue History</p>
+                            {profile.welfareBenefits?.boost?.donations?.length === 0 ? (
+                                <p className="text-xs text-slate-400 italic">No donations registered yet</p>
+                            ) : (
+                                profile.welfareBenefits?.boost?.donations?.map((don, idx) => (
+                                    <div key={idx} className="flex justify-between items-center py-1.5 border-b border-slate-100 text-xs">
+                                        <div>
+                                            <span className="font-bold text-slate-700">{don.remarks}</span>
+                                            <span className="text-[9px] text-slate-400 block">{dayjs(don.date).format('DD MMM YYYY')}</span>
+                                        </div>
+                                        <Badge color="red">{don.quantity} Packet</Badge>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── TAB: RENEWAL CALENDAR ── */}
+            {activeTab === 'renewals' && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6 animate-scale-up">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h3 className="font-bold text-slate-800 text-base leading-tight">Policy Renewal Schedule</h3>
+                            <p className="text-xs text-slate-400 mt-1">Check countdown dates and active replacement renewal cycles for uniform and safety apparel items.</p>
+                        </div>
+                    </div>
+
+                    {profile.renewalCalendar?.length === 0 ? (
+                        <div className="text-center py-12 space-y-3">
+                            <Calendar className="w-12 h-12 text-slate-200 mx-auto" />
+                            <p className="text-sm text-slate-500 font-medium">No active items with set renewal frequencies</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {profile.renewalCalendar?.map((item, idx) => {
+                                const isOverdue = item.status === 'Overdue';
+                                const isDue = item.status === 'Renewal Due';
+                                const badgeColor = isOverdue ? 'red' : isDue ? 'amber' : 'emerald';
+                                return (
+                                    <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-xl gap-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isOverdue ? 'bg-red-50 text-red-500' : isDue ? 'bg-amber-50 text-amber-500' : 'bg-emerald-50 text-emerald-500'}`}>
+                                                <Calendar className="w-4.5 h-4.5" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-slate-800">{item.itemName}</h4>
+                                                <p className="text-[10px] text-slate-400 mt-0.5">Last Issued: {dayjs(item.issuedDate).format('DD MMM YYYY')}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-4 ml-12 sm:ml-0">
+                                            <div className="text-left sm:text-right">
+                                                <p className="text-[10px] text-slate-400 uppercase font-black">Renewal Target Date</p>
+                                                <p className="text-xs font-bold text-slate-700 mt-0.5">{dayjs(item.nextDueDate).format('DD MMM YYYY')}</p>
+                                            </div>
+
+                                            <div className="text-left sm:text-right">
+                                                <p className="text-[10px] text-slate-400 uppercase font-black">Countdown</p>
+                                                <p className={`text-xs font-black mt-0.5 ${isOverdue ? 'text-red-600' : isDue ? 'text-amber-600' : 'text-emerald-600'}`}>
+                                                    {isOverdue ? `${Math.abs(item.daysRemaining)} Days Overdue` : `${item.daysRemaining} Days Left`}
+                                                </p>
+                                            </div>
+
+                                            <Badge color={badgeColor}>{item.status}</Badge>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 

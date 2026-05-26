@@ -1,310 +1,742 @@
-# PROVEXA: Enterprise Asset Management & OCR Handover Verification System
+# PROVEXA - Enterprise Asset & Uniform Management System
 
-[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
-[![NodeJS](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=FastAPI&logoColor=white)](https://fastapi.tiangolo.com/)
-[![EasyOCR](https://img.shields.io/badge/EasyOCR-FFA116?style=for-the-badge&logo=python&logoColor=white)](https://github.com/JaidedAI/EasyOCR)
-[![OpenCV](https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](https://opencv.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
-[![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+## Project Title
+**PROVEXA (Asset & Uniform Management System)**
 
-PROVEXA is a modern, enterprise-grade, SaaS-ready Employee Asset Management System. It digitizes the entire lifecycle of company assets—from initial issuing and cyclical renewals to damage replacements and final returns. 
+## 0. Recent Updates (Changelog)
+**Date: 2026-05-24**
 
-At its core, PROVEXA solves a major corporate accountability problem by enforcing strict **handover verification protocols** using high-performance **Computer Vision (OCR)** and **Cryptographic Digital Signatures**.
+- **UI/UX Refinements**: Redesigned the admin layout to resolve spacing issues and optimize data presentation.
+- **Replacement Forms**: Fixed bug where the "Size" field was improperly validated in the background, causing form submissions to fail silently for non-apparel items.
+- **Asset Profile Status**: Fixed hardcoded badges in the Employee Asset Profile. The profile now dynamically displays correct Replacement, Additional, and Standard asset tags based on true `allocation_type`.
+- **Approval Modal Cost Visibility**: Fixed an issue where manual cost fields were erroneously displayed during standard free Replacements/Exchanges. The cost fields are now correctly hidden unless the workflow requires a deduction (e.g., Additional items).
+- **Additional Cost Report Export**: Resolved an issue in `ReportService.js` where the "Additional Cost" Excel export artificially constrained the dataset to the current day. The export now accurately captures all historical records to match the dashboard totals perfectly.
 
----
+## Project Purpose and Business Problem Solved
+PROVEXA solves the operational challenges of tracking, allocating, and verifying physical assets (such as uniforms, safety gear, and IT equipment) issued to employees. Historically, these processes rely on manual ledgers or disconnected spreadsheets, leading to inventory shrinkage, disputes over asset handovers, unrecovered costs for extra items, and lack of compliance tracking. PROVEXA digitizes this entire lifecycle, enforcing strict eligibility rules, automating payroll deduction calculations for out-of-quota requests, and leveraging cutting-edge OCR and digital signature technologies to create non-repudiable proof of asset handover.
 
-## 📖 Table of Contents
-1. [Executive Summary & Business Value](#1-executive-summary--business-value)
-2. [Technology Stack: What, Why, and How?](#2-technology-stack-what-why-and-how)
-   - [Frontend (React SPA)](#frontend-react-spa)
-   - [Backend (Node.js API Gateway)](#backend-nodejs-api-gateway)
-   - [Database Layer (MongoDB / SQL Server)](#database-layer-mongodb--sql-server)
-   - [OCR Microservice (Python / FastAPI)](#ocr-microservice-python--fastapi)
-3. [Deep Dive into Core Business Modules](#3-deep-dive-into-core-business-modules)
-   - [Issues & Verification Workflow](#issues--verification-workflow)
-   - [Replacements & Financial Deductions](#replacements--financial-deductions)
-   - [Advanced Excel Reporting Engine](#advanced-excel-reporting-engine)
-4. [System Architecture](#4-system-architecture)
-5. [Installation & Execution Guide](#5-installation--execution-guide)
-6. [Mobile & Tablet Local Network Setup](#6-mobile--tablet-local-network-setup)
-7. [API Endpoints & Integration](#7-api-endpoints--integration)
-8. [Enterprise Troubleshooting](#8-enterprise-troubleshooting)
-9. [OCR Speed Optimization: High-Performance CPU Pipeline](#9-ocr-speed-optimization-high-performance-cpu-pipeline)
+## Executive Summary
+PROVEXA is a comprehensive, multi-tier web application designed for seamless enterprise asset tracking. It combines a highly responsive React (Vite) frontend, a robust Node.js/Express backend powered by Sequelize (SQL Server), and a dedicated Python FastAPI OCR microservice. The system automates the enforcement of asset quotas based on employee types (e.g., Intern vs. Permanent), streamlines replacement and approval workflows, mathematically proves handovers via ID scanning, and generates detailed financial and operational reports.
+
+## Key Objectives
+- **Centralized Inventory & Asset Ledger**: Provide a single, immutable source of truth for all physical assets.
+- **Automated Policy Enforcement**: Dynamically calculate employee eligibility and flag out-of-policy requests.
+- **Cost Recovery Automation**: Automatically identify additional/excess requests and calculate payroll deductions using an official price list.
+- **Non-Repudiable Verification**: Enforce digital signatures or OCR-based ID card scans before acknowledging an asset handover.
+- **Actionable Intelligence**: Deliver real-time dashboards and comprehensive Excel reports for HR and Payroll departments.
 
 ---
 
-## 1. Executive Summary & Business Value
+## Professional Table of Contents
 
-In large organizations (manufacturing, logistics, corporate IT), tracking physical assets—such as laptops, security badges, custom-sized uniforms, and safety equipment—is critical. 
-
-**The Problem**: Historically, asset handovers are managed via paper sign-off sheets or manual Excel inputs. This leads to lost items, forged signatures, lack of auditability, and massive headaches during offboarding or payroll deduction calculations.
-
-**The Solution**: PROVEXA digitizes this entire flow. When HR issues an item, it sits in a "Pending" state. The employee must physically present themselves and either provide a **Digital Signature** on a tablet, or present their physical company ID card to a webcam, where PROVEXA's **Artificial Intelligence OCR (Optical Character Recognition)** validates their identity in milliseconds. Every transaction is legally and digitally bound to a timestamped audit log.
-
----
-
-## 2. Technology Stack: What, Why, and How?
-
-PROVEXA is built as a highly scalable microservices architecture. By separating the frontend, the core backend, and the AI OCR processing, we achieve maximum performance and maintainability.
-
-### 🛠️ Core Technology Matrix & Tools Used
-
-| Layer | Technology / Library | Purpose & Business Application |
-| :--- | :--- | :--- |
-| **Frontend Core** | React.js 18 (Vite SPA) | High-performance Single Page Application with continuous state management and instant views. |
-| **Styling & Theme**| Tailwind CSS | Premium responsive layout design system with dynamic dark-mode variables. |
-| **Icons** | Lucide React | High-aesthetic vector icon badges for responsive layouts (e.g. `ShieldCheck`, `PenTool`). |
-| **Frontend State** | TanStack React Query | Enterprise client caching, background pre-fetching, and instant query synchronization. |
-| **Date Utilities** | Day.js | Lightweight and ultra-accurate formatting for compliance audits and next due dates. |
-| **Digital Signature**| HTML5 Canvas API | High-fidelity drawn signature capture, pixel mapping, and dynamic image export. |
-| **Camera Feed** | HTML5 MediaDevices API | Native video streams supporting interactive SLR tap-to-focus camera controls. |
-| **Backend Core** | Node.js & Express.js | Ultra-fast async event-driven HTTP API gateway and microservice traffic router. |
-| **Database ODM** | Mongoose & MongoDB | Schema validation, schema safety constraints, and deep relational populations. |
-| **Excel Generator**| ExcelJS Engine | Programmatic spreadsheet building, custom styling, autofit widths, and binary image overlay. |
-| **OCR Gateway** | FastAPI (Python) | High-performance async microservice pipeline hosting heavy AI modules. |
-| **Computer Vision**| OpenCV | Advanced image preprocessing (CLAHE contrast normalization, Otsu binarization). |
-| **Deep Learning** | EasyOCR & PyTorch | Neural network character detection and extraction models. |
-| **Regex Parser** | Python `re` Module | Intelligent pattern matching to safely isolate employee badge numbers from raw OCR. |
-| **Version Control**| Git | Strict codebase state tracking and version control history. |
-
-### Frontend (React SPA)
-* **What we used**: React.js 18 (built with Vite), Tailwind CSS, TanStack React Query, and native Web APIs.
-* **Why we used it**: React allows us to build a Single Page Application (SPA) where the user never experiences full page reloads, providing a smooth, desktop-like software experience. Tailwind CSS allows for rapid, highly-customized UI design without writing messy external CSS files.
-* **How it is implemented**:
-  * **Collapsible Navigation (Sidebar)**: Supports tablet and mobile space optimization through a responsive collapsible sidebar layout. When collapsed, the workspace expands instantly while the navigation shrinks into icon-only mode with smooth `transition-all duration-300` animations.
-  * **SLR Tap-to-Focus Camera**: Features an interactive tap-to-focus video controller. Tapping anywhere on the live camera viewport calculates clicked coordinates, triggers hardware autofocus capabilities (`focusMode: 'continuous'`), and flashes a professional pulsing yellow SLR-style target ring overlay.
-  * **Dynamic Date & Status Sorting**: Optimizes data density by dynamically sorting all spreadsheets and tables with recent dates on top, grouping active/acknowledged records first.
-  * **State Management**: We utilize TanStack Query for data fetching. It automatically caches API responses, retries failed requests, and provides immediate "optimistic updates" to the UI.
-  * **Camera Integration**: We leverage standard HTML5 `navigator.mediaDevices.getUserMedia()` to tap into desktop webcams, tablet cameras, or mobile phone cameras directly from the browser to capture ID cards securely.
-
-### Backend (Node.js API Gateway)
-* **What we used**: Node.js, Express.js, JSON Web Tokens (JWT), Multer.
-* **Why we used it**: Node.js utilizes an event-driven, non-blocking I/O model. This makes it exceptionally fast at handling thousands of simultaneous HTTP requests, database reads, and file uploads without freezing the server.
-* **How it is implemented**:
-  * **API Gateway**: Acts as the central traffic controller. It receives requests from React, validates the JWT authorization token, queries the database, and securely passes image data to the Python OCR service.
-  * **File Storage (Multer)**: When a digital signature is captured, it is sent as a Base64 string. The backend converts this string into a secure `.png` image file and saves it to a protected `/uploads` directory, saving the file path string in the database to prevent database bloat.
-
-### Database Layer (MongoDB / SQL Server)
-* **What we used**: MongoDB (Primary NoSQL) via Mongoose ODM. (System is structurally prepared for Microsoft SQL Server enterprise migration).
-* **Why we used it**: MongoDB’s document-based structure allows for incredibly flexible and rapid schema development. When an `Issue` is created, it can easily reference nested object IDs for the `Employee` and the `Item`. 
-* **How it is implemented**: We use Mongoose to enforce strict schema validation. For example, an `Issue` document requires a quantity, an issued date, and ties directly to a specific employee ID. If HR tries to issue an item that doesn't exist, the schema rejects it, ensuring absolute data integrity.
-
-### OCR Microservice (Python / FastAPI)
-* **What we used**: Python, FastAPI, OpenCV, EasyOCR (PyTorch), NumPy.
-* **Why we used it**: Node.js is excellent for web traffic, but terrible for heavy CPU-bound machine learning tasks. Python is the industry standard for AI. FastAPI provides an ultra-fast, async web server to expose the AI model as an API.
-* **How it is implemented (The Computer Vision Pipeline)**:
-  1. **Base64 Decode**: FastAPI receives the image from Node.js and decodes it into a NumPy multidimensional array (matrix) that OpenCV can understand.
-  2. **CLAHE Normalization**: (Contrast Limited Adaptive Histogram Equalization) is applied. If an ID card is photographed in a dark room or with heavy window glare, CLAHE mathematically evens out the contrast so text pops clearly.
-  3. **Sharpened Otsu Thresholding**: Converts the image into pure black and white pixels based on calculated lighting thresholds, stripping away colorful ID card backgrounds.
-  4. **EasyOCR Processing**: A deep learning model analyzes the pixel patterns and extracts raw text.
-  5. **Regex Extraction**: We use Regular Expressions (e.g., `(?:EMP[.-]?)?(\d{5})`) to search the raw text specifically for 4 or 5 digit patterns that match our company employee codes, discarding irrelevant text (like company address or logos).
+1. [System Overview & Architecture](#system-overview--architecture)
+2. [Core Functionalities & Features](#core-functionalities--features)
+3. [User Roles and Permissions](#user-roles-and-permissions)
+4. [Functional Modules & Relationships](#functional-modules--relationships)
+5. [End-to-End Workflows & Diagrams](#end-to-end-workflows--diagrams)
+6. [Database Structure & Documentation](#database-structure--documentation)
+7. [API Architecture & Documentation](#api-architecture--documentation)
+8. [Security, Validation & Error Handling](#security-validation--error-handling)
+9. [Development & Setup Guide](#development--setup-guide)
+10. [Production Deployment Architecture](#production-deployment-architecture-sql-server-express--pm2--iis)
+11. [Deployment Steps](#deployment-steps-windows-production-setup)
+12. [Maintenance & Checklists](#maintenance--checklists)
 
 ---
 
-## 3. Deep Dive into Core Business Modules
+## System Overview & Architecture
 
-### Issues & Verification Workflow
-**The Concept**: Handing out company property must be documented. 
-**The Execution**:
-1. **Allocation**: An HR admin assigns 2 Uniforms to Employee #11333. The database creates a record with `issue_status: "Pending Acknowledgement"`.
-2. **Verification Modal**: The employee arrives at the desk. HR opens the Verification Modal, offering two legal proof methods.
-3. **Digital Signature**: The employee draws their signature on a tablet. The React `<canvas>` element captures the stroke paths, converts them to an image, and saves it.
-4. **OCR Verification**: Instead of signing, the employee holds up their ID badge to the webcam. The system captures the frame, sends it to the Python AI, extracts "11333", compares it against the database record, and instantly marks the item as **"Verified via OCR"**. This creates a frictionless, 1-second automated handover.
+### System Overview
+PROVEXA uses a decoupled architecture. The React SPA communicates with a Node.js REST API, which interfaces with a SQL Server database via the Sequelize ORM. A specialized Python microservice handles computationally expensive OCR tasks asynchronously.
 
-### Replacements & Financial Deductions
-**The Concept**: Items get damaged or lost. Companies need to track the financial cost of replacing them and whether the employee owes the company money.
-**The Execution**:
-* When requesting a replacement, HR inputs the `Total Cost` and `Deduction Amount`.
-* **State Tracking**: The system tracks the physical exchange. Did the employee return the torn uniform? (`Pending Return` vs `Returned`).
-* **Payroll Ready**: The module displays clear financial badges (e.g., "₹1,500 - ₹500 Deduction"). At the end of the month, this exact data is exported for the payroll department to dock from salaries.
+### Application Architecture
 
-### Advanced Excel Reporting Engine
-**The Concept**: Dashboards are great for viewing, but accounting, payroll, and auditing departments run on Microsoft Excel. We needed a way to provide pristine, raw data.
-**The Execution**:
-* **What we used**: The `exceljs` library on the Node backend.
-* **How it works**: When a user clicks "Export" on the Reports page, the backend fetches thousands of Issue and Replacement records. It creates a binary Excel workbook in memory.
-* **Data Resolution**: It converts meaningless database IDs (like `64ef2899...`) into human-readable strings ("Keerthana - EMP11333").
-* **Deeply Populated Relations**: Patched database queries to perform nested Mongoose deep-population (`.populate({ path: 'item', populate: { path: 'category' } })`) so categories are resolved accurately instead of displaying `'N/A'`.
-* **Automated Formatting**: It automatically calculates column widths based on text length, bolds the header row, adds background colors to cells, and streams the `.xlsx` file directly into the user's browser for download, entirely bypassing the need to store temporary files on the server.
+#### Frontend Structure (React/Vite)
+- **State Management**: `@tanstack/react-query` for asynchronous server state caching/invalidation; React `useState`/`useContext` for local UI state.
+- **Routing Structure**: `react-router-dom` with a protected layout (`Layout.jsx`) guarding authenticated routes.
+- **Component Architecture**: Atomic design principles with reusable base components (`/components/ui`) and distinct page views (`/pages`).
 
----
+#### Backend Structure (Node.js/Express)
+- **Controller/Router Layer**: Express routers map HTTP endpoints to Service layer functions.
+- **Service Layer Explanation**: Thick services (`IssueService.js`, `EligibilityService.js`) encapsulate all business logic, keeping routes thin and testable.
+- **Middleware Explanation**: `auth.js` intercepts requests to validate JWT cookies before granting access to protected routes.
+- **File Upload Mechanism**: Uses base64 JSON payloads instead of `multipart/form-data` to handle digital signatures and ID images natively.
+- **Image/Document Handling Process**: Base64 strings are decoded and saved locally to `/server/public/signatures/` or forwarded directly to the OCR microservice via internal HTTP requests.
 
-## 4. System Architecture
+#### Database Structure (SQL Server)
+- Relational schema optimized for fast timeline reconstruction. Soft deletes/archiving (using `lifecycle_status` and `archived` flags) are heavily utilized to preserve historical audit trails without losing data integrity.
 
+### Mermaid Architecture Diagrams
+
+#### System Architecture Diagram
 ```mermaid
 graph TD
-    A[React SPA Client - User Interface] -->|HTTPS REST API / JSON| B[Node.js / Express API Gateway]
-    A -->|Webcam Image Base64| C[Python FastAPI OCR Microservice]
-    C -->|Extracts Text & Regex ID| B
-    B -->|Mongoose Schema Queries| D[(MongoDB Primary Database)]
-    B -->|Write File Streams| E[Local Disk /uploads/signatures/]
-    B -->|Generates Binary| F[Excel Reports Engine]
+    Client[Web Browser] -->|HTTP/REST| Frontend[React / Vite SPA]
+    Frontend -->|Axios / JSON| API[Node.js / Express API]
+    API -->|Sequelize ORM| DB[(Microsoft SQL Server)]
+    API <-->|Base64 Image Payload| OCR[Python FastAPI OCR Service]
+    
+    subgraph Client Tier
+    Frontend
+    end
+    
+    subgraph Application Tier
+    API
+    OCR
+    end
+    
+    subgraph Data Tier
+    DB
+    end
+```
+
+#### Module Dependency Diagram
+```mermaid
+graph LR
+    AuthModule --> EmployeeModule
+    EmployeeModule --> EligibilityModule
+    InventoryModule --> AllocationModule
+    AllocationModule --> EligibilityModule
+    ReplacementModule --> EligibilityModule
+    ReplacementModule --> InventoryModule
+    VerificationModule --> AllocationModule
+    VerificationModule --> ReplacementModule
+    ReportingModule --> AllocationModule
+    ReportingModule --> ReplacementModule
 ```
 
 ---
 
-## 5. Installation & Execution Guide
+## Core Functionalities & Features
 
-### Prerequisites
-* **Node.js**: v18.0.0+
-* **Python**: v3.9+ (For PyTorch/EasyOCR stability)
-* **MongoDB**: Active local instance (Port 27017)
+### Complete Feature List
+- Secure JWT-based Authentication
+- Comprehensive Dashboard with Real-time Metrics
+- Employee Profile & Asset Timeline Tracking
+- Automated Asset Quota & Eligibility Calculation
+- Bulk and Individual Asset Issuance
+- Replacement & Exchange Workflows
+- Automated Payroll Deduction Calculations (Additional Requests)
+- Digital Signature Capture & Storage
+- Physical ID Card OCR Scanning (PaddleOCR/EasyOCR based)
+- Asset Return & Renewal Lifecycles
+- Exportable Excel Reports (Cost Deductions, Active Issues, Replacements)
 
-### Environment Setup
-Create a `.env` in the `/server` directory:
-```env
-PORT=5000
-JWT_SECRET=PROVEXA_ENTERPRISE_SECRET_KEY_2026
-MONGODB_URL=mongodb://localhost:27017/provexa
-OCR_SERVICE_URL=http://localhost:8001
+### Feature Matrix
+| Feature | Supported | Description |
+|---|---|---|
+| Role-based Access | Yes | Single Admin role implemented; extensible. |
+| Multi-tenancy | No | Single organization deployment. |
+| Automatic Quotas | Yes | Handled via `EligibilityService` & `AllocationConfig`. |
+| Cost Calculation | Yes | Handled via `OfficialPriceList`. |
+| Digital Signatures | Yes | Captured via HTML5 Canvas. |
+| ID Card OCR | Yes | Handled via Python microservice. |
+| Email Notifications | No | Not currently implemented in the codebase. |
+
+---
+
+## User Roles and Permissions
+
+Currently, PROVEXA implements a centralized management model.
+
+### User Role Matrix
+| Role | View Dashboard | Manage Employees | Issue Assets | Approve Replacements | Verify Handovers | Generate Reports |
+|---|---|---|---|---|---|---|
+| **Admin** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Employee** | ❌ (Physical interactions only via Admin terminal) | ❌ | ❌ | ❌ | ❌ | ❌ |
+
+---
+
+## Functional Modules & Relationships
+
+### Business Logic Overview
+The core business logic resides in resolving the conflict between what an employee *wants* and what they are *eligible* for. The `EligibilityService` dynamically calculates this by comparing an employee's `employee_type` against the `AllocationConfig`, minus their currently active `IssueRecords`.
+
+1. **Authentication Flow**: Login -> Validate Hash -> Generate JWT -> Set HTTP-Only Cookie.
+2. **Employee Management**: CRUD operations for employee metadata.
+3. **Inventory Workflow**: Categories created -> Items created under categories -> Stock managed.
+4. **Transaction (Asset Management) Workflow**: Issue requested -> Eligibility checked -> Record created (`Pending`) -> Stock decremented.
+5. **Approval Workflow**: Replacement requested -> Marked `Pending` -> Admin Reviews -> Marked `Approved`.
+6. **OCR Verification Workflow**: Card Photographed -> Sent to Python Service -> Image Preprocessed (CLAHE/Otsu) -> Digits Extracted -> Cross-referenced with Database -> Record Marked `Acknowledged`.
+7. **Reporting & Analytics**: Data queried -> Formatted into Excel via `exceljs` -> Downloaded by client.
+8. **Audit Logging**: All verification attempts (success or fail) are logged in `VerificationLog`.
+
+---
+
+## End-to-End Workflows & Diagrams
+
+### Sequence Diagrams for Major Workflows
+
+#### Asset Verification & Handover (OCR & Signature)
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant UI as React Frontend
+    participant API as Node.js API
+    participant OCR as Python OCR Service
+    participant DB as SQL Server
+
+    Admin->>UI: Uploads ID Photo / Captures Signature
+    UI->>API: POST /api/verification/ocr-scan (Base64)
+    API->>OCR: POST /scan (Base64)
+    OCR-->>API: Extracted Employee ID (e.g., EMP123)
+    API->>DB: Query Employee by ID
+    DB-->>API: Employee Found
+    API->>DB: Update IssueRecord to 'Acknowledged'
+    API->>DB: Insert VerificationLog
+    API-->>UI: Verification Success
+    UI-->>Admin: Updates Dashboard UI
 ```
 
-### Running the System (3 Terminals Required)
+#### Replacement Request & Cost Deduction
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant UI as React Frontend
+    participant API as Node.js API
+    participant DB as SQL Server
 
-**Terminal 1: Python AI Service**
+    Admin->>UI: Submit Replacement Request
+    UI->>API: POST /api/replacements
+    API->>DB: Check EligibilityService (Quotas)
+    alt Limit Exceeded
+        API->>DB: Fetch OfficialPriceList
+        API->>API: Calculate Deduction Amount
+        API->>DB: Create ReplacementRequest (Type: Additional, Cost: X)
+    else Within Limit
+        API->>DB: Create ReplacementRequest (Type: Replacement, Cost: 0)
+    end
+    API-->>UI: Request Created
+```
+
+---
+
+## Database Structure & Documentation
+
+### Database Entities and Relationships (ER Diagram)
+```mermaid
+erDiagram
+    ADMIN {
+        string _id PK
+        string username
+        string password
+    }
+    EMPLOYEE {
+        string _id PK
+        string emp_code UK
+        string name
+        string employee_type
+    }
+    ITEM {
+        string _id PK
+        string name
+        int stock
+        float cost
+    }
+    ISSUE_RECORD {
+        string _id PK
+        string issue_status
+        string lifecycle_status
+        boolean archived
+    }
+    REPLACEMENT_REQUEST {
+        string _id PK
+        string allocation_type
+        float deduction_amount
+        string status
+    }
+    VERIFICATION_LOG {
+        string _id PK
+        string method
+        string status
+    }
+
+    EMPLOYEE ||--o{ ISSUE_RECORD : "Holds"
+    ITEM ||--o{ ISSUE_RECORD : "Allocated as"
+    EMPLOYEE ||--o{ REPLACEMENT_REQUEST : "Requests"
+    EMPLOYEE ||--o{ VERIFICATION_LOG : "Audits"
+```
+
+### Database Documentation Tables
+| Table | Purpose | Important Columns |
+|---|---|---|
+| `Admins` | System administrators. | `username`, `password`, `role` |
+| `Employees` | Workforce roster and metadata. | `emp_code`, `department`, `employee_type`, `sizes_*` |
+| `Items` | Physical inventory ledger. | `name`, `stock`, `cost`, `frequency_days` |
+| `IssueRecords` | Active and historical asset allocations. | `issued_date`, `next_due_date`, `issue_status`, `lifecycle_status`, `archived` |
+| `ReplacementRequests` | Audit of exchanged or additional items. | `allocation_type`, `deduction_amount`, `payment_status`, `status` |
+| `VerificationLogs` | Immutable ledger of handover verifications. | `method`, `status`, `ocr_confidence`, `signature_path` |
+| `AllocationConfigs` | Policy definitions for item quotas. | `item_type`, `permanent_quantity`, `intern_quantity` |
+| `OfficialPriceLists` | Cost matrix for payroll deductions. | `item_name`, `gender`, `price` |
+
+---
+
+## API Architecture & Documentation
+
+### Request and Response Examples
+**Example: OCR Scan Request**
+```json
+// POST /api/verification/ocr-scan
+{
+    "image": "data:image/jpeg;base64,/9j/4AAQSkZJ...",
+    "device_info": "Chrome Windows"
+}
+```
+**Example: OCR Scan Response**
+```json
+{
+    "status": "Verified",
+    "message": "John Doe verified successfully",
+    "employee": { "_id": "uuid-123", "emp_code": "EMP001", "name": "John Doe" },
+    "confidence": 0.95
+}
+```
+
+### API Documentation Tables
+
+#### Authentication Module (`/api/auth`)
+| Endpoint | Method | Purpose | Auth Required |
+|---|---|---|---|
+| `/login` | POST | Authenticates Admin & sets HTTP-only cookie. | No |
+| `/me` | GET | Validates current session token. | Yes |
+| `/logout` | POST | Clears session cookie. | Yes |
+
+#### Employee Module (`/api/employees`)
+| Endpoint | Method | Purpose | Auth Required |
+|---|---|---|---|
+| `/` | GET | Fetches all employees (supports pagination/search). | Yes |
+| `/:id/asset-profile`| GET | Computes real-time asset allocations and risks. | Yes |
+| `/` | POST | Creates a new employee. | Yes |
+
+#### Issue & Allocation Module (`/api/issues`)
+| Endpoint | Method | Purpose | Auth Required |
+|---|---|---|---|
+| `/` | POST | Bulk issues assets to multiple employees. | Yes |
+| `/:id/acknowledge`| PUT | Attaches a signature/OCR scan to finalize issue. | Yes |
+| `/:id/return` | POST | Archives an issue and returns stock. | Yes |
+
+#### Replacement Module (`/api/replacements`)
+| Endpoint | Method | Purpose | Auth Required |
+|---|---|---|---|
+| `/` | POST | Creates a replacement/additional request. | Yes |
+| `/:id/approve` | PUT | Admin approves a pending request. | Yes |
+
+#### Verification Module (`/api/verification`)
+| Endpoint | Method | Purpose | Auth Required |
+|---|---|---|---|
+| `/ocr-scan` | POST | Proxies image to Python OCR service. | Yes |
+| `/signature-log` | POST | Saves Base64 signature to disk. | Yes |
+
+---
+
+## Security, Validation & Error Handling
+
+### Security Implementation
+- **Authentication**: JWT stored exclusively in HTTP-Only cookies (`provexa_token`) to mitigate XSS vector attacks.
+- **CORS**: Enforced at the Express layer to allow only localhost and specific private LAN IP subnets (e.g., `192.168.x.x`).
+- **Data Protection**: Sequelize mitigates SQL injection automatically. Passwords are hashed using `bcryptjs`.
+
+### Validation Mechanisms
+- **Frontend**: Controlled forms using React state, preventing empty submissions.
+- **Backend**: Business layer validation (e.g., `EligibilityService.validateIssue()`) cross-checks quotas and existing active allocations before executing DB transactions. Unique constraints (like `emp_code`) are enforced at the DB level.
+
+### Error Handling Strategy
+- Global `try/catch` blocks in Express route controllers.
+- Specific Sequelize errors (like `SequelizeUniqueConstraintError`) are intercepted and translated into user-friendly HTTP 400 responses (e.g., "Employee code already exists").
+- Python OCR service handles OpenCV/EasyOCR exceptions gracefully, returning fallback JSON instead of crashing.
+
+---
+
+## Development & Setup Guide
+
+### Folder Structure Explanation
+- `/client`: Vite-based React application. Contains `/src/components`, `/src/pages`, and Tailwind configuration.
+- `/server`: Node.js Express application. Contains `/config` (DB connection), `/models` (Sequelize definitions), `/routes`, and `/services`.
+- `/ocr_service`: Python FastAPI application. Contains `main.py` and OCR environment requirements.
+
+### Configuration Files & Environment Variables
+**Server (`/server/.env`)**
+```env
+PORT=5000
+DATABASE_URL="sqlserver://SERVER\INSTANCE;database=ProvexaDB;integratedSecurity=true;trustServerCertificate=true;"
+JWT_SECRET="long-random-string"
+NODE_ENV=development
+OCR_SERVICE_URL="http://127.0.0.1:8001"
+```
+
+### Installation Guide & Local Setup
+
+#### 1. Database Setup Instructions
+- Install Microsoft SQL Server (Express is sufficient).
+- Ensure TCP/IP connections are enabled in SQL Server Configuration Manager.
+- Create an empty database (e.g., `ProvexaDB`).
+- **Migration and Seeding Instructions**: Migrations are currently handled automatically by Sequelize's `sync()` method on application boot. No manual seeding scripts are required; use the UI to populate initial data.
+
+#### 2. Running Supporting Services (OCR)
 ```bash
 cd ocr_service
 python -m venv venv
-venv\Scripts\activate      # Windows
-# source venv/bin/activate # Mac/Linux
+venv\Scripts\activate
 pip install -r requirements.txt
-python -m uvicorn main:app --host 0.0.0.0 --port 8001
+uvicorn main:app --host 0.0.0.0 --port 8001
 ```
 
-**Terminal 2: Node Backend**
+#### 3. Running Backend
 ```bash
 cd server
 npm install
 npm run dev
 ```
 
-**Terminal 3: React Frontend**
+#### 4. Running Frontend
 ```bash
 cd client
 npm install
 npm run dev
 ```
-Open `http://localhost:5173` to access the application.
 
 ---
 
-## 6. Mobile & Tablet Local Network Setup
+## Production Deployment Architecture (SQL Server Express + PM2 + IIS)
 
-To use PROVEXA's Digital Signature or Camera OCR features on a tablet (like an iPad) or a mobile phone, the devices must be connected to the same Wi-Fi network as the host server.
+### Overview
+PROVEXA is designed as an enterprise-grade Asset Management and OCR Verification platform. For production environments, the application is deployed using a Windows-based architecture consisting of Microsoft SQL Server Express, Node.js Backend Services, FastAPI OCR Services, PM2 Process Management, and Internet Information Services (IIS).
 
-### Step 1: Expose the Frontend to the Local Network
-By default, Vite only serves to `localhost`. You must expose it to your Local Area Network (LAN):
-1. Open `client/package.json`.
-2. Change your dev script from `"dev": "vite"` to `"dev": "vite --host"`.
-3. Restart the React frontend. The terminal will output a **Network URL** (e.g., `http://192.168.1.100:5173`).
+This deployment model ensures reliability, scalability, security, and uninterrupted service availability while supporting multiple concurrent users across desktops, tablets, and mobile devices.
 
-### Step 2: Ensure API Endpoints Point to the Network IP
-If your phone connects to `192.168.1.100`, it cannot use `localhost` to hit the backend or OCR service (because `localhost` on a phone means the phone itself).
-1. Update your React frontend API client (e.g., `/client/src/lib/api.js` or environment variables) to point to `http://192.168.1.100:5000` instead of `localhost:5000`.
-2. Update the backend `.env` so that `OCR_SERVICE_URL=http://192.168.1.100:8001`.
+The architecture separates the system into distinct layers, allowing each component to perform its specialized responsibilities efficiently while maintaining loose coupling between services.
 
-### Step 3: Browser Permissions & HTTPS Requirements (CRITICAL)
-Modern browsers (Chrome, Safari, iOS, Android) **strictly block** access to `navigator.mediaDevices.getUserMedia()` (the camera API) unless the site is loaded over a secure `https://` connection, EXCEPT for `localhost`.
-Since your phone is accessing `192.168.1.100` (which is HTTP, not HTTPS), the camera will fail silently or throw a permission error.
+### Architecture Overview
+```text
+Users (HR / Admin / Employees)
+              │
+              ▼
+     IIS Web Server (Port 80/443)
+              │
+              ▼
+      React Frontend (Production Build)
+              │
+              ▼
+     Node.js + Express Backend API
+              │
+              ▼
+          PM2 Process Manager
+              │
+      ┌───────┴────────┐
+      │                │
+      ▼                ▼
+SQL Server Express   FastAPI OCR Service
+(Database Layer)     (AI Processing Layer)
+                           │
+                           ▼
+                 OpenCV + EasyOCR + PyTorch
+```
 
-**How to fix this for development/testing:**
-* **Chrome (Android/Desktop/Tablet):**
-  1. Open Chrome on the device.
-  2. Type `chrome://flags/#unsafely-treat-insecure-origin-as-secure` in the URL bar.
-  3. Enter your host IP (e.g., `http://192.168.1.100:5173`) in the text box.
-  4. Enable the flag and click **Relaunch**.
-* **Safari (iOS/iPad):**
-  1. Testing on raw IPs via HTTP is strictly blocked. You must use a local tunneling service (like **ngrok** or **localtunnel**) which provides a temporary `https://` URL that tunnels securely back to your local port.
+### 1. SQL Server Express – Database Layer
 
-**Production Fix:** You must serve the React build over HTTPS using a reverse proxy (like NGINX or IIS) with a valid SSL certificate. Once served over HTTPS, the browser will automatically prompt the user with: *"PROVEXA wants to Use your Camera. [Allow] / [Block]"*.
+#### Purpose
+SQL Server Express acts as the central data repository of the PROVEXA platform. Every operation performed within the application ultimately results in data being stored, updated, or retrieved from the database.
+
+This layer is responsible for maintaining business-critical information while enforcing strict data integrity and consistency rules.
+
+#### Data Stored
+The database stores:
+- Employee Information
+- User Accounts
+- Departments & Designations
+- Asset Categories & Inventory
+- Asset Issues & Replacements
+- Acknowledgements & OCR Verification Records
+- Digital Signature Records
+- Audit Logs, Reports & System Configuration Data
+
+#### Why SQL Server Express
+Microsoft SQL Server Express was selected because it provides:
+- **Relational Integrity**: Foreign key constraints ensure that all records remain valid and properly connected. Example: An asset issue cannot exist unless Employee exists, Asset exists, Category exists. This prevents orphan records and invalid references.
+- **Enterprise Reporting**: Allows efficient generation of Allocation Reports, Replacement Reports, Cost Analysis, Audit Reports, and Asset Utilization Reports.
+- **Security**: Provides Authentication, Role-Based Access, Database Backups, Data Recovery, and Transaction Logging.
+- **Scalability**: Supports thousands of Employees, Assets, Allocations, and Verification Records without significant performance degradation.
+
+#### Database Communication
+The Node.js backend communicates with SQL Server through Sequelize ORM.
+**Example Flow:**
+`User creates Asset Allocation` -> `React Frontend` -> `Node.js API` -> `Sequelize ORM` -> `SQL Server Express`. The database processes the request and returns confirmation.
+
+### 2. PM2 – Backend Process Management Layer
+
+#### Purpose
+PM2 is responsible for managing backend services and ensuring continuous availability of the Node.js API server.
+Normally, when a Node.js application is started from a terminal (`npm run dev`), the server stops immediately if the terminal closes, user logs out, application crashes, or system restarts. PM2 eliminates these limitations.
+
+#### Key Responsibilities
+- **Process Monitoring**: PM2 continuously monitors backend health. If a process crashes unexpectedly, PM2 detects the failure and initiates an automatic restart. The service becomes available again within seconds.
+- **Automatic Startup**: When Windows reboots, the PM2 Startup Service ensures the Backend Starts Automatically. No manual intervention is required.
+- **Log Management**: PM2 captures all backend logs. Administrators can view User Login Activity, API Errors, Database Errors, OCR Communication Logs, and System Events using `pm2 logs provexa`.
+- **Health Monitoring**: Administrators can verify service status with `pm2 list` (e.g., `provexa online`).
+
+#### Why PM2 Was Selected
+PM2 provides High Availability, Crash Recovery, Centralized Logging, Production Stability, and Low Resource Consumption, making it ideal for enterprise deployment.
+
+### 3. IIS – Web Hosting Layer
+
+#### Purpose
+Internet Information Services (IIS) acts as the public entry point for the application. Instead of exposing development ports to users, IIS provides a clean production environment through a single URL.
+
+#### IIS Production Environment
+Users access `http://192.168.1.100` or `https://provexa.company.com`. IIS internally routes requests to the appropriate services.
+
+#### Responsibilities
+- **Frontend Hosting**: The React production build is hosted directly by IIS. Generated using `npm run build` (output: `client/dist`), IIS serves these optimized static files.
+- **Reverse Proxy**: When React sends API requests (`/api/employees`, `/api/issues`), IIS forwards them automatically to the Node.js Backend without exposing backend ports.
+- **SSL Support**: IIS supports HTTPS encryption through SSL certificates. Benefits include Secure Data Transfer, Browser Trust, Protection Against Interception, and Compliance.
+- **Access Control**: Administrators may configure IP Restrictions, User Authentication, Domain Access Rules, and Firewall Integration.
+
+### 4. FastAPI OCR Service – AI Verification Layer
+
+#### Purpose
+OCR verification is separated into an independent microservice written in Python. Machine learning operations require heavy CPU processing and are therefore isolated from the Node.js backend. This architecture improves Stability, Performance, and Scalability.
+
+#### Technology Stack
+The OCR service uses Python, FastAPI, OpenCV, EasyOCR, PyTorch, and NumPy.
+
+#### OCR Workflow
+- **Step 1 – Capture ID Card**: Employee presents company ID card. Browser camera captures image.
+- **Step 2 – Send Image**: Captured image is sent to FastAPI OCR Service.
+- **Step 3 – Image Enhancement**: OpenCV performs CLAHE Normalization, Contrast Enhancement, Noise Reduction, Otsu Thresholding, and Image Sharpening.
+- **Step 4 – OCR Recognition**: EasyOCR analyzes image pixels and extracts Employee ID.
+- **Step 5 – Validation**: OCR result is compared against Assigned Employee Record stored in SQL Server.
+- **Step 6 – Acknowledgement**: If matched, Issue Status -> Verified via OCR. Transaction becomes legally acknowledged.
+
+### Benefits of This Architecture
+- **High Availability**: PM2 automatically restarts failed services.
+- **Scalability**: Supports growing employee and asset databases.
+- **Security**: HTTPS, access control, and database protection mechanisms.
+- **Maintainability**: Independent frontend, backend, database, and OCR services.
+- **Performance**: Dedicated OCR microservice prevents AI processing from affecting API responsiveness.
+- **Enterprise Readiness**: Suitable for Manufacturing Industries, Logistics Companies, Corporate Offices, Educational Institutions, Healthcare Organizations, and Government Departments requiring secure and auditable asset management workflows.
 
 ---
 
-## 7. API Endpoints & Integration
+## Deployment Steps (Windows Production Setup)
 
-The backend provides a secure REST API. All endpoints (except Login) require a Bearer token in the Authorization header.
+### Step 1: Install Required Software
+Install the following software on the target machine:
+- **Node.js (v18+)**: Download and install Node.js. Verify installation: `node -v` and `npm -v`.
+- **Python (v3.9+)**: Download and install Python. Enable "Add Python to PATH". Verify: `python --version` and `pip --version`.
+- **Microsoft SQL Server Express**: Install SQL Server Express to host the PROVEXA database.
+- **SQL Server Management Studio (SSMS)**: Install SSMS for database administration, backup, restore, and troubleshooting.
+- **IIS (Internet Information Services)**: Enable IIS through Windows Features (`Control Panel` -> `Programs` -> `Turn Windows features on or off` -> `Internet Information Services`). Enable: Web Management Tools, World Wide Web Services, Application Development Features, Static Content, Default Document. Restart the machine if prompted.
 
-### Key Endpoints
+### Step 2: Copy Project Files
+Transfer the following files to the target machine: `PROVEXA_Source.zip` and `provexa.bak`. Extract `PROVEXA_Source.zip` (Example: `D:\Applications\PROVEXA`). Expected structure:
+```text
+PROVEXA
+│
+├── client
+├── server
+├── ocr_service
+├── uploads
+└── README.md
+```
 
-| HTTP Method | Endpoint | Purpose |
-| :--- | :--- | :--- |
-| **POST** | `/api/auth/login` | Authenticates HR user, returns JWT. |
-| **GET** | `/api/employees` | Fetches active workforce data. |
-| **POST** | `/api/issues` | Creates a new asset allocation record. |
-| **PATCH** | `/api/issues/:id/acknowledge` | Processes signature/OCR and locks record. |
-| **GET** | `/api/reports/export` | Triggers backend Excel generation stream. |
-| **POST** | `http://localhost:8001/ocr/scan` | Direct pipeline to Python AI image processor. |
+### Step 3: Restore SQL Server Database
+Open SQL Server Management Studio. Connect to SQL Server. Right-click Databases -> Select `Restore Database...`. Choose Source -> Device, browse and select `provexa.bak`. Click OK. Verify database restoration completed successfully. Confirm tables exist: Employees, Items, Issues, Replacements, Users, AuditLogs.
 
-### Postman Testing Flow
-1. Hit `POST /api/auth/login` with your credentials.
-2. Copy the `token` from the JSON response.
-3. In Postman, go to the **Authorization** tab for your request, select **Bearer Token**, and paste.
-4. For the **Excel Report**, hit `GET /api/reports/export`. Instead of clicking "Send", click the dropdown arrow and select **Send and Download** to save the actual `.xlsx` file.
+### Step 4: Configure Environment Variables
+Create a `.env` file inside the backend (`server`) folder. Example:
+```env
+PORT=5000
+DB_HOST=localhost
+DB_PORT=1433
+DB_NAME=provexa
+DB_USER=sa
+DB_PASSWORD=your_password
+JWT_SECRET=PROVEXA_SECRET_KEY
+OCR_SERVICE_URL=http://localhost:8001
+```
+Modify values according to the local environment.
 
----
+### Step 5: Install Backend Dependencies
+Open terminal:
+```bash
+cd server
+npm install
+```
+This installs Express.js, Sequelize, JWT, Multer, ExcelJS, and other backend packages. Verify installation completed without errors.
 
-## 7. Enterprise Troubleshooting
-
-#### Issue: PyTorch / EasyOCR Fails to Install on Windows
-**Why it happens**: Python PIP attempts to compile C++ libraries from source if pre-compiled binaries aren't found for your system architecture.
-**Solution**: Force install the pre-compiled CPU wheel directly from PyTorch servers:
+### Step 6: Install OCR Service Dependencies
+Open terminal:
+```bash
+cd ocr_service
+python -m venv venv
+```
+Activate environment:
+```bash
+venv\Scripts\activate
+```
+Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+Install PyTorch CPU version:
 ```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-pip install easyocr
 ```
 
-#### Issue: `[winerror 10048] only one usage of each socket address`
-**Why it happens**: You closed a terminal window, but the Node or Python process is still running silently in the background, holding port 5000 or 8001 hostage.
-**Solution**: Kill the ghost process:
-```powershell
-netstat -ano | findstr :5000
-taskkill /PID <PID_NUMBER> /F
+### Step 7: Build React Frontend
+Open terminal:
+```bash
+cd client
+npm install
+npm run build
+```
+Output: `client/dist`. This folder contains optimized production files.
+
+### Step 8: Install PM2
+Install PM2 globally:
+```bash
+npm install -g pm2
+```
+Verify installation: `pm2 -v`.
+
+### Step 9: Start Backend Using PM2
+Navigate to backend folder:
+```bash
+cd server
+```
+Start backend:
+```bash
+pm2 start server.js --name provexa
+```
+Check status: `pm2 list`. Expected: `provexa online`.
+Save configuration:
+```bash
+pm2 save
+```
+This ensures automatic restart after system reboot.
+
+### Step 10: Start OCR Service
+Open a new terminal:
+```bash
+cd ocr_service
+venv\Scripts\activate
+uvicorn main:app --host 0.0.0.0 --port 8001
+```
+Verify: `http://localhost:8001/docs`. FastAPI documentation should load successfully.
+
+### Step 11: Configure IIS Website
+Open IIS Manager. Create a new website (`Sites` -> `Add Website`). Configuration:
+- Site Name: `PROVEXA`
+- Physical Path: `client/dist`
+- Port: `80`
+Click Start Website.
+
+### Step 12: Configure Reverse Proxy
+Install IIS URL Rewrite and Application Request Routing (ARR). Configure routing for `/api/*` to forward to `http://localhost:5000`. This allows React frontend requests to reach the backend API securely through IIS.
+
+### Step 13: Configure Firewall Rules
+Allow the following ports if required by organizational policies:
+- `80` (HTTP)
+- `443` (HTTPS)
+- `5000` (Backend Internal)
+- `8001` (OCR Internal)
+- `1433` (SQL Server)
+
+### Step 14: Verify System Functionality
+Open browser to `http://localhost` or `http://SERVER-IP` and verify:
+- ✅ User Login
+- ✅ Employee Management
+- ✅ Asset Management
+- ✅ Asset Allocation
+- ✅ OCR Verification
+- ✅ Digital Signature Capture
+- ✅ Replacement Workflow
+- ✅ Reporting Dashboard
+- ✅ Excel Export
+- ✅ Audit Logs
+
+#### Final Production Flow
+```text
+User Browser
+      │
+      ▼
+IIS Web Server
+      │
+      ▼
+React Frontend
+      │
+      ▼
+Node.js Backend (PM2)
+      │
+      ▼
+SQL Server Express
+      │
+      ▼
+Business Data
+
+OCR Requests
+      │
+      ▼
+FastAPI OCR Service
+(OpenCV + EasyOCR + PyTorch)
 ```
 
-#### Issue: Webcam Not Activating in Browser
-**Why it happens**: Modern browsers (Chrome, Safari, Edge) strict-block `getUserMedia()` access on non-secure origins to prevent spying.
-**Solution**: The application must be accessed via `http://localhost` or served over a valid `https://` SSL certificate. Local network IPs (e.g. `http://192.168.1.5`) will block the camera unless SSL is configured or the IP is added to the browser's "Insecure origins treated as secure" flag.
+---
+
+## Maintenance & Checklists
+
+### Backup and Restore Procedure
+- **Database**: Use standard SQL Server backup procedures (`.bak` files) via SSMS or automated SQL Agent Jobs.
+- **Files**: Implement scheduled backups (e.g., via `rsync` or AWS S3 sync) of the `/server/public/signatures` directory to prevent loss of audit artifacts.
+
+### Monitoring and Logging Approach
+- **Node.js**: Output logs can be captured via PM2 logs.
+- **OCR Service**: Utilizes Python's native `logging` module to output request processing times and confidence scores to standard output.
+
+### Testing Strategy
+- Currently, manual E2E testing is required. Future implementations should include Jest for Node.js unit testing (specifically testing the `EligibilityService`) and Cypress for React E2E testing.
+
+### Troubleshooting Section
+- **OCR Fails to start/timeout**: Ensure `OCR_SERVICE_URL` exactly matches the port Uvicorn is running on.
+- **Database Connection Refused**: Verify SQL Server is running, TCP/IP is enabled, and the port (default 1433) is not blocked by Windows Firewall.
+- **Signatures not saving**: Verify folder permissions on `/server/public/signatures`.
+
+### Known Limitations
+- The system currently saves image artifacts locally. High-volume enterprise usage could fill the local disk.
+- Lack of multi-tenant support (designed for single organization deployment).
+- No automated email/SMS notifications implemented for upcoming asset renewals.
+
+### Future Enhancements
+- Integration with AWS S3 / Azure Blob Storage for signature and ID image persistence.
+- Integration with an SMTP provider (SendGrid/AWS SES) for employee notifications.
+- Addition of an Employee Self-Service Portal.
+
+### Maintenance Guidelines
+- Regularly purge old logs from PM2.
+- Periodically clear temporary or orphaned signature files if they are not linked to a `VerificationLog`.
+
+### Contribution Guidelines
+- Create feature branches from `main`. Ensure all Node.js services strictly separate business logic from routing.
+
+### Version Information
+- **Current Version**: 1.0.0
+- **OCR Engine Version**: 5.3.0
+
+### License Section
+- Proprietary / Internal Use Only.
 
 ---
 
-## 9. OCR Speed Optimization: High-Performance CPU Pipeline
+### Deployment Checklist
+- [ ] Database created and reachable from Node server.
+- [ ] Node server `.env` variables populated (Production `NODE_ENV`, Strong `JWT_SECRET`).
+- [ ] `/server/public/signatures` directory exists with write permissions.
+- [ ] Python venv created and dependencies installed.
+- [ ] React app built (`npm run build`) and static files deployed.
+- [ ] Reverse proxy (Nginx/IIS) configured to route `/api` to Node.js and serve static files.
 
-Since PROVEXA runs its AI service on standard corporate hardware without a dedicated CUDA GPU, optimizing deep learning execution on the **CPU** is critical. We redesigned the image preprocessing and EasyOCR (PyTorch) execution steps, achieving a **~700% speedup** (reducing scanning time from ~30 seconds down to **1–2 seconds**) without compromising extraction accuracy.
-
-### 🚀 Core Optimization Concepts Used:
-
-1. **CPU Pixel-Area Reduction (7.1x Factor)**
-   * *Problem*: Deep learning models (specifically ResNet/CNN architectures used in OCR detection) scale in computation time relative to the total surface area of the input image. Upscaling images to massive dimensions (like $1600\text{px}$) crushes CPU execution speeds.
-   * *Solution*: We capped the maximum image dimension at **`600px`** and completely eliminated the redundant $2\times$ upscaler. 
-   * *The Math*:
-     * **Old Area**: $1600 \times 1200 \approx 1,920,000$ pixels.
-     * **New Area**: $600 \times 450 \approx 270,000$ pixels.
-     * This **7.1x decrease in pixel count** directly translates to a ~7x reduction in CPU math cycles.
-
-2. **Vocabulary Allowlisting (`allowlist='0123456789'`)**
-   * *Problem*: A standard OCR engine scans for all English letters, numbers, and symbol permutations, which wastes massive CPU loops classifying unwanted characters.
-   * *Solution*: Since PROVEXA validates identity through numeric employee codes, we passed `allowlist='0123456789'` to PyTorch. EasyOCR skips general text processing and restricts its neural network's final classification layer to digit classes, running significantly faster.
-
-3. **Multi-Preprocessing Variant Pipelinining**
-   * Rather than running a generic, heavy OCR pass, we split the input frame into two lightweight, targeted OpenCV-preprocessed variants:
-     * **Variant 1 (CLAHE Color)**: Normalizes color and contrast levels to defeat poor room lighting and camera glare.
-     * **Variant 2 (Sharpened Otsu)**: Binarizes the image to pure black and white. We adjusted the Gaussian Blur sigma to **`1.0`** (down from `2.0`) to prevent fine line text from blurring out at smaller resolutions.
-
-4. **Confidence-Based Early Exit**
-   * The pipeline processes the CLAHE Color variant first. If it extracts a valid employee code with a confidence score of **`>= 0.40`**, the service **immediately returns the result and skips the second variant entirely**, cutting the processing time in half for clean captures.
-
----
-
-**Developed for absolute operational excellence. PROVEXA brings industrial asset accountability into the AI era.**
-
----
-
-## 10. Recent Updates (Changelog)
-
-**Date: 2026-05-24**
-* **UI/UX Refinements**: Redesigned the admin layout to resolve spacing issues and optimize data presentation.
-* **Replacement Forms**: Fixed bug where the "Size" field was improperly validated in the background, causing form submissions to fail silently for non-apparel items.
-* **Asset Profile Status**: Fixed hardcoded badges in the Employee Asset Profile. The profile now dynamically displays correct `Replacement`, `Additional`, and `Standard` asset tags based on true `allocation_type`.
-* **Approval Modal Cost Visibility**: Fixed an issue where manual cost fields were erroneously displayed during standard free Replacements/Exchanges. The cost fields are now correctly hidden unless the workflow requires a deduction (e.g., Additional items).
-* **Additional Cost Report Export**: Resolved an issue in `ReportService.js` where the "Additional Cost" Excel export artificially constrained the dataset to the current day. The export now accurately captures all historical records to match the dashboard totals perfectly.
+### Production Readiness Checklist
+- [ ] CORS strictly configured to production domains/IPs only.
+- [ ] PM2 configured to restart Node.js server on crash.
+- [ ] SQL Server automated daily backups configured.
+- [ ] HTTPS/SSL certificates installed on the web server.

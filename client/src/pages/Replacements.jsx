@@ -261,10 +261,10 @@ export default function Replacements() {
                         </div>
                     </div>
 
-                    {/* Intern / Temporary allocation limits */}
+                    {/* Trainee allocation limits */}
                     <div className="space-y-2">
                         <p className="text-xs font-black text-amber-600 uppercase tracking-widest flex items-center gap-1.5">
-                            <span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span> Intern / Temporary Employees
+                            <span className="w-2 h-2 bg-amber-500 rounded-full inline-block"></span> Trainee Employees
                             <span className="text-[9px] font-bold text-slate-400 normal-case tracking-normal ml-1">(Default: Pant 2, Shirt 2, T-Shirt 1)</span>
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -316,9 +316,38 @@ export default function Replacements() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {[
-                    { label: 'Additional Cost', value: summary?.additional_cost ?? summary?.total_cost, icon: LayoutTemplate, bg: 'bg-indigo-50', text: 'text-indigo-600' },
-                    { label: 'Verified Handovers', value: summary?.paid_count, icon: ShieldCheck, bg: 'bg-emerald-50', text: 'text-emerald-600', isCount: true },
-                    { label: 'Awaiting Handover', value: summary?.approved_count, icon: Clock, bg: 'bg-blue-50', text: 'text-blue-600', isCount: true }
+                    {
+                        label: 'Additional Cost',
+                        value: `₹${(summary?.additional_cost || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        sub: 'Extra uniform requests absorbed by company',
+                        icon: DollarSign,
+                        bg: 'bg-indigo-50',
+                        text: 'text-indigo-600'
+                    },
+                    {
+                        label: 'Upcoming Requests',
+                        value: summary?.upcoming_count ?? 0,
+                        sub: 'Pending approval or awaiting handover',
+                        icon: Clock,
+                        bg: 'bg-amber-50',
+                        text: 'text-amber-600'
+                    },
+                    {
+                        label: 'Verified Handovers',
+                        value: summary?.paid_count ?? 0,
+                        sub: 'Requests completed & acknowledged',
+                        icon: ShieldCheck,
+                        bg: 'bg-emerald-50',
+                        text: 'text-emerald-600'
+                    },
+                    {
+                        label: 'Awaiting Handover',
+                        value: summary?.approved_count ?? 0,
+                        sub: 'Approved, not yet handed over',
+                        icon: ArrowRightLeft,
+                        bg: 'bg-blue-50',
+                        text: 'text-blue-600'
+                    }
                 ].map((stat, i) => (
                     <div key={i} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-3">
                         <div className={`w-12 h-12 ${stat.bg} ${stat.text} rounded-2xl flex items-center justify-center`}>
@@ -326,13 +355,13 @@ export default function Replacements() {
                         </div>
                         <div>
                             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                            <p className="text-2xl font-black text-slate-900">
-                                {stat.isCount ? stat.value : `₹${(stat.value || 0).toLocaleString()}`}
-                            </p>
+                            <p className="text-2xl font-black text-slate-900">{stat.value}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{stat.sub}</p>
                         </div>
                     </div>
                 ))}
             </div>
+
 
             {/* Navigation & Search */}
             <div className="flex flex-col lg:flex-row justify-between items-center gap-6">

@@ -63,11 +63,38 @@ export default function Items() {
     };
 
     const categoryColors = {
-        'Uniform': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-        'Shoes': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-        'Soap': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-        'Boost/Nutrition': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-        'Sweet Box': 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+        'Uniforms': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+        'Linen': 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+        'Welfare': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+        'Safety Gear': 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    };
+
+    const getFrequencyText = (item) => {
+        if (item.fixed_date) {
+            return `📅 Due: ${new Date(item.fixed_date).toLocaleDateString()}`;
+        }
+        const name = (item.name || '').toLowerCase();
+        
+        if (name === 'soap') {
+            return '🔄 Quarterly Distribution (Annual Allocation: 15 Soaps)';
+        }
+        if (name === 'sweet box') {
+            return '🔄 Event Based Distribution';
+        }
+        if (name === 'boost') {
+            return '🔄 Benefit Triggered (Blood Donation)';
+        }
+        if (name === 'turkey towel') {
+            return '🔄 Union Quarterly Distribution (Q1 Split: Issued First Week of April)';
+        }
+        if (name === '3-piece towel set') {
+            return '🔄 Union Quarterly Distribution (Q2 & Q4 Split)';
+        }
+        if (name === 'bedsheet') {
+            return '🔄 Annual Renewal / Union Q3 Split (Issued First Week of October)';
+        }
+        
+        return `🔄 Every ${item.frequency_days} days`;
     };
 
     return (
@@ -140,9 +167,7 @@ export default function Items() {
                             <h4 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{item.name}</h4>
                             <div className="flex items-center gap-2 mb-4">
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                                    {item.fixed_date 
-                                        ? `📅 Due: ${new Date(item.fixed_date).toLocaleDateString()}` 
-                                        : `🔄 Every ${item.frequency_days} days`}
+                                    {getFrequencyText(item)}
                                 </span>
                             </div>
                             <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-5 min-h-[2.5rem]">

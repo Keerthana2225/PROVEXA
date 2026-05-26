@@ -52,10 +52,14 @@ router.post('/', async (req, res) => {
         res.status(201).json({ count: results.length, records: results });
     } catch (error) {
         if (error.status === 400) {
-            return res.status(400).json(error);
+            return res.status(400).json({
+                message: error.message,
+                itemId: error.itemId,
+                activeIssue: error.activeIssue
+            });
         }
         console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: error.message || 'Server error' });
     }
 });
 

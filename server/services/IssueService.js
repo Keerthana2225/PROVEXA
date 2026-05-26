@@ -181,17 +181,107 @@ class IssueService {
 
     async bulkIssue(employeeIds, items, issuedDate, notes, condition, adminId, override = false) {
         const results = [];
+        const eligibilityService = require('./EligibilityService');
         
         for (const empId of employeeIds) {
             const transaction_id = uuidv4();
             const employee = await Employee.findByPk(empId);
             if (!employee) continue;
 
+            // Load employee profile once for efficiency
+            const profile = await eligibilityService.getAssetProfile(empId);
+
             for (const itemInput of items) {
                 const itemId = itemInput.item_id || itemInput.id;
-                const item = await Item.findByPk(itemId);
+                const item = await Item.findByPk(itemId, { include: [{ model: require('../models/ItemCategory') }] });
                 if (!item) continue;
 
+                // --- 1. Policy Quota & Eligibility Check ---
+                if (profile) {
+                    const qtyToIssue = itemInput.quantity || 1;
+                    const catName = item.ItemCategory?.name || '';
+                    const itemName = item.name || '';
+                    const itemLower = itemName.toLowerCase();
+                    const catLower = catName.toLowerCase();
+                    const isUnion = employee.is_union_member === true || employee.employee_type === 'Union Operator';
+
+                    if (itemLower.includes('soap')) {
+                        const soap = profile.welfareBenefits?.soap;
+                        if (!soap?.eligible) {
+                            if (!override) {
+                                const err = new Error(`Employee is not eligible for Soap under company policy.`);
+                                err.status = 400;
+                                throw err;
+                            }
+                        } else if (soap.issuedQuarterly + qtyToIssue > soap.allowedQuarterly) {
+                            if (!override) {
+                                const err = new Error(`Soap allocation limit reached for this quarter. Allowed: ${soap.allowedQuarterly}, Already Issued: ${soap.issuedQuarterly}.`);
+                                err.status = 400;
+                                throw err;
+                            }
+                        }
+                    } else if (itemLower.includes('towel') || itemLower.includes('bedsheet')) {
+                        const towel = profile.welfareBenefits?.towel;
+                        if (!towel?.eligible && !override) {
+                            const err = new Error(`Employee is not eligible for the Union Linen Distribution Program. Only confirmed Union members receive quarterly linen. Use "Yes, Proceed" to issue as an override.`);
+                            err.status = 400;
+                            err.activeIssue = { message: err.message };
+                            throw err;
+                        } else if (towel?.hasIssuedThisQuarter && !override) {
+                            const err = new Error(`Employee has already received their Union Linen distribution for Q${Math.ceil((new Date().getMonth() + 1) / 3)} this year.`);
+                            err.status = 400;
+                            err.activeIssue = { message: err.message };
+                            throw err;
+                        }
+                    } else if (itemLower.includes('sweet box')) {
+                        const sweetBox = profile.welfareBenefits?.sweetBox;
+                        const allowed = sweetBox?.totalPerEvent || 1;
+                        const eventName = notes || 'Festival Event';
+                        const alreadyIssued = profile.allocations.active
+                            .filter(i => (i.item_name || i.item?.name || '').toLowerCase().includes('sweet box') && (i.notes || '').toLowerCase().includes(eventName.toLowerCase()))
+                            .reduce((sum, i) => sum + (i.quantity || 1), 0);
+                        
+                        if (alreadyIssued + qtyToIssue > allowed && !override) {
+                            const err = new Error(`Sweet Box allocation limit reached for this event (${eventName}). Allowed: ${allowed}.`);
+                            err.status = 400;
+                            throw err;
+                        }
+                    } else if (itemLower.includes('boost')) {
+                        // Boost is benefit-triggered (blood donation), always allowed
+                    } else {
+                        // Standard annual/renewal items
+                        const summary = profile.allocations.summary.find(s => 
+                            s.item.toLowerCase() === itemLower ||
+                            s.item.toLowerCase() === catLower ||
+                            (itemLower.includes('shirt') && s.item.toLowerCase().includes('shirt'))
+                        );
+                        
+                        if (!summary) {
+                            if (!override) {
+                                const err = new Error(`Employee is not eligible for ${itemName} according to company policy.`);
+                                err.status = 400;
+                                err.itemId = itemId;
+                                err.activeIssue = { message: `Employee is not eligible for ${itemName} according to company policy.` };
+                                throw err;
+                            }
+                        } else if (summary.remaining < qtyToIssue && summary.allowed > 0) {
+                            if (!override) {
+                                const err = new Error(`Quota limit reached for ${itemName}.`);
+                                err.status = 400;
+                                err.itemId = itemId;
+                                err.activeIssue = { 
+                                    message: `Allocation limit reached for ${itemName}. Proceeding will exceed the allowed quota of ${summary.allowed}.`,
+                                    allowed: summary.allowed,
+                                    issued: summary.issued,
+                                    remaining: summary.remaining
+                                };
+                                throw err;
+                            }
+                        }
+                    }
+                }
+
+                // --- 2. Active Duplicate Check ---
                 if (!override) {
                     const existing = await IssueRecord.findOne({
                         where: {

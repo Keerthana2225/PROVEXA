@@ -4,20 +4,38 @@ const { ReplacementRequest, Employee, Item, IssueRecord, AllocationConfig, Offic
 // Normalize Sequelize PascalCase joins → lowercase
 function normalizeRequest(r) {
     const j = typeof r.toJSON === 'function' ? r.toJSON() : { ...r };
-    if (j.Employee) { j.employee = j.Employee; delete j.Employee; }
-    else if (typeof j.employee === 'string') {
-        j.employee = { _id: j.employee, id: j.employee, name: j.employee_name || 'Unknown', emp_code: 'N/A', department: 'GENERAL' };
+
+    if (j.Employee) {
+        j.employee = j.Employee;
+        delete j.Employee;
+    } else {
+        // Use stored name fields as fallback for orphaned FK records
+        j.employee = {
+            _id: j.employee,
+            id: j.employee,
+            name: j.employee_name || 'Unknown',
+            emp_code: 'N/A',
+            department: 'N/A'
+        };
     }
-    if (j.Item) { j.item = j.Item; delete j.Item; }
-    else if (typeof j.item === 'string') {
-        j.item = { _id: j.item, id: j.item, name: j.item_name || 'Unknown' };
+
+    if (j.Item) {
+        j.item = j.Item;
+        delete j.Item;
+    } else {
+        j.item = {
+            _id: j.item,
+            id: j.item,
+            name: j.item_name || 'Unknown'
+        };
     }
+
     return j;
 }
 
 const EMPLOYEE_ELIGIBILITY = {
-    'Intern':    ['pant', 'shirt', 'intern t-shirt', 't-shirt'],
-    'Permanent': ['shirt', 'pant', 't-shirt', 'safety shoes', 'safety shoe', 'liberty shoes', 'shoe', 'coat', 'chudidhar'],
+    'Trainee':   ['pant', 'shirt', 't-shirt', 'safety shoes', 'socks'],
+    'Permanent': ['shirt', 'pant', 't-shirt', 'safety shoes', 'safety shoe', 'liberty shoes', 'shoe', 'coat', 'chudidhar', 'socks'],
 };
 
 function isItemEligibleForFree(itemName, empType) {
@@ -37,12 +55,11 @@ function getItemType(itemName) {
 async function getStandardLimit(itemType, employeeType = 'Permanent') {
     const config = await AllocationConfig.findOne({ where: { item_type: itemType } });
     if (config) {
-        if (employeeType === 'Intern') return config.intern_quantity ?? 1;
         return config.permanent_quantity ?? config.standard_quantity;
     }
     const defaults = {
         'Permanent': { 'Pant': 2, 'Shirt': 2, 'T-Shirt': 1 },
-        'Intern':    { 'Pant': 2, 'Shirt': 2, 'T-Shirt': 1 },
+        'Trainee':   { 'Pant': 2, 'Shirt': 2, 'T-Shirt': 1 },
     };
     return (defaults[employeeType] || defaults['Permanent'])[itemType] || 0;
 }
@@ -98,7 +115,6 @@ class AllocationRequestService {
             { item_name: 'Pant',              price: 349.65, gender: 'MEN' },
             { item_name: 'Shirt Full Sleeve', price: 370.65, gender: 'MEN' },
             { item_name: 'T-Shirt',           price: 267.75, gender: 'MEN' },
-            { item_name: 'Intern T-Shirt',    price: 304.50, gender: 'MEN' },
             { item_name: 'Safety Shoes',      price: 588.00, gender: 'MEN' },
             { item_name: 'Liberty Shoes',     price: 1764.10, gender: 'MEN' },
             { item_name: 'Shoe (BATA)',        price: 1475.00, gender: 'MEN' },
@@ -179,19 +195,28 @@ class AllocationRequestService {
     }
 
     async getSummary() {
-        // Additional cost = sum of all Additional allocation requests (any status)
+        // Additional cost = sum of Additional type requests only (company-absorbed extra uniform cost)
         const additionalRequests = await ReplacementRequest.findAll({
-            where: { allocation_type: 'Additional' }
+            where: { allocation_type: { [Op.in]: ['Additional', 'additional'] } }
         });
         let additionalCost = 0;
         additionalRequests.forEach(r => { additionalCost += (parseFloat(r.total_cost) || 0); });
-        
-        const [pendingCount, approvedCount, paidCount] = await Promise.all([
+
+        const [pendingCount, approvedCount, paidCount, upcomingCount] = await Promise.all([
             ReplacementRequest.count({ where: { status: { [Op.in]: ['Pending', 'pending'] } } }),
             ReplacementRequest.count({ where: { status: { [Op.in]: ['Approved', 'approved'] } } }),
-            ReplacementRequest.count({ where: { status: { [Op.in]: ['Completed', 'completed'] } } })
+            ReplacementRequest.count({ where: { status: { [Op.in]: ['Completed', 'completed'] } } }),
+            ReplacementRequest.count({ where: { status: { [Op.in]: ['Pending', 'pending', 'Approved', 'approved'] } } })
         ]);
-        return { total_cost: additionalCost, additional_cost: additionalCost, pending_count: pendingCount, approved_count: approvedCount, paid_count: paidCount };
+
+        return {
+            total_cost: additionalCost,
+            additional_cost: additionalCost,
+            pending_count: pendingCount,
+            approved_count: approvedCount,
+            paid_count: paidCount,
+            upcoming_count: upcomingCount
+        };
     }
 
     async create(data) {

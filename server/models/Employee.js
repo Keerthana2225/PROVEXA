@@ -20,6 +20,9 @@ const Employee = sequelize.define('Employee', {
     sizes_shirt: { type: DataTypes.STRING, defaultValue: '' },
     sizes_pant: { type: DataTypes.STRING, defaultValue: '' },
     sizes_shoe: { type: DataTypes.STRING, defaultValue: '' },
+    grade: { type: DataTypes.STRING, defaultValue: '' },
+    is_union_member: { type: DataTypes.BOOLEAN, defaultValue: false },
+    is_alternative_attire: { type: DataTypes.BOOLEAN, defaultValue: false },
     sizes: {
         type: DataTypes.VIRTUAL,
         get() {

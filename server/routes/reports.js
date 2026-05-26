@@ -325,4 +325,353 @@ router.get('/replacements/history', async (req, res) => {
     }
 });
 
+router.get('/policy-export', async (req, res) => {
+    try {
+        const { type } = req.query;
+        const workbook = new ExcelJS.Workbook();
+        let worksheet;
+        let filename = `Policy_Report_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+
+        const { IssueRecord, Employee, Item, ItemCategory } = require('../models');
+
+        // Load all active employees and issues
+        const employees = await Employee.findAll({ order: [['name', 'ASC']] });
+        const issues = await IssueRecord.findAll({
+            where: { archived: false },
+            include: [{ model: Employee }, { model: Item, include: [{ model: ItemCategory }] }],
+            order: [['issued_date', 'DESC']]
+        });
+        
+        // Helper to format worksheets
+        function styleHeader(ws) {
+            const headerRow = ws.getRow(1);
+            headerRow.height = 30;
+            headerRow.eachCell(cell => {
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } }; // Dark charcoal gray header
+                cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            });
+        }
+        function styleRows(ws) {
+            ws.eachRow((row, rowNumber) => {
+                if (rowNumber > 1) {
+                    row.height = 24;
+                    row.alignment = { vertical: 'middle', horizontal: 'center' };
+                    if (rowNumber % 2 === 0) {
+                        row.eachCell(cell => {
+                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } }; // light zebra shading
+                        });
+                    }
+                }
+            });
+        }
+
+        if (type === 'uniform') {
+            worksheet = workbook.addWorksheet('Uniform Distribution');
+            filename = `Uniform_Distribution_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Category', key: 'category', width: 18 },
+                { header: 'Gender', key: 'gender', width: 10 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Attire Preference', key: 'attire', width: 22 },
+                { header: 'Item Distributed', key: 'item', width: 22 },
+                { header: 'Quantity', key: 'qty', width: 10 },
+                { header: 'Issued Date', key: 'issued_date', width: 15 },
+                { header: 'Next Renewal Date', key: 'next_due', width: 18 }
+            ];
+
+            const uniformIssues = issues.filter(i => {
+                const n = (i.item_name || i.item?.name || '').toLowerCase();
+                return n.includes('pant') || n.includes('shirt') || n.includes('t-shirt') || n.includes('socks') || n.includes('chudidhar') || n.includes('coat');
+            });
+
+            uniformIssues.forEach(i => {
+                const emp = i.Employee || {};
+                worksheet.addRow({
+                    emp_code: emp.emp_code || i.employee_name || 'N/A',
+                    name: emp.name || i.employee_name || 'N/A',
+                    category: emp.employee_type || 'N/A',
+                    gender: emp.gender || 'N/A',
+                    dept: emp.department || 'N/A',
+                    attire: emp.is_alternative_attire ? 'Chudidhar' : 'Standard',
+                    item: i.item_name || 'N/A',
+                    qty: i.quantity || 1,
+                    issued_date: dayjs(i.issued_date).format('YYYY-MM-DD'),
+                    next_due: i.next_due_date ? dayjs(i.next_due_date).format('YYYY-MM-DD') : 'N/A'
+                });
+            });
+        }
+        else if (type === 'safety') {
+            worksheet = workbook.addWorksheet('Safety Equipment');
+            filename = `Safety_Equipment_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Category', key: 'category', width: 18 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Designation', key: 'desig', width: 18 },
+                { header: 'Safety Gear Item', key: 'item', width: 22 },
+                { header: 'Quantity', key: 'qty', width: 10 },
+                { header: 'Issued Date', key: 'issued_date', width: 15 },
+                { header: 'Next Renewal Date', key: 'next_due', width: 18 }
+            ];
+
+            const safetyIssues = issues.filter(i => {
+                const n = (i.item_name || i.item?.name || '').toLowerCase();
+                return n.includes('helmet') || n.includes('spectacles') || n.includes('raincoat') || n.includes('safety shoes');
+            });
+
+            safetyIssues.forEach(i => {
+                const emp = i.Employee || {};
+                worksheet.addRow({
+                    emp_code: emp.emp_code || 'N/A',
+                    name: emp.name || 'N/A',
+                    category: emp.employee_type || 'N/A',
+                    dept: emp.department || 'N/A',
+                    desig: emp.designation || 'N/A',
+                    item: i.item_name || 'N/A',
+                    qty: i.quantity || 1,
+                    issued_date: dayjs(i.issued_date).format('YYYY-MM-DD'),
+                    next_due: i.next_due_date ? dayjs(i.next_due_date).format('YYYY-MM-DD') : 'N/A'
+                });
+            });
+        }
+        else if (type === 'welfare') {
+            worksheet = workbook.addWorksheet('Welfare Distributions');
+            filename = `Welfare_Distribution_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Category', key: 'category', width: 18 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Welfare Item', key: 'item', width: 22 },
+                { header: 'Quantity', key: 'qty', width: 10 },
+                { header: 'Issued Date', key: 'issued_date', width: 15 },
+                { header: 'Event / Remarks', key: 'notes', width: 25 }
+            ];
+
+            const welfareIssues = issues.filter(i => {
+                const n = (i.item_name || i.item?.name || '').toLowerCase();
+                return n.includes('soap') || n.includes('towel') || n.includes('sweet box') || n.includes('boost') || n.includes('bedsheet');
+            });
+
+            welfareIssues.forEach(i => {
+                const emp = i.Employee || {};
+                worksheet.addRow({
+                    emp_code: emp.emp_code || 'N/A',
+                    name: emp.name || 'N/A',
+                    category: emp.employee_type || 'N/A',
+                    dept: emp.department || 'N/A',
+                    item: i.item_name || 'N/A',
+                    qty: i.quantity || 1,
+                    issued_date: dayjs(i.issued_date).format('YYYY-MM-DD'),
+                    notes: i.notes || 'Welfare Distribution'
+                });
+            });
+        }
+        else if (type === 'towel') {
+            worksheet = workbook.addWorksheet('Towel Splits');
+            filename = `Towel_Distribution_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Union Member', key: 'is_union', width: 15 },
+                { header: 'Quarterly Towel Item', key: 'item', width: 22 },
+                { header: 'Quantity', key: 'qty', width: 10 },
+                { header: 'Issued Date', key: 'issued_date', width: 15 }
+            ];
+
+            const towelIssues = issues.filter(i => {
+                const n = (i.item_name || i.item?.name || '').toLowerCase();
+                return n.includes('towel') || (n.includes('bedsheet') && i.Employee?.is_union_member);
+            });
+
+            towelIssues.forEach(i => {
+                const emp = i.Employee || {};
+                worksheet.addRow({
+                    emp_code: emp.emp_code || 'N/A',
+                    name: emp.name || 'N/A',
+                    dept: emp.department || 'N/A',
+                    is_union: emp.is_union_member ? 'Yes' : 'No',
+                    item: i.item_name || 'N/A',
+                    qty: i.quantity || 1,
+                    issued_date: dayjs(i.issued_date).format('YYYY-MM-DD')
+                });
+            });
+        }
+        else if (type === 'bedsheet') {
+            worksheet = workbook.addWorksheet('Bedsheet Distribution');
+            filename = `Bedsheet_Distribution_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Category', key: 'category', width: 18 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Bedsheet Item', key: 'item', width: 22 },
+                { header: 'Quantity', key: 'qty', width: 10 },
+                { header: 'Issued Date', key: 'issued_date', width: 15 }
+            ];
+
+            const bedIssues = issues.filter(i => (i.item_name || i.item?.name || '').toLowerCase().includes('bedsheet'));
+            bedIssues.forEach(i => {
+                const emp = i.Employee || {};
+                worksheet.addRow({
+                    emp_code: emp.emp_code || 'N/A',
+                    name: emp.name || 'N/A',
+                    category: emp.employee_type || 'N/A',
+                    dept: emp.department || 'N/A',
+                    item: i.item_name || 'N/A',
+                    qty: i.quantity || 1,
+                    issued_date: dayjs(i.issued_date).format('YYYY-MM-DD')
+                });
+            });
+        }
+        else if (type === 'sweetbox') {
+            worksheet = workbook.addWorksheet('Sweet Boxes');
+            filename = `SweetBox_Distribution_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Category', key: 'category', width: 18 },
+                { header: 'Union Member', key: 'is_union', width: 15 },
+                { header: 'Festival Event', key: 'event', width: 20 },
+                { header: 'Sweet Box Qty', key: 'qty', width: 14 },
+                { header: 'Issued Date', key: 'issued_date', width: 15 }
+            ];
+
+            const sweetIssues = issues.filter(i => (i.item_name || i.item?.name || '').toLowerCase().includes('sweet box'));
+            sweetIssues.forEach(i => {
+                const emp = i.Employee || {};
+                worksheet.addRow({
+                    emp_code: emp.emp_code || 'N/A',
+                    name: emp.name || 'N/A',
+                    category: emp.employee_type || 'N/A',
+                    is_union: emp.is_union_member ? 'Yes' : 'No',
+                    event: i.notes || 'Festival Event',
+                    qty: i.quantity || 1,
+                    issued_date: dayjs(i.issued_date).format('YYYY-MM-DD')
+                });
+            });
+        }
+        else if (type === 'boost') {
+            worksheet = workbook.addWorksheet('Boost Distributions');
+            filename = `BloodDonation_Boost_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Item Issued', key: 'item', width: 18 },
+                { header: 'Quantity', key: 'qty', width: 10 },
+                { header: 'Issued Date', key: 'issued_date', width: 15 },
+                { header: 'Blood Donation Log / Notes', key: 'notes', width: 30 }
+            ];
+
+            const boostIssues = issues.filter(i => (i.item_name || i.item?.name || '').toLowerCase().includes('boost'));
+            boostIssues.forEach(i => {
+                const emp = i.Employee || {};
+                worksheet.addRow({
+                    emp_code: emp.emp_code || 'N/A',
+                    name: emp.name || 'N/A',
+                    dept: emp.department || 'N/A',
+                    item: i.item_name || 'N/A',
+                    qty: i.quantity || 1,
+                    issued_date: dayjs(i.issued_date).format('YYYY-MM-DD'),
+                    notes: i.notes || 'Blood Donated Benefit'
+                });
+            });
+        }
+        else if (type === 'renewals') {
+            worksheet = workbook.addWorksheet('Upcoming Renewals');
+            filename = `Upcoming_Renewals_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Item Name', key: 'item', width: 22 },
+                { header: 'Last Issued', key: 'last_issued', width: 15 },
+                { header: 'Next Renewal Date', key: 'next_due', width: 18 },
+                { header: 'Countdown Status', key: 'countdown', width: 20 },
+                { header: 'Status Flag', key: 'status', width: 15 }
+            ];
+
+            issues.forEach(i => {
+                if (i.next_due_date) {
+                    const days = dayjs(i.next_due_date).diff(dayjs(), 'day');
+                    let status = 'Active';
+                    if (days < 0) status = 'Overdue';
+                    else if (days <= 30) status = 'Renewal Due';
+
+                    const emp = i.Employee || {};
+                    worksheet.addRow({
+                        emp_code: emp.emp_code || 'N/A',
+                        name: emp.name || 'N/A',
+                        dept: emp.department || 'N/A',
+                        item: i.item_name || 'N/A',
+                        last_issued: dayjs(i.issued_date).format('YYYY-MM-DD'),
+                        next_due: dayjs(i.next_due_date).format('YYYY-MM-DD'),
+                        countdown: days < 0 ? `${Math.abs(days)} Days Overdue` : `${days} Days Left`,
+                        status
+                    });
+                }
+            });
+        }
+        else if (type === 'balance') {
+            worksheet = workbook.addWorksheet('Allocation Balance');
+            filename = `Allocation_Balances_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+            worksheet.columns = [
+                { header: 'Employee ID', key: 'emp_code', width: 15 },
+                { header: 'Employee Name', key: 'name', width: 22 },
+                { header: 'Category', key: 'category', width: 18 },
+                { header: 'Department', key: 'dept', width: 15 },
+                { header: 'Grade', key: 'grade', width: 12 },
+                { header: 'Union Status', key: 'is_union', width: 15 },
+                { header: 'Item / Category Name', key: 'item', width: 22 },
+                { header: 'Allowed Quota', key: 'allowed', width: 14 },
+                { header: 'Issued Quota', key: 'issued', width: 14 },
+                { header: 'Remaining Balance', key: 'remaining', width: 18 },
+                { header: 'Eligibility Status', key: 'status', width: 18 }
+            ];
+
+            const eligibilityService = require('../services/EligibilityService');
+
+            for (const emp of employees) {
+                const profile = await eligibilityService.getAssetProfile(emp._id || emp.id);
+                if (profile && profile.allocations && profile.allocations.summary) {
+                    profile.allocations.summary.forEach(sum => {
+                        worksheet.addRow({
+                            emp_code: emp.emp_code || 'N/A',
+                            name: emp.name || 'N/A',
+                            category: emp.employee_type || 'N/A',
+                            dept: emp.department || 'N/A',
+                            grade: emp.grade || 'N/A',
+                            is_union: emp.is_union_member ? 'Union' : 'Non-Union',
+                            item: sum.item,
+                            allowed: sum.allowed,
+                            issued: sum.issued,
+                            remaining: sum.remaining,
+                            status: sum.status
+                        });
+                    });
+                }
+            }
+        } else {
+            return res.status(400).json({ message: 'Invalid report type requested' });
+        }
+
+        styleHeader(worksheet);
+        styleRows(worksheet);
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error('Policy Export Error:', error);
+        res.status(500).json({ message: 'Server error generating policy report' });
+    }
+});
+
 module.exports = router;

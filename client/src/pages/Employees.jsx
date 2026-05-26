@@ -132,8 +132,8 @@ export default function Employees() {
                                                         <p className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{emp.name}</p>
                                                         <div className="flex items-center gap-2 mt-1">
                                                             <span className="font-mono text-[10px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded">{emp.emp_code}</span>
-                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${emp.employee_type === 'Intern' ? 'text-amber-500' : 'text-blue-500'}`}>
-                                                                • {emp.employee_type || 'Permanent'}
+                                                            <span className={`text-[9px] font-black uppercase tracking-widest ${emp.employee_type === 'Trainee' ? 'text-amber-500' : 'text-blue-500'}`}>
+                                                                • {emp.employee_type || 'Permanent Employee'}
                                                             </span>
                                                         </div>
                                                     </div>
