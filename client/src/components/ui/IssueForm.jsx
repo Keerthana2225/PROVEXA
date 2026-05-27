@@ -1,10 +1,47 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { Search, Package, Check, Shield, ShieldOff, Users, Filter } from 'lucide-react';
+import { Search, Package, Check, Shield, ShieldOff, Users, Filter, Heart } from 'lucide-react';
 import api from '../../lib/api';
 import Modal from '../ui/Modal';
 import { toast } from '../ui/Toast';
+
+// Helper to verify item eligibility based on employee profile parameters and welfare criteria
+function isItemEligible(item, profile) {
+  if (!profile) return true;
+
+  const name = (item.name || '').toLowerCase();
+  const catName = (item.category?.name || item.ItemCategory?.name || '').toLowerCase();
+
+  // 1. Check if name/category matches any keyword in profile.eligibility
+  // Use exact match or startsWith (with space separator) to prevent 'T-Shirt' keyword
+  // from incorrectly matching 'Intern T-Shirt' via loose includes.
+  const keywords = profile.eligibility || [];
+  const matchesKeyword = keywords.some(keyword => {
+    const kw = keyword.toLowerCase();
+    // Exact name match (e.g., 'T-Shirt' === 'T-Shirt')
+    if (name === kw) return true;
+    // StartsWith + space: 'Shirt Full Sleeve' starts with 'shirt ' → matches keyword 'Shirt'
+    if (name.startsWith(kw + ' ')) return true;
+    // Exact category match
+    if (catName === kw) return true;
+    return false;
+  });
+  if (matchesKeyword) return true;
+
+  // 2. Welfare/Linen items eligibility checks
+  const soap = profile.welfareBenefits?.soap;
+  if (name.includes('soap') && soap?.eligible) return true;
+
+  const towel = profile.welfareBenefits?.towel;
+  if (towel?.eligible && (name.includes('towel') || name.includes('bedsheet'))) return true;
+
+  if (name.includes('sweet box')) return true; // standard sweetbox rules checked inside backend
+  if (name.includes('boost')) return true; // standard blood benefit
+  if (name.includes('calendar')) return true; // standard calendar
+
+  return false;
+}
 
 export default function IssueForm({ isOpen, onClose, initialData, profileData }) {
   const queryClient = useQueryClient();
@@ -18,6 +55,25 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
   });
   const [error, setError] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState(null);
+  const [donatedBlood, setDonatedBlood] = useState(false);
+  const [filterByEligibility, setFilterByEligibility] = useState(true);
+
+  const singleEmployeeId = form.employee_ids.length === 1 ? form.employee_ids[0] : null;
+
+  const { data: singleProfile } = useQuery({
+    queryKey: ['employee-profile', singleEmployeeId],
+    queryFn: async () => {
+      const { data } = await api.get(`/employees/${singleEmployeeId}/asset-profile`);
+      return data;
+    },
+    enabled: isOpen && !!singleEmployeeId,
+  });
+
+  const activeProfile = profileData || singleProfile;
+
+  useEffect(() => {
+    setFilterByEligibility(true);
+  }, [singleEmployeeId]);
 
   // Employee filter state: 'all' | 'union' | 'nonunion'
   const [empFilter, setEmpFilter] = useState('all');
@@ -97,7 +153,12 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
   const filteredItems = items?.filter(item =>
     item.name?.toLowerCase().includes(itemSearch.toLowerCase().trim()) ||
     item.category?.name?.toLowerCase().includes(itemSearch.toLowerCase().trim())
-  );
+  ).filter(item => {
+    if (activeProfile && filterByEligibility) {
+      return isItemEligible(item, activeProfile);
+    }
+    return true;
+  });
 
   const toggleEmployee = (id) => {
     if (!id) return;
@@ -142,8 +203,28 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
         let suggestedQty = 1;
         if (itemObj) {
           const name = (itemObj.name || '').toLowerCase();
-          if (name.includes('shirt')) suggestedQty = 2;
-          else if (name.includes('pant')) suggestedQty = 2;
+          const isNewJoining = activeProfile?.isNewJoining === true;
+          const summary = activeProfile?.allocations?.summary || [];
+
+          // Helper: get remaining qty from profile allocation summary for a given item label
+          const getRemaining = (labels) => {
+            const match = summary.find(s => labels.some(l => s.item?.toLowerCase() === l.toLowerCase()));
+            return match ? Math.max(1, match.remaining) : null;
+          };
+
+          if (name.includes('t-shirt') || name.includes('intern t-shirt'))
+            suggestedQty = 1; // always 1
+          else if (name === 'soap' || name.startsWith('soap '))
+            // Soap: first 3 months → 3, after 3 months → 4 (from backend welfare profile)
+            suggestedQty = activeProfile?.welfareBenefits?.soap?.allowedQuarterly ?? 3;
+          else if (name.includes('shirt') || name.includes('chudidhar top'))
+            suggestedQty = getRemaining(['Shirt', 'Chudidhar Top']) ?? 2;
+          else if (name.includes('pant') || name.includes('chudidhar bottom'))
+            suggestedQty = getRemaining(['Pant', 'Chudidhar Bottom']) ?? (isNewJoining ? 3 : 2);
+          else if (name.includes('socks'))
+            suggestedQty = getRemaining(['Socks']) ?? 2;
+          else if (name.includes('chudidhar coat'))
+            suggestedQty = 1;
         }
         item_quantities[idStr] = suggestedQty;
       }
@@ -190,7 +271,12 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
     setEmpFilter('all');
     setDuplicateWarning(null);
     setError('');
+    setDonatedBlood(false);
+    setFilterByEligibility(true);
   };
+
+  const selectedItems = form.item_ids.map(id => items?.find(i => (i.id || i._id)?.toString() === id.toString())).filter(Boolean);
+  const hasBoostSelected = selectedItems.some(item => (item.name || '').toLowerCase().includes('boost'));
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -226,15 +312,41 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
       }
     }
 
+    let finalNotes = form.notes;
+    if (hasBoostSelected) {
+      if (!donatedBlood) {
+        return setError('Blood donation must be verified to issue the Boost packet.');
+      }
+      const hasDonationKeyword = finalNotes && (
+        finalNotes.toLowerCase().includes('donation') ||
+        finalNotes.toLowerCase().includes('donated') ||
+        finalNotes.toLowerCase().includes('blood')
+      );
+      if (!hasDonationKeyword) {
+        finalNotes = finalNotes ? `${finalNotes} - Blood Donation Verified` : 'Blood Donation Benefit - Verified';
+      }
+    }
+
     const itemsPayload = form.item_ids.map(id => ({ item_id: id, quantity: form.item_quantities[id] || 1 }));
     setError('');
-    createMutation.mutate({ ...form, items: itemsPayload });
+    createMutation.mutate({ ...form, notes: finalNotes, items: itemsPayload });
   };
 
   const handleOverride = () => {
     setDuplicateWarning(null);
+    let finalNotes = form.notes;
+    if (hasBoostSelected) {
+      const hasDonationKeyword = finalNotes && (
+        finalNotes.toLowerCase().includes('donation') ||
+        finalNotes.toLowerCase().includes('donated') ||
+        finalNotes.toLowerCase().includes('blood')
+      );
+      if (!hasDonationKeyword) {
+        finalNotes = finalNotes ? `${finalNotes} - Blood Donation Verified` : 'Blood Donation Benefit - Verified';
+      }
+    }
     const itemsPayload = form.item_ids.map(id => ({ item_id: id, quantity: form.item_quantities[id] || 1 }));
-    createMutation.mutate({ ...form, override: true, items: itemsPayload });
+    createMutation.mutate({ ...form, notes: finalNotes, override: true, items: itemsPayload });
   };
 
   const visibleIds = filteredEmployees.map(e => (e.id || e._id)?.toString()).filter(Boolean);
@@ -400,9 +512,26 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
 
           {/* ── Item Selector ── */}
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex justify-between">
-              Items <span className="text-red-500">*</span>
-              <span className="text-[11px] font-normal text-slate-500">{form.item_ids.length} selected</span>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5 flex justify-between items-center">
+              <span className="flex items-center gap-1.5">
+                Items <span className="text-red-500">*</span>
+              </span>
+              <div className="flex items-center gap-2">
+                {activeProfile && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterByEligibility(!filterByEligibility)}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-black border transition-all uppercase tracking-wider ${
+                      filterByEligibility
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                        : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                    }`}
+                  >
+                    {filterByEligibility ? '🎯 Eligible Only' : '🌐 Show All Items'}
+                  </button>
+                )}
+                <span className="text-[11px] font-normal text-slate-500">{form.item_ids.length} selected</span>
+              </div>
             </label>
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
               <div className="relative border-b border-slate-200 bg-white">
@@ -415,6 +544,18 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
                   className="w-full pl-9 pr-4 py-2 text-xs outline-none"
                 />
               </div>
+              {activeProfile && filterByEligibility && (
+                <div className="bg-slate-100/50 px-3 py-1.5 border-b border-slate-200 flex justify-between items-center text-[10px]">
+                  <span className="text-slate-500 font-medium italic">Showing items this employee is eligible for</span>
+                  <button
+                    type="button"
+                    onClick={() => setFilterByEligibility(false)}
+                    className="text-blue-600 hover:underline font-bold"
+                  >
+                    + Add other item
+                  </button>
+                </div>
+              )}
               <div className="max-h-32 overflow-y-auto p-2 space-y-1">
                 {filteredItems?.length === 0 ? (
                   <div className="p-4 text-center text-xs text-slate-500">No items found</div>
@@ -486,6 +627,42 @@ export default function IssueForm({ isOpen, onClose, initialData, profileData })
               value={form.issued_date}
               onChange={e => setForm(f => ({ ...f, issued_date: e.target.value }))}
               className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm"
+            />
+          </div>
+
+          {/* ── Verify Blood Donation (Conditional) ── */}
+          {hasBoostSelected && (
+            <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-4 space-y-2 animate-fade-in flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
+                <Heart className="w-4 h-4 text-rose-600 fill-rose-600" />
+              </div>
+              <label className="flex items-start gap-2.5 cursor-pointer select-none flex-1">
+                <input
+                  type="checkbox"
+                  checked={donatedBlood}
+                  onChange={e => setDonatedBlood(e.target.checked)}
+                  className="w-4 h-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500 mt-0.5 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-black text-rose-800 uppercase tracking-wider">Verify Blood Donation</span>
+                  <p className="text-[10px] text-rose-600 font-bold mt-0.5 leading-tight">
+                    Confirm that this employee has donated blood. A verified blood donation is strictly required to issue a Boost Packet.
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {/* ── Notes / Remarks ── */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+              Notes / Remarks <span className="text-slate-400 font-normal text-xs">(Optional)</span>
+            </label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              placeholder={hasBoostSelected ? "Optional details (e.g. donation camp, blood group)..." : "Optional notes or details..."}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm min-h-[80px] transition-all resize-none"
             />
           </div>
 

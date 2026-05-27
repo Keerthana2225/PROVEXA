@@ -62,8 +62,10 @@ export default function ReplacementHandoverModal({ isOpen, onClose, request }) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['replacements'] });
+            queryClient.invalidateQueries({ queryKey: ['replacements-summary'] });
             queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
             queryClient.invalidateQueries({ queryKey: ['issues'] });
+            queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
             toast.success('Replacement handover completed successfully!');
             setStep(STATUS.SUCCESS);
             setTimeout(() => {

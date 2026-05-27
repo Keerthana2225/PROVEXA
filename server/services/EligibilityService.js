@@ -88,35 +88,51 @@ class EligibilityService {
         let socksAllowed = 2;
         let uniformCycleText = '';
 
-        if (empType === 'Trainee') {
+        // Detect if this is a first-time new joiner who hasn't received their joining kit yet.
+        // New joining kit applies to ALL employee types (including Trainees/Interns).
+        // Condition: joined within last 90 days AND has never received any uniform item.
+        const hasReceivedUniform = activeIssues.some(i => {
+            const n = (i.item_name || i.item?.name || '').toLowerCase();
+            return n.includes('pant') || n.includes('shirt') || n.includes('socks')
+                || n.includes('chudidhar') || n.includes('coat');
+        });
+        const isNewJoining = daysJoined < 90; // All employees in first 90 days use new joining kit quota
+
+        if (isNewJoining) {
+            // First-time joining kit for ALL employee types
+            pantAllowed = 3;
+            shirtAllowed = 2;
+            tshirtAllowed = 1;
+            socksAllowed = 2;
+            uniformCycleText = 'New Joining Kit';
+        } else if (empType === 'Intern' || empType === 'Trainee') {
             pantAllowed = 2;
             shirtAllowed = 2;
             tshirtAllowed = 1;
             socksAllowed = 2;
-            uniformCycleText = 'Trainee Joining & Annual Cycle';
+            uniformCycleText = empType === 'Intern' ? 'Intern/Trainee Allocation' : 'Trainee Annual Allocation';
+        } else if (empType === 'Newcomer') {
+            pantAllowed = 3;
+            shirtAllowed = 2;
+            tshirtAllowed = 1;
+            socksAllowed = 2;
+            uniformCycleText = 'New Joining Kit';
         } else {
-            // Permanent, Operator, Union Operator, Supervisor, Corporate Employee, etc.
+            // Permanent, Operator, Union Operator, Supervisor, etc.
             if (daysJoined < 365) {
-                // New Joining Kit (Year 1)
-                pantAllowed = 3;
-                shirtAllowed = 2;
-                tshirtAllowed = 1;
-                socksAllowed = 2;
-                uniformCycleText = 'New Joining Kit (Year 1)';
-            } else if (daysJoined >= 365 && daysJoined <= 730) {
-                // First Annual Allocation (Year 2)
+                // First Year Allocation
                 pantAllowed = 2;
                 shirtAllowed = 2;
                 tshirtAllowed = 1;
                 socksAllowed = 2;
-                uniformCycleText = 'First Annual Allocation (Year 2)';
+                uniformCycleText = 'First Year Allocation';
             } else {
-                // Subsequent Annual Allocation (Year 3+)
-                pantAllowed = 3;
-                shirtAllowed = 3;
+                // Subsequent Years Allocation — same as Year 1
+                pantAllowed = 2;
+                shirtAllowed = 2;
                 tshirtAllowed = 1;
                 socksAllowed = 2;
-                uniformCycleText = 'Subsequent Annual Allocation (Year 3+)';
+                uniformCycleText = 'Annual Allocation';
             }
         }
 
@@ -126,30 +142,25 @@ class EligibilityService {
         const tshirtName = altAttire ? 'Chudidhar Coat' : 'T-Shirt';
         const socksName = 'Socks';
 
-        // Female Coat Policy
+        // Female Coat Policy — mandatory for all females EXCEPT Corporate Employee
         let coatAllowed = 0;
         let coatStatus = 'Not Eligible';
-        if (gender === 'Female') {
+        if (gender === 'Female' && empType !== 'Corporate Employee') {
             coatAllowed = 1;
-            const isMandatory = ['Production', 'Maintenance', 'Quality', 'Stores', 'Shop Floor'].includes(dept) || 
-                                ['Operator', 'Union Operator'].includes(empType) || 
-                                desig.toLowerCase().includes('operator') || 
-                                desig.toLowerCase().includes('worker') || 
-                                desig.toLowerCase().includes('floor') || 
-                                desig.toLowerCase().includes('warehouse');
-            coatStatus = isMandatory ? 'Mandatory' : 'Optional';
+            coatStatus = 'Mandatory';
         }
 
         // Footwear Allocation
         let footwearName = 'Shoe (BATA)';
-        let isSafetyShoesEligible = empType === 'Trainee' || ['Production', 'Maintenance', 'Quality', 'Stores', 'Shop Floor'].includes(dept);
-        let isLibertyShoesEligible = empType === 'Supervisor' || empType === 'Union Operator' || desig === 'Supervisor' || desig === 'Union Operator';
-
-        if (isSafetyShoesEligible) {
+        if (empType === 'Trainee' || empType === 'Intern') {
             footwearName = 'Safety Shoes';
-        } else if (isLibertyShoesEligible) {
+        } else if (empType === 'Supervisor' || empType === 'Union Operator' || desig === 'Supervisor' || desig === 'Union Operator') {
             footwearName = 'Liberty Shoes';
+        } else if (['Production', 'Maintenance', 'Quality', 'Stores', 'Shop Floor'].includes(dept)) {
+            footwearName = 'Safety Shoes';
         }
+
+        let shoeAllowed = 1;
 
         // Safety Helmet Eligibility
         let isGradeEligible = false;
@@ -158,18 +169,21 @@ class EligibilityService {
             const gradeNum = parseInt(gradeMatch[0]);
             if (gradeNum <= 13) isGradeEligible = true;
         }
-        const isHelmetEligible = ['Operator', 'Union Operator', 'Supervisor'].includes(empType) || 
-                                  ['Operator', 'Supervisor'].includes(desig) || 
-                                  isGradeEligible;
+        const isOperator = ['Operator', 'Union Operator'].includes(empType) || desig.toLowerCase().includes('operator');
+        const isSupervisor = ['Supervisor'].includes(empType) || desig.toLowerCase().includes('supervisor');
+        const isHelmetEligible = empType !== 'Intern' && empType !== 'Trainee' && (
+            isOperator ||
+            (isSupervisor && isGradeEligible)
+        );
 
-        // Safety Spectacles Eligibility
-        const isSpectaclesEligible = isUnion === true || empType === 'Union Operator';
+        // Safety Spectacles Eligibility — Union Operators only (3-year renewal)
+        const isSpectaclesEligible = isUnion && employee.status !== 'resigned';
 
         // Raincoat Eligibility
-        const isRaincoatEligible = ['Operator', 'Union Operator'].includes(empType) || desig.toLowerCase().includes('operator');
+        const isRaincoatEligible = empType !== 'Intern' && empType !== 'Trainee' && (['Operator', 'Union Operator'].includes(empType) || desig.toLowerCase().includes('operator'));
 
-        // Bedsheet Eligibility (Under Option B, standard annual Bedsheet is only for non-union employees)
-        const isBedsheetEligible = !isUnion;
+        // Bedsheet Eligibility — only for Union employees (part of the Union linen program)
+        const isBedsheetEligible = isUnion && employee.status !== 'resigned';
 
         // Towel Quarterly Eligibility (Union Linen program)
         const isTowelEligible = isUnion && employee.status !== 'resigned';
@@ -192,12 +206,15 @@ class EligibilityService {
             }
         }
 
-        // Soap Eligibility & Quarterly counts
-        const isSoapEligible = (['Operator', 'Union Operator'].includes(empType) || desig.toLowerCase().includes('operator')) && employee.status !== 'resigned';
+        // Soap Eligibility & Quarterly counts (Standard Operator only, excluding Union Operators / union members)
+        const isSoapEligible = (empType === 'Operator' || desig.toLowerCase().includes('operator')) && !isUnion && employee.status !== 'resigned';
         let currentQuarterSoapCount = 0;
         if (isSoapEligible) {
-            if (currentMonth >= 1 && currentMonth <= 3) currentQuarterSoapCount = 3;
-            else currentQuarterSoapCount = 4;
+            if (daysJoined <= 90) {
+                currentQuarterSoapCount = 3; // First 3 months: 3 soaps per quarter
+            } else {
+                currentQuarterSoapCount = 4; // After 3 months: 4 soaps per quarter
+            }
         }
 
         // Sweet Box Eligibility (All get Standard; Union get bonus)
@@ -206,11 +223,21 @@ class EligibilityService {
         const sweetBoxEventTotal = sweetBoxEventStandard + sweetBoxEventBonus;
 
         // --- Helper to aggregate issued items in active holdings ---
+        // Uses exact name match or startsWith+space to prevent 'Shirt' matching 'T-Shirt',
+        // or 'T-Shirt' matching 'Intern T-Shirt', etc.
+        const nameMatches = (itemName, targetNames) => {
+            const n = itemName.toLowerCase();
+            return targetNames.some(name => {
+                const kw = name.toLowerCase();
+                return n === kw || n.startsWith(kw + ' ');
+            });
+        };
+
         const getIssuedQty = (names) => {
             return activeIssues
                 .filter(i => {
-                    const n = (i.item_name || i.item?.name || '').toLowerCase();
-                    return names.some(name => n.includes(name.toLowerCase()));
+                    const n = (i.item_name || i.item?.name || '');
+                    return nameMatches(n, names);
                 })
                 .reduce((sum, i) => sum + (i.quantity || 1), 0);
         };
@@ -218,8 +245,8 @@ class EligibilityService {
         // --- Helper to get last active next_due_date ---
         const getNextDueDate = (names) => {
             const list = activeIssues.filter(i => {
-                const n = (i.item_name || i.item?.name || '').toLowerCase();
-                return names.some(name => n.includes(name.toLowerCase()));
+                const n = (i.item_name || i.item?.name || '');
+                return nameMatches(n, names);
             });
             if (list.length > 0 && list[0].next_due_date) {
                 return list[0].next_due_date;
@@ -227,11 +254,35 @@ class EligibilityService {
             return null;
         };
 
+
+        // --- Uniform Annual Cycle Start ---
+        // Each year the employee gets a fresh quota. Cycle resets on their joining anniversary.
+        // Year 0 (0–364 days):   2P, 2S, 1TS  — cycle starts at DOJ
+        // Year 1+ (365+ days):   3P, 3S, 1TS  — cycle starts at last anniversary
+        // Newcomers: entire allocation starts from DOJ (no cycle split).
+        const yearsCompleted = Math.floor(daysJoined / 365);
+        const uniformCycleStart = empType === 'Newcomer'
+            ? doj                                               // full kit from DOJ
+            : doj.add(yearsCompleted * 365, 'day');            // current anniversary start
+
+        // Counts uniform items issued ONLY within the current annual cycle.
+        const getUniformIssuedQty = (names) => {
+            return activeIssues
+                .filter(i => {
+                    const n = (i.item_name || i.item?.name || '');
+                    if (!nameMatches(n, names)) return false;
+                    // Only count if issued on or after current cycle start
+                    return dayjs(i.issued_date).valueOf() >= uniformCycleStart.valueOf();
+                })
+                .reduce((sum, i) => sum + (i.quantity || 1), 0);
+        };
+
         // --- 2. Allocation Summary Table Builders ---
         const allocationSummary = [];
 
-        // Uniform Items
-        const pantIssued = getIssuedQty(['Pant', 'Chudidhar Bottom']);
+        // Uniform Items — use cycle-scoped count so Year 1 items don't eat into Year 2 quota
+        const pantIssued = getUniformIssuedQty(['Pant', 'Chudidhar Bottom']);
+
         allocationSummary.push({
             item: pantName,
             allowed: pantAllowed,
@@ -241,7 +292,7 @@ class EligibilityService {
             cycle: uniformCycleText
         });
 
-        const shirtIssued = getIssuedQty(['Shirt', 'Chudidhar Top']);
+        const shirtIssued = getUniformIssuedQty(['Shirt', 'Chudidhar Top']);
         allocationSummary.push({
             item: shirtName,
             allowed: shirtAllowed,
@@ -251,7 +302,7 @@ class EligibilityService {
             cycle: uniformCycleText
         });
 
-        const tshirtIssued = getIssuedQty(['T-Shirt', 'Chudidhar Coat', 'Intern T-Shirt']);
+        const tshirtIssued = getUniformIssuedQty(['T-Shirt', 'Chudidhar Coat', 'Intern T-Shirt']);
         allocationSummary.push({
             item: tshirtName,
             allowed: tshirtAllowed,
@@ -261,7 +312,7 @@ class EligibilityService {
             cycle: uniformCycleText
         });
 
-        const socksIssued = getIssuedQty(['Socks']);
+        const socksIssued = getUniformIssuedQty(['Socks']);
         allocationSummary.push({
             item: socksName,
             allowed: socksAllowed,
@@ -288,11 +339,11 @@ class EligibilityService {
         const shoeIssued = getIssuedQty(['Safety Shoes', 'Liberty Shoes', 'BATA', 'Shoe']);
         allocationSummary.push({
             item: footwearName,
-            allowed: 1,
+            allowed: shoeAllowed,
             issued: shoeIssued,
-            remaining: Math.max(0, 1 - shoeIssued),
-            status: shoeIssued >= 1 ? 'Limit Reached' : 'Eligible',
-            cycle: 'Every 1 Year'
+            remaining: Math.max(0, shoeAllowed - shoeIssued),
+            status: shoeAllowed <= 0 ? 'Not Eligible' : (shoeIssued >= shoeAllowed ? 'Limit Reached' : 'Eligible'),
+            cycle: shoeAllowed <= 0 ? 'N/A' : 'Every 1 Year'
         });
 
         // Safety Helmet
@@ -388,20 +439,41 @@ class EligibilityService {
                 issuedQuarterly: issuedSoapQuarterly,
                 remainingQuarterly: Math.max(0, currentQuarterSoapCount - issuedSoapQuarterly),
                 totalAnnualSoaps,
-                remainingAnnualSoaps: Math.max(0, 15 - totalAnnualSoaps),
+                allowedAnnual: isSoapEligible ? 45 : 0,
+                remainingAnnualSoaps: Math.max(0, (isSoapEligible ? 45 : 0) - totalAnnualSoaps),
             },
-            towel: {
-                eligible: isTowelEligible,
-                currentQuarterItem: currentQuarterTowel,
-                nextIssueDate: currentQuarterTowelIssue,
-                hasIssuedThisQuarter: hasTowelIssuedThisQuarter,
-                totalIssuedThisYear: activeIssues
-                    .filter(i => {
-                        const n = (i.item_name || i.item?.name || '').toLowerCase();
-                        return (n.includes('towel') || n === 'bedsheet') && dayjs(i.issued_date).year() === dayjs().year();
-                    })
-                    .reduce((sum, i) => sum + (i.quantity || 1), 0),
-            },
+            towel: (() => {
+                const linenIssued = activeIssues.filter(i => {
+                    const n = (i.item_name || i.item?.name || '').toLowerCase();
+                    return (n.includes('towel') || n.includes('bedsheet')) && dayjs(i.issued_date).year() === dayjs().year();
+                });
+                return {
+                    eligible: isTowelEligible,
+                    currentQuarterItem: currentQuarterTowel,
+                    nextIssueDate: currentQuarterTowelIssue,
+                    hasIssuedThisQuarter: hasTowelIssuedThisQuarter,
+                    totalIssuedThisYear: linenIssued.reduce((sum, i) => sum + (i.quantity || 1), 0),
+                    breakdown: linenIssued.map(i => {
+                        const month = dayjs(i.issued_date).month() + 1; // 1-12
+                        const qtr = Math.ceil(month / 3);
+                        const qtrLabel = qtr === 1 ? 'Q1 (Jan–Mar)' : qtr === 2 ? 'Q2 (Apr–Jun)' : qtr === 3 ? 'Q3 (Jul–Sep)' : 'Q4 (Oct–Dec)';
+                        return {
+                            name: i.item?.name || i.item_name || 'Linen Item',
+                            date: i.issued_date,
+                            quantity: i.quantity || 1,
+                            quarter: qtrLabel
+                        };
+                    }).sort((a, b) => {
+                            // Sort by quarter number so display order is always:
+                            // Q1 Turkey Towel → Q2 3-Piece Towel Set → Q3 Bedsheet → Q4 3-Piece Towel Set
+                            const qNum = label => parseInt(label.charAt(1)); // 'Q2 (Apr–Jun)' → 2
+                            const diff = qNum(a.quarter) - qNum(b.quarter);
+                            if (diff !== 0) return diff;
+                            return new Date(a.date) - new Date(b.date); // secondary: oldest first within same quarter
+                        })
+                };
+            })(),
+
             sweetBox: {
                 standardBoxes: sweetBoxEventStandard,
                 bonusBoxes: sweetBoxEventBonus,
@@ -518,9 +590,15 @@ class EligibilityService {
         timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         // --- 5. Upcoming Renewal Calendar Arrays ---
+        // Welfare/event items have no renewal cycle — exclude them from this view.
+        const WELFARE_KEYWORDS = ['boost', 'soap', 'sweet box', 'towel', 'bedsheet', 'turkey towel', '3-piece towel'];
         const renewalCalendar = [];
         activeIssues.forEach(i => {
             if (i.next_due_date) {
+                const name = (i.item?.name || i.item_name || '').toLowerCase();
+                const isWelfare = WELFARE_KEYWORDS.some(kw => name.includes(kw));
+                if (isWelfare) return; // skip — not a renewable item
+
                 const daysRemaining = dayjs(i.next_due_date).diff(dayjs(), 'day');
                 let status = 'Active';
                 if (daysRemaining < 0) status = 'Overdue';
@@ -543,19 +621,65 @@ class EligibilityService {
             shoe:  employee.getDataValue('sizes_shoe')  || ''
         };
 
-        const eligibleKeywords = [
-            pantName, shirtName, tshirtName, socksName, footwearName, 'Shirt Full Sleeve', 'Yearly Calendar'
-        ];
-        if (gender === 'Female') eligibleKeywords.push('Coat');
+        const eligibleKeywords = [];
+        if (pantAllowed > 0) {
+            eligibleKeywords.push('Pant');
+            // Female employees can choose Chudidhar Bottom as alternative to Pant
+            if (gender === 'Female') eligibleKeywords.push('Chudidhar Bottom');
+        }
+        if (shirtAllowed > 0) {
+            eligibleKeywords.push('Shirt');
+            // Female employees can choose Chudidhar Top as alternative to Shirt
+            if (gender === 'Female') eligibleKeywords.push('Chudidhar Top');
+        }
+        if (tshirtAllowed > 0) {
+            eligibleKeywords.push('T-Shirt');
+            // Female employees can choose Chudidhar Coat as alternative to T-Shirt
+            if (gender === 'Female') eligibleKeywords.push('Chudidhar Coat');
+            if (empType === 'Intern' || empType === 'Trainee') {
+                eligibleKeywords.push('Intern T-Shirt');
+            }
+        }
+        if (socksAllowed > 0) eligibleKeywords.push(socksName);
+        if (shoeAllowed > 0) eligibleKeywords.push(footwearName);
+        // Shirt Full Sleeve: not for Interns or Trainees
+        if (shirtAllowed > 0 && empType !== 'Intern' && empType !== 'Trainee') eligibleKeywords.push('Shirt Full Sleeve');
+        
+        eligibleKeywords.push('Yearly Calendar');
+        if (gender === 'Female' && coatAllowed > 0) eligibleKeywords.push('Coat');
         if (isHelmetEligible) eligibleKeywords.push('Safety Helmet');
         if (isSpectaclesEligible) eligibleKeywords.push('Safety Spectacles');
         if (isRaincoatEligible) eligibleKeywords.push('Raincoat');
         if (isBedsheetEligible) eligibleKeywords.push('Bedsheet');
 
+        // --- Additional Costs Summary ---
+        // Build the additionalCosts object the frontend expects:
+        // { total, items[], breakdown[{ reason, amount }] }
+        const additionalItems = replacements.filter(r =>
+            r.allocation_type === 'Additional' &&
+            (r.status?.toLowerCase() === 'completed' || r.status?.toLowerCase() === 'approved')
+        );
+        const additionalTotal = additionalItems.reduce((sum, r) => sum + (parseFloat(r.total_cost) || 0), 0);
+        const additionalBreakdown = Object.values(
+            additionalItems.reduce((acc, r) => {
+                const key = r.reason || 'Other';
+                if (!acc[key]) acc[key] = { reason: key, amount: 0 };
+                acc[key].amount += parseFloat(r.total_cost) || 0;
+                return acc;
+            }, {})
+        );
+
         return {
             employee: empJson,
             employee_type: empType,
+            uniformCycleText,
+            isNewJoining,
             eligibility: eligibleKeywords,
+            additionalCosts: {
+                total: additionalTotal,
+                items: additionalItems,
+                breakdown: additionalBreakdown
+            },
             allocations: {
                 summary: allocationSummary,
                 active: activeIssues,

@@ -220,7 +220,7 @@ class IssueService {
                                 throw err;
                             }
                         }
-                    } else if (itemLower.includes('towel') || itemLower.includes('bedsheet')) {
+                    } else if (itemLower.includes('towel') || (itemLower.includes('bedsheet') && isUnion)) {
                         const towel = profile.welfareBenefits?.towel;
                         if (!towel?.eligible && !override) {
                             const err = new Error(`Employee is not eligible for the Union Linen Distribution Program. Only confirmed Union members receive quarterly linen. Use "Yes, Proceed" to issue as an override.`);
@@ -247,7 +247,17 @@ class IssueService {
                             throw err;
                         }
                     } else if (itemLower.includes('boost')) {
-                        // Boost is benefit-triggered (blood donation), always allowed
+                        // Boost is benefit-triggered (blood donation), only allowed if they have donated blood
+                        const hasDonated = notes && (
+                            notes.toLowerCase().includes('donation') || 
+                            notes.toLowerCase().includes('donated') || 
+                            notes.toLowerCase().includes('blood')
+                        );
+                        if (!hasDonated) {
+                            const err = new Error(`Boost packets can only be issued to employees who have donated blood. Please verify and document the blood donation in the notes.`);
+                            err.status = 400;
+                            throw err;
+                        }
                     } else {
                         // Standard annual/renewal items
                         const summary = profile.allocations.summary.find(s => 

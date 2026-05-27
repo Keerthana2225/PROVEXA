@@ -298,18 +298,12 @@ export default function EmployeeAssetProfile() {
                                     { icon: User, label: 'Employee Type', value: employee.employee_type || 'Permanent Employee' },
                                     { icon: CheckCircle2, label: 'Status', value: employee.status },
                                     { icon: Tag, label: 'Employee Code', value: employee.emp_code },
-                                    { icon: ShieldCheck, label: 'Union Status', value: employee.is_union_member ? 'Active Union' : 'Non-Union' },
                                     { icon: Tag, label: 'Grade Level', value: employee.grade || 'None Specified' },
                                     { icon: Ruler, label: 'Recorded Sizes', value: [
                                         displaySizes.shirt && `Top: ${displaySizes.shirt}`,
                                         displaySizes.pant && `Bottom: ${displaySizes.pant}`,
                                         displaySizes.shoe && `Shoe: ${displaySizes.shoe}`
                                     ].filter(Boolean).join(' | ') || 'Not specified' },
-                                    ...(employee.gender === 'Female' ? [{
-                                        icon: Heart,
-                                        label: 'Attire Option',
-                                        value: employee.is_alternative_attire ? 'Chudidhar Selection' : 'Standard Attire Selection'
-                                    }] : [])
                                 ].map((item, i) => (
                                     <div key={i} className="flex items-start gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center flex-shrink-0 border border-slate-100">
@@ -480,7 +474,8 @@ export default function EmployeeAssetProfile() {
             {activeTab === 'welfare' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-scale-up">
                     
-                    {/* Soap Quotas Card */}
+                    {/* Soap Quotas Card — only shown when this employee is eligible */}
+                    {profile.welfareBenefits?.soap?.eligible && (
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 flex items-center justify-center shadow-sm">
@@ -491,9 +486,7 @@ export default function EmployeeAssetProfile() {
                                 <p className="text-[10px] text-slate-400 font-medium">Bathing Soap (Quarterly Distribution)</p>
                             </div>
                             <span className="ml-auto">
-                                <Badge color={profile.welfareBenefits?.soap?.eligible ? 'emerald' : 'slate'}>
-                                    {profile.welfareBenefits?.soap?.eligible ? 'Soap Eligible' : 'Not Soap Eligible'}
-                                </Badge>
+                                <Badge color="emerald">Soap Eligible</Badge>
                             </span>
                         </div>
                         
@@ -508,23 +501,30 @@ export default function EmployeeAssetProfile() {
                             </div>
                         </div>
 
-                        {profile.welfareBenefits?.soap?.eligible && (
-                            <div className="space-y-1.5 pt-2">
-                                <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-                                    <span>Annual Progress ({profile.welfareBenefits?.soap?.totalAnnualSoaps || 0} / 15 soaps issued)</span>
-                                    <span>{Math.round(((profile.welfareBenefits?.soap?.totalAnnualSoaps || 0)/15)*100)}%</span>
+                        {(() => {
+                            const allowedAnnual = profile.welfareBenefits?.soap?.allowedAnnual || 45;
+                            const totalAnnualSoaps = profile.welfareBenefits?.soap?.totalAnnualSoaps || 0;
+                            const pct = Math.round((totalAnnualSoaps / allowedAnnual) * 100);
+                            return (
+                                <div className="space-y-1.5 pt-2">
+                                    <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                                        <span>Annual Progress ({totalAnnualSoaps} / {allowedAnnual} soaps issued)</span>
+                                        <span>{pct}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 rounded-full h-2 border border-slate-200">
+                                        <div
+                                            className="h-2 rounded-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all"
+                                            style={{ width: `${Math.min(pct, 100)}%` }}
+                                        />
+                                    </div>
                                 </div>
-                                <div className="w-full bg-slate-100 rounded-full h-2 border border-slate-200">
-                                    <div
-                                        className="h-2 rounded-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all"
-                                        style={{ width: `${Math.min(((profile.welfareBenefits?.soap?.totalAnnualSoaps || 0)/15)*100, 100)}%` }}
-                                    />
-                                </div>
-                            </div>
-                        )}
+                            );
+                        })()}
                     </div>
+                    )}
 
-                    {/* Towel Quotas Card */}
+                    {/* Towel Quotas Card — only shown for Union employees */}
+                    {profile.welfareBenefits?.towel?.eligible && (
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-sm">
@@ -535,27 +535,47 @@ export default function EmployeeAssetProfile() {
                                 <p className="text-[10px] text-slate-400 font-medium">Towel splits (Quarterly Distribution)</p>
                             </div>
                             <span className="ml-auto">
-                                <Badge color={profile.welfareBenefits?.towel?.eligible ? 'blue' : 'slate'}>
-                                    {profile.welfareBenefits?.towel?.eligible ? 'Union Towel Eligible' : 'Non-Union'}
-                                </Badge>
+                                <Badge color="blue">Union Towel Eligible</Badge>
                             </span>
                         </div>
                         
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-[10px] text-slate-400 font-black uppercase">Current Quarter Item</span>
-                                <span className="text-xs font-black text-indigo-600 uppercase">{profile.welfareBenefits?.towel?.currentQuarterItem || 'N/A'}</span>
+                        <div className="grid grid-cols-2 gap-3 bg-indigo-50/60 p-4 rounded-xl border border-indigo-100">
+                            <div>
+                                <p className="text-[10px] text-indigo-400 font-black uppercase">Current Quarter Schedule</p>
+                                <p className="text-sm font-black text-indigo-700 mt-1">{profile.welfareBenefits?.towel?.currentQuarterItem || 'N/A'}</p>
+                                <p className="text-[9px] text-indigo-400 mt-0.5">What is issued this quarter</p>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-[10px] text-slate-400 font-black uppercase">Target Issue Cycle</span>
-                                <span className="text-xs font-bold text-slate-700">{profile.welfareBenefits?.towel?.nextIssueDate || 'N/A'}</span>
+                            <div>
+                                <p className="text-[10px] text-indigo-400 font-black uppercase">Target Issue Date</p>
+                                <p className="text-sm font-bold text-slate-700 mt-1">{profile.welfareBenefits?.towel?.nextIssueDate || 'N/A'}</p>
+                                <p className="text-[9px] text-indigo-400 mt-0.5">Planned distribution window</p>
                             </div>
-                            <div className="flex justify-between pt-1.5 border-t border-slate-200/50">
-                                <span className="text-[10px] text-slate-400 font-black uppercase">Total Issued (This Year)</span>
-                                <span className="text-xs font-black text-slate-800">{profile.welfareBenefits?.towel?.totalIssuedThisYear || 0} Units</span>
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-[10px] text-slate-400 uppercase font-black tracking-wider">Linen Issued This Year</p>
+                                <span className="text-xs font-black text-indigo-600">{profile.welfareBenefits?.towel?.totalIssuedThisYear || 0} Total Units</span>
+                            </div>
+                            <div className="space-y-1.5">
+                                {(!profile.welfareBenefits?.towel?.breakdown || profile.welfareBenefits.towel.breakdown.length === 0) ? (
+                                    <p className="text-xs text-slate-400 italic">No linen items issued yet this year</p>
+                                ) : (
+                                    profile.welfareBenefits.towel.breakdown.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center py-1.5 px-3 bg-indigo-50/60 border border-indigo-100/50 rounded-lg">
+                                            <div>
+                                                <span className="text-xs font-bold text-slate-800">{item.name}</span>
+                                                <span className="text-[9px] text-slate-400 block">{item.quarter} · {dayjs(item.date).format('DD MMM YYYY')}</span>
+                                            </div>
+                                            <Badge color="blue">×{item.quantity}</Badge>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     </div>
+                    )}
+
 
                     {/* Sweet Box History Card */}
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
@@ -776,8 +796,12 @@ export default function EmployeeAssetProfile() {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-base font-black text-slate-900">₹{(req.total_cost || 0).toLocaleString()}</p>
-                                            <Badge color={req.payment_status === 'Paid' ? 'emerald' : req.payment_status === 'Pending' ? 'amber' : 'slate'}>
-                                                {req.payment_status || 'N/A'}
+                                            <Badge color={
+                                                req.status?.toLowerCase() === 'completed' ? 'emerald' :
+                                                req.status?.toLowerCase() === 'approved' ? 'blue' : 'amber'
+                                            }>
+                                                {req.status?.toLowerCase() === 'completed' ? 'Acknowledged' :
+                                                 req.status?.toLowerCase() === 'approved' ? 'Verified' : 'Pending Handover'}
                                             </Badge>
                                         </div>
                                     </div>

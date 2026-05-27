@@ -124,6 +124,16 @@ export default function ReplacementForm({ isOpen, onClose }) {
     enabled: isOpen && !!form.employee_id,
   });
 
+  // Fetch asset-profile so Additional items can be filtered by employee eligibility
+  const { data: employeeProfile } = useQuery({
+    queryKey: ['employee-profile', form.employee_id],
+    queryFn: async () => {
+      const { data } = await api.get(`/employees/${form.employee_id}/asset-profile`);
+      return data;
+    },
+    enabled: isOpen && !!form.employee_id,
+  });
+
   const selectedEmployee = employees?.find(e => (e._id || e.id)?.toString() === form.employee_id?.toString());
   const empGender = selectedEmployee?.gender === 'Female' ? 'WOMEN' : 'MEN';
 
@@ -219,6 +229,17 @@ export default function ReplacementForm({ isOpen, onClose }) {
                return nameMatch && genderMatch;
             });
         });
+
+        // Further filter by the employee's eligibility profile so only eligible
+        // items appear — e.g., Intern T-Shirt only for Interns, Liberty Shoes
+        // only for Supervisors/Union Operators, Safety Shoes only for Trainees.
+        if (employeeProfile?.eligibility?.length) {
+            const eligibility = employeeProfile.eligibility.map(k => k.toLowerCase());
+            baseItems = baseItems.filter(item => {
+                const n = (item.name || '').toLowerCase();
+                return eligibility.some(kw => n === kw || n.startsWith(kw + ' '));
+            });
+        }
     }
 
     if (!itemSearch.trim()) return baseItems;
@@ -227,7 +248,8 @@ export default function ReplacementForm({ isOpen, onClose }) {
         const nameNorm = (item.name || '').toLowerCase().replace(/[-\s]+/g, '');
         return nameNorm.includes(searchNorm);
     });
-  }, [items, form.allocation_type, activeIssues, form.employee_id, officialPrices, empGender, itemSearch]);
+  }, [items, form.allocation_type, activeIssues, form.employee_id, officialPrices, empGender, itemSearch, employeeProfile]);
+
 
   const filteredEmployees = (employees || []).filter(emp => {
     if (!employeeSearch.trim()) return emp.status === 'active';
@@ -309,6 +331,7 @@ export default function ReplacementForm({ isOpen, onClose }) {
       await Promise.all(promises);
       
       queryClient.invalidateQueries({ queryKey: ['replacements'] });
+      queryClient.invalidateQueries({ queryKey: ['replacements-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
       queryClient.invalidateQueries({ queryKey: ['employee-profile'] });
       toast.success(`Success! Recorded ${cartItems.length} items.`);

@@ -111,7 +111,9 @@ export default function Replacements() {
         queryFn: async () => {
             const { data } = await api.get(`/replacements/summary`);
             return data;
-        }
+        },
+        staleTime: 0,              // always treat as stale
+        refetchOnMount: 'always',  // always re-fetch on component mount
     });
 
     const filteredRequests = useMemo(() => {
@@ -161,6 +163,7 @@ export default function Replacements() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['replacements'] });
+            queryClient.invalidateQueries({ queryKey: ['replacements-summary'] });
             toast.success('Request rejected.');
             setActionModal({ isOpen: false, type: '', request: null, notes: '', unit_cost: 0 });
         },

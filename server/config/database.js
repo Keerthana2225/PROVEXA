@@ -208,7 +208,7 @@ async function connectSQL() {
         await updateItemClean('Raincoat', 'Raincoat', catSafetyGearId, 1095);
 
         // 4. Delete obsolete unwanted items (silent — no-op if already gone)
-        await sequelize.query(`DELETE FROM Items WHERE name IN ('Daily Snacks', 'HP Laptop', 'Intern T-Shirt')`);
+        await sequelize.query(`DELETE FROM Items WHERE name IN ('Daily Snacks', 'HP Laptop')`);
 
         // 5. Delete obsolete categories once empty (silent — no-op if already gone)
         const obsoleteCategoryNames = ['Consumables', 'IT Assets', 'Office Supplies', 'Uniform & Apparel', 'Welfare & Linen', 'PPE / Safety'];
@@ -221,6 +221,7 @@ async function connectSQL() {
         await ensureItemExists('Safety Spectacles', 'Safety Gear', 1095, 200);
         await ensureItemExists('Turkey Towel', 'Linen', 365, 150);
         await ensureItemExists('3-Piece Towel Set', 'Linen', 365, 350);
+        await ensureItemExists('Intern T-Shirt', 'Uniforms', 365, 304.50);
 
         // Update item descriptions in DB to match exact policy descriptions
         async function updateItemDescription(itemName, description) {
@@ -229,7 +230,7 @@ async function connectSQL() {
             });
         }
 
-        await updateItemDescription('Soap', 'Quarterly soap distribution for Operators (Annual Quota: 15 Soaps)');
+        await updateItemDescription('Soap', 'Quarterly soap distribution for Operators (Annual Quota: 45 Soaps)');
         await updateItemDescription('Sweet Box', 'Event based distribution (New Year, Ayudha Pooja, Founders Day, Union Bonus)');
         await updateItemDescription('Boost', 'Issued to employees after blood donation (1 KG Boost)');
         await updateItemDescription('Turkey Towel', 'Q1 Distribution - Issued First Week of April');

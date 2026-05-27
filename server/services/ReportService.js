@@ -108,7 +108,15 @@ class ReportService {
     }
 
     async getReplacementExportData(filters = {}) {
-        return await this.getReplacementReport(filters);
+        const records = await this.getReplacementReport(filters);
+        // Deduplicate by primary key — prevents same record appearing twice
+        const seen = new Set();
+        return records.filter(r => {
+            const key = r.id || r._id;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
     }
 }
 

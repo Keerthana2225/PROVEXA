@@ -101,11 +101,8 @@ class AllocationRequestService {
     }
 
     async getOfficialPrices() {
-        let prices = await OfficialPriceList.findAll({ order: [['gender', 'ASC'], ['item_name', 'ASC']] });
-        if (prices.length === 0) {
-            await this.seedOfficialPrices();
-            prices = await OfficialPriceList.findAll({ order: [['gender', 'ASC'], ['item_name', 'ASC']] });
-        }
+        await this.seedOfficialPrices();
+        const prices = await OfficialPriceList.findAll({ order: [['gender', 'ASC'], ['item_name', 'ASC']] });
         return prices.map(p => p.toJSON());
     }
 
@@ -115,6 +112,7 @@ class AllocationRequestService {
             { item_name: 'Pant',              price: 349.65, gender: 'MEN' },
             { item_name: 'Shirt Full Sleeve', price: 370.65, gender: 'MEN' },
             { item_name: 'T-Shirt',           price: 267.75, gender: 'MEN' },
+            { item_name: 'Intern T-Shirt',    price: 304.50, gender: 'MEN' },
             { item_name: 'Safety Shoes',      price: 588.00, gender: 'MEN' },
             { item_name: 'Liberty Shoes',     price: 1764.10, gender: 'MEN' },
             { item_name: 'Shoe (BATA)',        price: 1475.00, gender: 'MEN' },
@@ -125,6 +123,7 @@ class AllocationRequestService {
             { item_name: 'Chudidhar Bottom',  price: 399.00, gender: 'WOMEN' },
             { item_name: 'Chudidhar Coat',    price: 340.20, gender: 'WOMEN' },
             { item_name: 'T-Shirt',           price: 267.75, gender: 'WOMEN' },
+            { item_name: 'Intern T-Shirt',    price: 304.50, gender: 'WOMEN' },
             { item_name: 'Safety Shoe',       price: 840.00, gender: 'WOMEN' },
         ];
         for (const p of defaults) {

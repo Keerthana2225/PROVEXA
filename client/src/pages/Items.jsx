@@ -76,7 +76,7 @@ export default function Items() {
         const name = (item.name || '').toLowerCase();
         
         if (name === 'soap') {
-            return '🔄 Quarterly Distribution (Annual Allocation: 15 Soaps)';
+            return '🔄 Quarterly Distribution (Annual Allocation: 45 Soaps)';
         }
         if (name === 'sweet box') {
             return '🔄 Event Based Distribution';

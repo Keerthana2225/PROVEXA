@@ -339,52 +339,6 @@ export default function Reports() {
                 </div>
             </div>
 
-            {/* Policy & Welfare Reports Hub */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-6">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md">
-                        <FileSpreadsheet className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <h4 className="text-xl font-bold text-slate-800 dark:text-white">Welfare & Allocation Policy Intel</h4>
-                        <p className="text-sm text-slate-400 mt-1">Download highly detailed sheets reflecting company allocation policies, union distributions, and renewal balances.</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {[
-                        { type: 'uniform', label: 'Uniform Distribution', desc: 'Sizing & clothing items issued per employee category' },
-                        { type: 'safety', label: 'Safety Equipment', desc: 'Helmet, spectacles, and safety footwear tracker' },
-                        { type: 'welfare', label: 'Welfare Distributions', desc: 'Total soaps, towels, bedsheets, sweetboxes, and boost' },
-                        { type: 'towel', label: 'Towel Splitting', desc: 'Turkey towel and 3-piece sets given to union members' },
-                        { type: 'bedsheet', label: 'Bedsheet Distribution', desc: 'Annual bedsheet allocations across designations' },
-                        { type: 'sweetbox', label: 'Sweet Box Tracker', desc: 'Event boxes (New Year, Ayudha Pooja, Founders Day)' },
-                        { type: 'boost', label: 'Blood Donation Boost', desc: 'Packets distributed to employees donating blood' },
-                        { type: 'renewals', label: 'Upcoming Renewals Calendar', desc: 'Schedule of uniform and helmet items due for renewal' },
-                        { type: 'balance', label: 'Quota & Allocation Balance', desc: 'Overall Allowed, Issued, and remaining balance sheets' }
-                    ].map(report => (
-                        <div key={report.type} className="bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 hover:shadow-md transition-all flex flex-col justify-between">
-                            <div>
-                                <h5 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{report.label}</h5>
-                                <p className="text-xs text-slate-400 mt-1 leading-normal">{report.desc}</p>
-                            </div>
-                            <button
-                                onClick={() => handlePolicyExport(report.type, report.label)}
-                                disabled={!!exporting}
-                                className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-700 hover:text-indigo-600 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 transition-all active:scale-[0.98] shadow-sm disabled:opacity-50"
-                            >
-                                {exporting === report.type ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                ) : (
-                                    <Download className="w-3.5 h-3.5" />
-                                )}
-                                Export Sheet
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
             <div className="flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30">
                 <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600">
                     <CheckCircle2 className="w-4 h-4" />
