@@ -1,41 +1,44 @@
-# PROVEXA – Enterprise Asset Management & OCR Handover Verification System
+# PROVEXA
+### Enterprise Asset Management & OCR Handover Verification System
 
 ---
 
-## 2. Project Description
-**PROVEXA** is an industrial-grade, enterprise-scale Asset Management and Handover Verification System. It is engineered specifically to manage, track, and verify the lifecycle of employee assets—including uniforms, safety gear (PPE), linen, and operator welfare benefits. 
+## 1. Project Description
 
-Unlike traditional asset inventory systems that rely on manual logging, spreadsheets, or honor-system distribution, PROVEXA enforces a complete, legally binding, and audit-compliant electronic trail. It accomplishes this by integrating **Computer Vision (OpenCV)** and **Deep Learning Optical Character Recognition (EasyOCR + PyTorch)** at the physical point of handover, backed by **HTML5 Electronic Signature Capture**. 
+**PROVEXA** is a modern, enterprise-scale Asset Management and Handover Verification System. It is engineered specifically for manufacturing plants, assembly facilities, and logistics hubs to automate, track, and secure the distribution and lifecycle of employee gear. The system manages uniforms, safety equipment (PPE), linen, and operator welfare benefits under a single unified dashboard.
 
-Every transaction is governed by a dynamic, company-policy-compliant **Quota & Eligibility Engine** that acts on employee metadata (such as gender, designation, department, tenure, and union status) in real time to prevent duplicate issues, calculate precise cost deductions, track replacement requests, and generate structured payroll exports.
+Unlike standard inventory tracking software, PROVEXA introduces a **zero-trust handover protocol** at the physical point of issue. It integrates **Computer Vision (OpenCV)** and **Deep Learning Optical Character Recognition (EasyOCR + PyTorch)** to scan physical employee badge IDs, combined with **HTML5 canvas digital signatures**. This eliminates verbal handovers, paper register logs, and asset shrinkage. 
 
----
-
-## 3. Executive Summary
-In high-workforce environments such as manufacturing plants, assembly lines, and warehouse operations, tracking physical employee assets presents severe logistical and financial challenges. Organizations face significant asset shrinkage, high replacement costs, and friction between employees and store management regarding whether items were actually received.
-
-PROVEXA provides a unified, cross-platform enterprise hub that:
-1. **Automates Policy Compliance**: Eliminates manual oversight by dynamically determining asset quotas (e.g., standard operator wear, specialized union linen programs, and mandatory gender-specific attire) based on live employee records.
-2. **Establishes Ironclad Accountability**: Replaces verbal confirmation with a multi-layered "Handover Verification" protocol requiring a live scan of the employee's physical ID card (OCR matched) and a digital signature.
-3. **Optimizes Financial Recovery**: Tracks additional requests or lost assets against an official corporate price list, automatically routing payroll-relevant deductions to HR and finance administrators.
-4. **Ensures Regulatory & Audit Readiness**: Logs every single transaction, renewal, return, and verification event into an immutable database history, exposing detailed electronic proof sheets for internal and external auditors.
-
-By decoupling resource-heavy image processing from the core business APIs via a microservices architecture, PROVEXA guarantees lightning-fast execution, local network portability, and high responsiveness even on low-cost tablet devices used on the warehouse floor.
+Every asset issue is screened by an automated **Quota & Eligibility Engine** that applies corporate rules based on employee attributes (tenure, gender, department, designation, and union membership) in real time to prevent duplicate issues, track exchanges, and automate payroll deductions.
 
 ---
 
-## 4. Business Problem Statement
-Large-scale corporations, factories, and heavy-industry operations struggle with several operational bottlenecks in asset distribution:
-* **Asset Shrinkage & Loss**: Hundreds of shirts, pants, safety boots, and towels are lost annually due to weak physical verification. Employees frequently claim they never received their issued items, forcing stores to issue duplicates.
-* **Manual Tracking Overhead**: Store keepers manage handovers on physical registers, making it impossible to enforce renewal frequencies (e.g., renewing safety boots exactly every 365 days or safety helmets every 730 days) across thousands of workers.
-* **Complex Eligibility Rules**: Rules vary dynamically (e.g., Union Operators receive special quarterly towel distributions and yearly bedsheets, Trainees get safety boots instead of standard corporate Bata shoes, and female operators choose alternative Chudidhar attire). Manual tracking of these complex matrices is highly error-prone.
-* **Unstructured Financial Recovery**: When employees request extra items or replacements for lost/damaged gear, capturing, calculating, and transferring these payroll deductions to the accounts team is a disjointed, manual process prone to leakage.
-* **Audit and Compliance Failures**: Internal health, safety, and environment (HSE) audits require instant proof of active PPE holdings and signed handovers, which are difficult to compile from paper records.
+## 2. Executive Summary
+
+In high-workforce industrial sectors, managing physical assets represents a massive overhead. Organizations face high replacement costs, lack of audit records, and continuous friction regarding whether assets were actually distributed.
+
+PROVEXA provides a comprehensive solution by:
+* **Enforcing Quotas Automatically**: Systematically blocking duplicate or invalid allocations based on employee metadata.
+* **Creating Digital Handover Proof**: Generating signed, time-stamped proof sheets displaying the scanned card's OCR details and captured signatures.
+* **Streamlining Expense Auditing**: Logging additional or lost assets against a corporate price list to automatically compile payroll deduction reports.
+* **Simplifying Regulatory Audits**: Providing instant, digital compliance reports for health, safety, and environment (HSE) auditors.
+* **Maximizing On-Site Portability**: Decoupling the heavyweight PyTorch OCR service as an independent microservice, allowing fast execution on low-cost tablet devices across local networks.
 
 ---
 
-## 5. Solution Overview
-PROVEXA addresses these enterprise pain points with a multi-layered digital ecosystem:
+## 3. Business Problem Statement
+
+Traditional asset distribution in large enterprises suffers from severe operational bottlenecks:
+* **Asset Shrinkage & Loss**: Lack of signed verification records leads to high equipment loss. Employees frequently claim they never received their items, leading to expensive double-issuances.
+* **Manual Record Bottlenecks**: Managing store handovers on paper registers makes it impossible to enforce renewal schedules (e.g., boots renewed every 365 days; safety helmets every 730 days).
+* **Policy Integration Chaos**: Complex enterprise distribution guidelines—such as unique allocations for Union Operators, alternative Chudidhar options for female operators, and departmental safety shoe rules—are difficult to manage manually.
+* **Manual Payroll Coordination**: Calculating and compiling wage deductions for lost assets, extra requests, or chargeable exchanges is manual, slow, and prone to leakage.
+
+---
+
+## 4. Solution Overview
+
+PROVEXA solves these problems through a distributed client-server ecosystem:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -43,14 +46,14 @@ PROVEXA addresses these enterprise pain points with a multi-layered digital ecos
 │                   (React.js + Tailwind CSS + Vite)                     │
 └────────┬───────────────────────────────────────────────────────▲───────┘
          │                                                       │
-         │ 1. Capture ID Image Frame & Signatures                │ 4. Verification Proof
+         │ 1. Captures ID Badge Frame & Handover Signature       │ 4. Renders Time-Stamped Proof
          │                                                       │
 ┌────────▼───────────────────────────────────────────────────────┴───────┐
-│                          API GATEWAY / BACKEND                         │
-│                           (Node.js + Express)                          │
+│                     CORE BACKEND / API GATEWAY                         │
+│                    (Node.js + Express + Nodemon)                       │
 └────────┬───────────────────────────────┬───────────────────────────────┘
          │                               │
-         │ 2. Forward base64 Image       │ 3. Query / Persist Relational Logs
+         │ 2. Proxies base64 Image Frame │ 3. Queries / Persists Transactions
          │                               │
 ┌────────▼─────────────────────┐ ┌───────▼──────────────────────────────┐
 │       OCR MICROSERVICE       │ │             DATABASE                 │
@@ -58,98 +61,93 @@ PROVEXA addresses these enterprise pain points with a multi-layered digital ecos
 └──────────────────────────────┘ └──────────────────────────────────────┘
 ```
 
-1. **Centralized Data Hub**: Syncs master data across Employees, Items, and Categories within an enterprise database.
-2. **Dynamic Quota & Eligibility Engine**: Automatically screens each employee's tenure, department, and union profile to determine their remaining quota before an asset can even be selected for issue.
-3. **Computer Vision-Enhanced Verification**: Integrates a custom high-performance OCR service that reads physical employee badges in milliseconds, translating character structures to match database IDs, coupled with HTML5 canvas signature paths.
-4. **Transparent Replacement & Deduction Flow**: Automates exchange, return, and replacement workflows, mapping costs dynamically against a verified price matrix and logging the transaction state directly for payroll reporting.
+1. **Enterprise Frontend**: A responsive React single-page application (SPA) optimized for mobile/tablet browsers.
+2. **Core API Gateway**: A Node.js Express server managing validation middleware, security whitelists, cron schedules, and file storage.
+3. **Computer Vision Microservice**: A fast FastAPI service running OpenCV and EasyOCR to process badge scans.
+4. **Relational Storage**: SQL Server Express utilizing Sequelize ORM for transactional safety and automatic migrations.
 
 ---
 
-## 6. Key Features
-* **Dual-Mode Handover Verification**: Enforces secure handover via AI-driven ID Card scan, digital signature, or a strict dual-mode (OCR + Signature) requirement.
-* **Dynamic Policy Engine**: Enforces tailored corporate rules (e.g., Joining Kits, Annual Cycles, Union Linen rules, and Alternative Attire choice logic).
-* **Robust Replacement Management**: Handles replacement requests under strict categories (Damage, Size Change, Exchange) and tracks old item collection states.
-* **Integrated Payroll Cost Tracking**: Automatically lists and aggregates chargeable additional allocations by employee, department, and transaction reason.
-* **Automated Renewal & Return Centers**: Separates items by lifecycle status, automatically calculating future renewal deadlines and tracking returned asset conditions (Good, Needs Maintenance, Severely Damaged).
-* **Enterprise Reporting**: Offers deep filter matrices (date ranges, category, verification method, status) and streams customized `.xlsx` Excel spreadsheets directly to the client.
-* **Bulk Issue Distribution**: Empowers administrators to allocate multiple items to multiple employees simultaneously with duplicate-prevention warning overrides.
-* **Comprehensive Audit Logs**: Every asset movement generates an audit history, viewable via interactive timelines and verified proof sheets.
+## 5. Key Features
+
+* **AI-Powered Identity Verification**: Uses live badge OCR scanning and text matching to verify employee identity before issuing items.
+* **HTML5 Canvas Signatures**: Captures electronic signatures in real time, saving them directly as compressed image files linked to transaction records.
+* **Rule-Based Quota Engine**: Enforces specific allowances based on tenure (such as first-90-day Joining Kits) and designation (such as specialized safety gear).
+* **Return & Renewal Action Centers**: Automatically computes future renewal deadlines and logs the condition of returned assets (Good, Damaged, Salvaged).
+* **Exchange & Replacement Workflow**: Tracks asset exchanges for size adjustments or damages, enforcing old-asset returns prior to new handovers.
+* **Payroll Deduction Integration**: Matches chargeable assets against price lists, logging employee-signed deductions for simple HR export.
+* **Bulk Asset Distribution**: Allows storekeepers to issue multiple items to large groups of employees with dynamic double-issue warnings.
+* **Styled Excel Export System**: Streams formatted, filtered spreadsheets directly to administrators for rapid business reports.
 
 ---
 
-## 7. Core Modules
-* **Employee Management Module**: Controls employee rosters, employment types, status, and sizing profiles (Shirt, Pant, Shoe).
-* **Item Master & Category Catalog**: Manages items and custom categories, setting validity structures via custom duration days or static calendar dates.
-* **Quota & Eligibility Engine**: The analytical core computing dynamic quotas, identifying renewal constraints, and tracking employee policy compliance.
-* **Handover Verification Center**: Manages camera capture streams, routes base64 images, and handles electronic signature collection.
-* **Replacements & Exchange Center**: Orchestrates replacement approvals, tracks cost overrides, manages old item returns, and processes handovers.
-* **Reporting & Financial Analytics**: Aggregates enterprise key performance metrics and manages multi-threaded Excel report generation.
-* **Audit & Lifecycle Trail**: Manages archived records, tracks returned item inventory adjustments, and serves verified proof sheets containing detailed OCR metrics and signatures.
+## 6. Core Modules
+
+```
+                    ┌───────────────────────────────────────┐
+                    │            PROVEXA MODULES            │
+                    └───────────────────┬───────────────────┘
+                                        │
+     ┌───────────────────┬──────────────┼──────────────┬───────────────────┐
+     ▼                   ▼              ▼              ▼                   ▼
+┌──────────┐       ┌───────────┐  ┌───────────┐  ┌───────────┐       ┌───────────┐
+│ Employee │       │   Item    │  │  Handover │  │ Lifecycle │       │ Financial │
+│ Directory│       │  Catalog  │  │ Verification││ Management│       │ Reporting │
+└──────────┘       └───────────┘  └───────────┘  └───────────┘       └───────────┘
+```
+
+* **Employee Directory**: Manages active rosters, designations, sizes (shirt, pant, shoes), gender, and union status.
+* **Item Master Catalog**: Tracks inventory, categories, cost metrics, and custom validity schedules (frequency-based or fixed calendar dates).
+* **Handover & Verification**: Houses the live video scanner, coordinates canvas tracking, and manages verification logs.
+* **Lifecycle Management**: Tracks active holdings, handles replacement requests, processes exchanges, and monitors returns.
+* **Financial & Reporting**: Aggregates dashboard metrics and drives server-side Excel exports.
 
 ---
 
-## 8. Technology Stack Table
+## 7. Technology Stack
 
-| Component | Technology | Version / Library | Strategic Role in PROVEXA |
+| Tier | Component / Library | Version | Operational Purpose |
 | :--- | :--- | :--- | :--- |
-| **Frontend UI** | React.js | `^18.3.1` (Vite) | High-responsiveness SPA, modular component state rendering, interactive workflows. |
-| **Styling** | Tailwind CSS | `^3.4.17` | Sleek modern aesthetics, dark card modes, responsive layout grids across tablets/mobiles. |
-| **State & Cache** | React Query | `@tanstack/react-query ^5.99.0` | Server state sync, automatic query invalidation, and optimistic UI updates. |
-| **Core Server** | Node.js | `^20.x` / Express `^5.2.1` | Asynchronous API gateway, transaction routing, security middleware, cron engine. |
-| **ORM Layer** | Sequelize ORM | `^6.37.8` | High-fidelity object-relational mapping, transactional queries, structural database sync. |
-| **Database** | SQL Server Express | Local DB Engine (Tedious) | High-performance relational database, ACID transactions, backup security, enterprise standards. |
-| **OCR Service** | FastAPI (Python) | `^0.110.x` | Asynchronous Python microservice hosting deep learning inference pipelines. |
-| **Computer Vision**| OpenCV (Python) | `opencv-python-headless` | Image preprocessing: 5% edge crop, longest-side scaling to 600px, CLAHE, and Otsu binarization. |
-| **OCR Engine** | EasyOCR | `^1.7.1` (PyTorch base) | Character classification via Deep Learning CRNN (Convolutional Recurrent Neural Network). |
-| **Report Engine** | ExcelJS / XLSX | `^4.4.0` / `^0.18.5` | Programmatic construction, styling, and streaming of high-density corporate Excel spreadsheets. |
+| **Frontend** | React.js (Vite) | `^18.3.1` | Renders the single-page application shell and handles view states. |
+| **Styling** | Tailwind CSS | `^3.4.17` | Standardizes layouts, dark/light cards, and responsive grids. |
+| **State Caching**| TanStack Query (React Query) | `^5.99.0` | Manages backend state sync, query invalidation, and cached updates. |
+| **Core Server** | Node.js / Express | `^20.x` / `^5.2.1` | Serves as the API Gateway, routes requests, and manages middleware. |
+| **Database ORM** | Sequelize ORM | `^6.37.8` | Handles object-relational mapping, transaction controls, and migrations. |
+| **Database** | SQL Server Express | Local Engine | Secure, ACID-compliant relational storage using SQL logins. |
+| **OCR Gateway** | FastAPI (Python) | `^0.110.x` | Asynchronous Python server hosting computer vision pipelines. |
+| **Image Process**| OpenCV (Python) | Headless | Handles image adjustments, resizing, contrast filters, and binarization. |
+| **OCR Engine** | EasyOCR (PyTorch base) | `^1.7.1` | Performs character recognition using neural network models. |
+| **Excel Engine** | ExcelJS / XLSX | `^4.4.0` | Creates, formats, and streams corporate spreadsheets. |
 
 ---
 
-## 9. Frontend Architecture
-The frontend is a lightweight **React Single Page Application (SPA)** compiled with **Vite** for optimized build times and modern asset delivery. 
+## 8. Frontend Architecture
 
-```
-                               ┌───────────────────┐
-                               │     App.jsx       │ (Global Router & Layout)
-                               └─────────┬─────────┘
-                                         │
-                 ┌───────────────────────┼───────────────────────┐
-                 ▼                       ▼                       ▼
-       ┌───────────────────┐   ┌───────────────────┐   ┌───────────────────┐
-       │   React Query     │   │   React Router    │   │  Tailwind CSS     │
-       │ (State Caching)   │   │  (Protected Shell)│   │ (Modern UI Grid)  │
-       └───────────────────┘   └───────────────────┘   └───────────────────┘
-```
-
-* **Client-Side Routing**: Handled via `react-router-dom` using nested layouts. A global `AppLayout` manages the collapsable navigation sidebar, custom top-header, and responsive main content body. Protected routes are wrapped in an authorization check that reads `/api/auth/me` and redirects unauthenticated traffic to `/login`.
-* **Server State Synchronization**: Handled via `React Query` (TanStack Query). This completely decouples client UI state from backend data. Operations such as acknowledging an issue or approving a replacement trigger automatic query invalidations, causing the UI to refresh metrics, lists, and timelines instantly without page reloads.
-* **Component Styling**: Built using **Tailwind CSS** following a modern "Glassmorphic Card" and "Sleek Dark Mode" aesthetic. Design elements include rich color palettes, smooth hover effects, micro-animations on interactive elements, and custom CSS-based overlays.
-* **Signature Capture**: Utilizes `react-signature-canvas` to bind HTML5 canvas mouse/touch tracking into structured digital paths.
+The React.js frontend is built on a single-page application framework designed for high speed and touch compatibility:
+* **Nested Router Shell**: Managed by `react-router-dom` using layouts that bundle sidebars, headers, and dynamic notifications. Access to routes is restricted by a security check that calls `/api/auth/me`.
+* **TanStack Server State Caching**: Eliminates unnecessary API loading by maintaining local caching layers. Action triggers (such as acknowledging an asset issue) automatically invalidate corresponding keys, keeping UI metrics and tables updated instantly.
+* **Tailwind CSS UI Kit**: Utilizes responsive grids, smooth hover transitions, micro-animations, and styled status badges suited for tablet displays.
+* **Signature Capture Engine**: Leverages standard HTML5 canvas coordinates, generating raw vector paths converted into compressed base64 strings.
 
 ---
 
-## 10. Backend Architecture
-The backend is built as a highly structured, scalable **Express REST API** utilizing a modular **Controller-Service-Model** design pattern. 
+## 9. Backend Architecture
 
-* **Entrypoint (`index.js`)**: Configures Express, initializes database connections, registers middleware (JSON parsers, CORS handling, cookie parsing), mounts API routers, and boots the HTTP server on Port 5000.
-* **CORS Security**: Custom verification logic restricts incoming requests to verified localhost ports and local network private LAN IP spaces (using custom regular expressions to match private IP ranges `192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`).
-* **Router-Service-Model Separation**:
-  * **Routers** (e.g., `routes/employees.js`, `routes/issues.js`): Define the HTTP endpoints, enforce authentication checks, and map route parameters.
-  * **Services** (e.g., `services/EmployeeService.js`, `services/EligibilityService.js`): Implement pure business logic, database transaction controls, and payload mappings.
-  * **Models** (e.g., `models/Employee.js`, `models/IssueRecord.js`): Define tables, field types, and structural relationship rules.
-* **Global Error Middleware**: Intercepts failed actions, rollback triggers, and validation errors, translating them into neat JSON responses for the frontend.
+The Express server acts as a centralized **Controller-Service-Model** gateway:
+* **Controller Interceptors**: Extract parameters, validate input shapes, and return standard JSON outputs.
+* **Business Services**: Implement modular transactional logic, interact with the ORM, and manage database isolation.
+* **Strict CORS Rules**: Implements whitelists that validate browser headers against localhost URLs and private local subnet IPs (using custom regex matching `192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`).
+* **Session Cookie Authentication**: Uses signed JSON Web Tokens (JWT) stored in secure, `HttpOnly` cookie layers to block client-side access and prevent cross-site scripting (XSS) risks.
 
 ---
 
-## 11. Database Architecture (SQL Server + Sequelize)
-PROVEXA utilizes **Microsoft SQL Server Express** combined with the robust **Sequelize ORM** using the `tedious` driver. 
+## 10. Database Architecture
 
-* **Connection and Driver Management**: Configured in `config/database.js`. The dialector manages a structured connection pool (maximum 20 connections, acquire timeout of 60 seconds, idle timeout of 10 seconds) to ensure database threads are reused efficiently.
-* **Transactional Reliability**: Enforces strict database transaction control. Critical processes, such as asset renewals, use multi-table transactions (archiving the old record while creating a new pending issue) to prevent database inconsistency.
-* **Automatic Migrations (T-SQL Auto-Migrations)**:
-  At startup, the system executes raw T-SQL schema checks to dynamically adapt existing tables without data loss:
+PROVEXA utilizes **Microsoft SQL Server Express** managed via the Sequelize ORM:
+* **Transactional Controls**: Critical asset movements (such as renewals and returns) run within database transactions to ensure database rollback if any query fail.
+* **Auto-Schema Migrations**: On startup, the database service checks the existing schema and applies updates automatically without data loss (e.g. adding columns like `grade` or mapping `ReplacementRequests` values):
   ```javascript
-  // Auto-migrate new employee columns
+  // Example of automated column additions during database load
   await sequelize.query(`
       IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('Employees') AND name = 'grade')
       BEGIN
@@ -157,554 +155,255 @@ PROVEXA utilizes **Microsoft SQL Server Express** combined with the robust **Seq
       END
   `);
   ```
-  It automatically manages columns like `grade`, `is_union_member`, `is_alternative_attire`, and handles backfill queries to link foreign keys for employee and item names in replacement request archives.
+* **Relational Mapping Model**: Formulates structural joins between `Employees`, `Items`, `IssueRecords`, and `ReplacementRequests`. Categories and prices are kept separated, while snapshot fields preserve historical names if catalog values change.
 
 ---
 
-## 12. OCR Microservice Architecture
-The OCR microservice is isolated into a **FastAPI** Python server running **EasyOCR**, **OpenCV**, and **PyTorch**. 
+## 11. OCR Microservice Architecture
+
+The computer vision engine is isolated in an independent **FastAPI Python microservice** to maximize performance and decouple heavy dependencies:
+* **Decoupled System Loading**: Separating Python dependencies like PyTorch and OpenCV prevents memory spikes from affecting core Express transaction APIs.
+* **Startup Model Initialization**: Loads EasyOCR model weights (`easyocr.Reader`) into system RAM exactly **once at startup**. Subsequent scans reuse the pre-warmed memory model, avoiding initialization lag.
+* **CPU Model Quantization**: Employs weight quantization (`quantize=True`) to convert PyTorch float models into lightweight 8-bit matrices. This keeps the OCR fast and stable on standard, non-GPU laptop processors.
+
+---
+
+## 12. OCR Verification Workflow
+
+When an employee badge is scanned, PROVEXA executes a rapid, multi-stage computer vision pipeline:
 
 ```
-                                  FASTAPI SERVER (Port 8001)
-                      ┌───────────────────────────────────────────────┐
-                      │                 POST /scan                    │
-                      └──────────────────────┬────────────────────────┘
-                                             │
-                                             ▼
-                               ┌─────────────────────────────┐
-                               │   Image Decoder (Base64)    │
-                               └─────────────┬───────────────┘
-                                             │
-                                             ▼
-                               ┌─────────────────────────────┐
-                               │     OpenCV Preprocessor     │
-                               │ (Crop, Resize, CLAHE, Otsu) │
-                               └─────────────┬───────────────┘
-                                             │
-                                             ▼
-                               ┌─────────────────────────────┐
-                               │    EasyOCR Engine (PyTorch) │
-                               │  (Allowlist='0123456789')   │
-                               └─────────────┬───────────────┘
-                                             │
-                                             ▼
-                               ┌─────────────────────────────┐
-                               │  Token Merger & Regex Fix   │
-                               └─────────────────────────────┘
+  React Video Capture ──► base64 Frame ──► Express Gateway ──► FastAPI Service
+                                                                    │
+  ┌─────────────────────────────────────────────────────────────────┘
+  ▼
+OpenCV Preprocessing Steps:
+  1. Crop 5% Outer Boundary (removes background fingers/noise).
+  2. Scale down longest side to 600px (decreases pixel density, speeding up CPU pass by 700%).
+  3. Generate Dual Processing Images:
+     * Image A: CLAHE Color (LAB space contrast optimization for colored cards).
+     * Image B: Sharpened Otsu Binarization (preserves thin characters like '1' or '7').
+  │
+  ▼
+PyTorch Inference (EasyOCR Engine):
+  * Restricts characters strictly to digit formats using: allowlist='0123456789'.
+  * Skips processing letters and punctuation, reducing search space by 60%.
+  │
+  ▼
+Clean-Up & Match Engine:
+  * Merges adjacent bounding boxes (combines split boxes, e.g. "1133" and "3" into "11333").
+  * Corrects common digit recognition errors (substitutes letters like 'O' to '0', 'l' to '1').
+  * Matches final text patterns using regular expressions and returns the verified code.
 ```
 
-* **Strategic Service Decoupling**: Isolating image processing into a separate Python process keeps the core Node backend lightweight. High CPU spikes during neural network runs are contained within the Python process.
-* **Startup Initialization**: The FastAPI server loads the EasyOCR model weights (`easyocr.Reader(['en'], gpu=False)`) into memory exactly **once at startup**. Subsequent REST API requests use the preloaded model in memory, reducing request latency.
-* **Memory Quantization**: Quantization is enabled (`quantize=True`) to run the PyTorch weights in a compressed 8-bit integer layout, saving memory and speeding up execution on standard laptop CPUs.
-
 ---
 
-## 13. OCR Verification Pipeline
-The end-to-end verification pipeline works through these phases:
-1. **Frame Capture**: The React UI requests camera access, projects the live stream into an overlay guide, captures a raw frame, and sends it as a base64 string to `/api/verification/ocr-scan`.
-2. **Express Gateway Forwarding**: Express captures the base64 payload and forwards it in a structured JSON body (`{ image: b64 }`) to FastAPI on `http://127.0.0.1:8001/scan`.
-3. **Decoded Frame Matrix**: The Python service strips headers, decodes the base64 string, and parses the byte array into a three-dimensional OpenCV color matrix (`cv2.imdecode`).
-4. **OpenCV Preprocessing**: Runs specialized spatial filters to optimize contrast, remove background noise, and isolate high-probability character areas.
-5. **EasyOCR Target Inference**: Feeds preprocessed matrices into EasyOCR's neural network, enforcing a strictly restricted digit allowlist.
-6. **Token Processing & Confidence Matching**: Parses OCR outputs, merges adjacent digit bounding boxes, applies character corrections (e.g. `O` -> `0`), and extracts candidate patterns using regular expressions.
-7. **Validation Comparison**: The final extracted code is sent back to Express, which checks it against the expected employee record. If it matches, the system updates the issue status to `Acknowledged`.
+## 13. Digital Signature Workflow
 
----
-
-## 14. OpenCV Preprocessing Concepts
-To maximize CPU speed and recognition accuracy, incoming images undergo specific OpenCV processing steps:
-
-* **5% Boundary Edge Crop**:
-  Physical cards are often held by operators during handovers, resulting in fingers, thumbs, or noisy backgrounds around the card edges. The system applies a 5% margin crop to focus purely on the card content:
-  ```python
-  mw, mh = int(w * 0.05), int(h * 0.05)
-  img = img[mh:h - mh, mw:w - mw]
-  ```
-
-* **Max-Side Downscaling (600px)**:
-  Incoming camera feeds are often 1080p or 4K. Passing these high-resolution images directly to neural networks is highly CPU-intensive. The system downscales the image's longest side to 600px while maintaining the aspect ratio, reducing the total pixel area by **over 700%** and speeding up execution significantly:
-  ```python
-  max_side = 600
-  if max(h, w) > max_side:
-      scale = max_side / max(h, w)
-      img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-  ```
-
-* **Dual-Variant Image Generation**:
-  Different employee ID cards feature varied background designs, colors, and lighting conditions. To handle this, the system generates **two complementary variants** of the card:
-  1. **Variant 1 - CLAHE Color (LAB Space)**: Converts the image to the LAB color space, applies Contrast Limited Adaptive Histogram Equalization (CLAHE) on the L-channel to normalize lighting variations, and converts it back to BGR. This preserves colors, which the neural network uses for character feature extraction.
-  2. **Variant 2 - Sharpened Otsu Binarization**: Applies an unsharp mask to sharpen high-frequency transitions, helping preserve thin digit strokes (such as `1` or `7`). It then runs Otsu's adaptive thresholding to convert the image to clean black-and-white, adapting automatically to different card brightness levels without manual calibration.
-
----
-
-## 15. EasyOCR + PyTorch Working
-EasyOCR leverages PyTorch to implement a deep learning text recognition pipeline:
-
-* **Inference Pipeline**:
-  * **Feature Extraction**: Uses a ResNet backbone to extract spatial feature maps from the input image.
-  * **Sequence Labeling**: Uses a Bidirectional LSTM (Long Short-Term Memory) network to model character sequence dependencies.
-  * **CTC Decoding (Connectionist Temporal Classification)**: Maps the recurrent outputs into discrete character predictions without requiring pre-segmented character boxes.
-* **Model Quantization**: Enabling quantization compresses PyTorch's floating-point model weights into an 8-bit representation. This optimization reduces the CPU memory footprint and accelerates matrix calculations on systems without dedicated GPUs.
-
----
-
-## 16. Regex Extraction Logic
-Raw OCR outputs frequently split words or contain minor recognition errors. The system uses robust regular expressions and mapping dictionaries to correct and clean these outputs:
-
-* **Digit Bounding Box Merging**:
-  EasyOCR often identifies individual numbers in separate bounding boxes, reading "11333" as "1133" and "3". The system merges adjacent digit-only tokens prior to pattern matching:
-  ```python
-  # Regex to identify digit tokens including common OCR substitutions
-  _digit_tok = re.compile(r'^[0-9OQDIlLiJSsBZGq]+$', re.IGNORECASE)
-  ```
-
-* **OCR Error Correction Map**:
-  Applies standard character-to-digit corrections to clean common OCR slips (such as reading `O` as `0` or `l` as `1`):
-  ```python
-  _OCR_FIX = str.maketrans({
-      "O": "0", "o": "0", "Q": "0", "D": "0",
-      "I": "1", "l": "1", "i": "1", "L": "1", "J": "1",
-      "S": "5", "s": "5", "B": "8", "Z": "2", "G": "6", "q": "9",
-  })
-  ```
-
-* **Pattern Matching Ranks**:
-  Matches extracted text strings against ranked regex expressions:
-  1. **Pattern 1 (Prefix Match)**: Searches for labels indicating employee IDs, e.g., `Emp No: 11333` or `Employee ID: 11333` using `re.compile(r"(?:emp(?:loyee)?[\s\.\-]*(?:no|id|code|number)?[\s\.\-:]+)([0-9OQDILSBZG]{3,7})", re.IGNORECASE)`.
-  2. **Pattern 2 (Short Prefix Match)**: Matches standard short prefixes like `No: 11333` or `ID: 11333`.
-  3. **Pattern 3 (Standalone Digit Sequence)**: Captures any isolated 3-to-7 digit sequence as a fallback.
-
----
-
-## 17. Digital Signature Workflow
-To capture electronic signatures securely on touchscreens or web browsers:
+The digital signature system provides an intuitive, touchscreen-compatible handover proof:
 
 ```
-  ┌────────────────────────────────────────────────────────┐
-  │              Client HTML5 Canvas Drawing               │
-  └──────────────────────────┬─────────────────────────────┘
-                             │
-                             ▼
-  ┌────────────────────────────────────────────────────────┐
-  │         Generate base64-Encoded PNG String             │
-  └──────────────────────────┬─────────────────────────────┘
-                             │
-                             ▼
-  ┌────────────────────────────────────────────────────────┐
-  │         POST Payload to Express Backend Server         │
-  └──────────────────────────┬─────────────────────────────┘
-                             │
-                             ▼
-  ┌────────────────────────────────────────────────────────┐
-  │        Store Image on Disk under /public/uploads/      │
-  └──────────────────────────┬─────────────────────────────┘
-                             │
-                             ▼
-  ┌────────────────────────────────────────────────────────┐
-  │      Save Public URL URI into signature_path in DB     │
-  └────────────────────────────────────────────────────────┘
+ ┌───────────────────────┐      base64 String     ┌───────────────────────┐
+ │ React HTML5 Canvas    ├───────────────────────►│ Express API Server    │
+ │ Mouse/Touch Capture   │                        │ (Decodes Data)        │
+ └───────────────────────┘                        └──────────┬────────────┘
+                                                             │
+                                                             ▼
+ ┌───────────────────────┐     Public URI URL     ┌───────────────────────┐
+ │ Save in Database      │◄───────────────────────┤ Write to Local Disk   │
+ │ (signature_path)      │                        │ (/uploads/signatures/)│
+ └───────────────────────┘                        └───────────────────────┘
 ```
 
-1. **Drawing Vector Capture**: The `react-signature-canvas` component captures canvas vector paths based on user mouse or touch inputs.
-2. **Base64 Export**: Converts the canvas drawing to an optimized base64-encoded PNG string on submission.
-3. **API Upload**: Transmits the base64 image data to the Express backend via REST API.
-4. **File Persistence**: The server decodes the base64 string and writes it to a file under `/public/uploads/signatures/` with a unique UUID filename.
-5. **Database Reference**: Saves the public URI path (e.g., `/public/uploads/signatures/verify-xxx.png`) in the corresponding record's `signature_path` field, creating an accessible audit log.
+1. **Capture**: The user signs directly inside a signature pad within a modal dialog.
+2. **Export**: Converts drawing coordinates into a compressed base64 PNG string.
+3. **Persist**: The Express server decodes the string and writes a file named with a unique UUID to disk at `server/public/uploads/signatures/`.
+4. **Reference**: Saves the file path (e.g. `/public/uploads/signatures/verify-xxx.png`) in the database record, linking the signature to the transaction.
 
 ---
 
-## 18. Asset Allocation Workflow
-The **Eligibility Engine** automatically calculates asset allotments at runtime, enforcing specific corporate distribution rules:
+## 14. Asset Allocation Workflow
 
-```
-                        Asset Issue Request Triggered
-                                      │
-                                      ▼
-                        Check Employee Tenure (DOJ)
-                                      │
-             ┌────────────────────────┴────────────────────────┐
-             ▼ < 90 Days                                       ▼ >= 90 Days
-     [New Joining Kit]                                 Enforce Quota Rules
-    Quota: 3 Pant, 2 Shirt                             (Based on Employee Type)
-   1 T-Shirt, 2 Socks (All Types)                              │
-                                                               ▼
-                                                  Determine Attire Choices
-                                             (Alternative Attire / Gender)
-                                                               │
-                                                               ▼
-                                                   Departmental Footwear
-                                             (Safety / Liberty / BATA Shoes)
-                                                               │
-                                                               ▼
-                                                  Check Policy-Specific Items
-                                              (Union Linen, Soaps, Wellness)
-```
+PROVEXA enforces strict company policies via its integrated quota calculator. The rules are structured as follows:
 
-* **New Joining Kit Quota**: Automatically allocated to employees with less than 90 days of tenure who have not yet received uniform allocations. This provides 3 Pants (or Chudidhar Bottoms), 2 Shirts (or Chudidhar Tops), 1 T-Shirt (or Chudidhar Coat), and 2 Socks.
-* **Standard Annual Quota**: For standard employees, the annual allocation provides 2 Pants, 2 Shirts, 1 T-Shirt, and 2 Socks, resetting on their employment anniversary.
-* **Attire Customization**: Female employees can opt for alternative attire choices, swapping Pants for Chudidhar Bottoms, Shirts for Chudidhar Tops, and T-Shirts for Chudidhar Coats. Additionally, an annual winter coat is marked as mandatory for all female employees except those in corporate designations.
-* **Departmental Footwear Allocation**:
-  * **Trainees/Interns**: Automatically allocated **Safety Shoes**.
-  * **Supervisors/Union Operators**: Automatically allocated **Liberty Shoes**.
-  * **Production, Maintenance, Quality, Stores, Shop Floor**: Automatically allocated **Safety Shoes** to comply with safety policies.
-  * **All other roles**: Allocated standard **Bata Shoes**.
-* **Union Linen Program**: Union members are eligible for yearly beds & quarterly towel distributions:
+### I. Uniform Quotas
+* **New Joining Kit**: Automatically applies to all employees (including Trainees and Interns) during their first 90 days. Allocates **3 Pants, 2 Shirts, 1 T-Shirt, and 2 Socks**.
+* **Annual Allocation**: Applies to permanent staff after 90 days, resetting on their anniversary date. Allocates **2 Pants, 2 Shirts, 1 T-Shirt, and 2 Socks**.
+* **Attire Swap Policy**: Female staff can opt for alternative attire, which automatically swaps standard Pants for Chudidhar Bottoms, Shirts for Chudidhar Tops, and T-Shirts for Chudidhar Coats.
+
+### II. Footwear Allocations
+* **Trainees/Interns**: Eligible for standard **Safety Shoes**.
+* **Supervisors/Union Operators**: Eligible for upgraded **Liberty Shoes**.
+* **Operational Departments** (Production, Maintenance, Quality, Stores, Shop Floor): Eligible for standard **Safety Shoes** for safety compliance.
+* **Corporate / Other Departments**: Allocated corporate **Bata Shoes**.
+* *All shoe allocations are restricted to 1 pair per year.*
+
+### III. Union Linen & Welfare Benefits
+* **Union Members Linen Program**: Union members are eligible for quarterly linen distributions:
   * **Q1 (Jan–Mar)**: Turkey Towel.
   * **Q2 (Apr–Jun)**: 3-Piece Towel Set.
   * **Q3 (Jul–Sep)**: Bedsheet.
   * **Q4 (Oct–Dec)**: 3-Piece Towel Set.
-* **Standard Operator Soap Distribution**: Non-union operators receive a quarterly soap allocation (3 soaps per quarter for the first 3 months, 4 soaps per quarter thereafter) up to an annual limit of 45 soaps.
-* **Wellness & Benefit Distribution**: Tracks special wellness distributions, such as allocating 1 KG of Boost to employees following verified blood donations.
+* **Standard Soap Allotments**: Non-union operators receive a quarterly soap allocation (3 soaps per quarter for the first 3 months, 4 soaps per quarter thereafter) up to an annual limit of 45 soaps.
+* **Sweet Box Program**: Standard employees receive 1 sweet box per event (e.g. New Year, Ayudha Pooja). Union members receive 1 additional bonus box.
+* **Wellness Allotment**: Distributes 1 KG of Boost to any employee following a verified blood donation.
 
 ---
 
-## 19. Replacement & Deduction Workflow
-When physical gear is damaged, lost, or requires a size exchange:
+## 15. Reporting & Excel Export System
 
-* **Additional Item Requests**: Chargeable allocations. Items requested in excess of the standard free quota are validated against the **Official Price List**.
-* **Replacement/Exchange Requests**: Triggered for damaged items, size changes, or standard exchanges. If an item requires return, the UI disables the handover verification button until the administrator confirms the old item was collected.
-* **Payroll Cost Tracking**: Chargeable additional allocations are flagged as `Pending` until verified and handed over. Once completed, the status updates to `Paid`, and the costs are logged in the database to be exported for monthly payroll deductions.
-
----
-
-## 20. Reporting & Excel Export System
-The reporting engine dynamically compiles and streams structured spreadsheets using `exceljs` and `xlsx`:
-
-* **Multi-Filter Parameter Handling**: Filters data on the backend using query parameters (such as department, date ranges, categories, verification methods, and request status).
-* **High-Density Spreadsheet Generation**: Generates styled Excel workbooks containing auto-fit columns, customized headers, and formatted currency and date columns.
-* **Streaming Binary Delivery**: Streams the generated spreadsheet directly to the browser as a binary blob with a date-stamped filename, ensuring fast and memory-efficient downloads.
+The reporting framework compiles and streams customized spreadsheets using `exceljs` and `xlsx`:
+* **Dynamic Parameter Filters**: Filters records on the backend using query parameters (such as department, date range, verification method, and request status).
+* **High-Density Spreadsheet Compilation**: Generates customized tables with styled headers, auto-fit columns, and correct data formats.
+* **Streaming Binary Response**: Streams the compiled workbook directly to the browser as a binary blob with a date-stamped filename, ensuring fast downloads.
 
 ---
 
-## 21. System Architecture Diagram
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT TIER                               │
-│  React.js UI (Vite)  •  HTML5 Video Stream Camera  •  Canvas Signature │
-└──────────────────────────────────┬─────────────────────────────────────┘
-                                   │
-                           HTTPS Requests / JSON
-                                   │
-                                   ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                             GATEWAY TIER                               │
-│           Node.js Express Server  •  Session Route Interceptors        │
-│              JWT Cookie Validation  •  CORS Network Filters            │
-└──────┬──────────────────────────────────────────────────────────┬──────┘
-       │                                                          │
-   Local TCP/IP                                               HTTP POST
-   Port 1433                                                  Port 8001
-       │                                                          │
-       ▼                                                          ▼
-┌──────────────────────────────┐                          ┌──────────────┐
-│        DATABASE TIER         │                          │ COMP VISION  │
-│  Microsoft SQL Server        │                          │ FastAPI      │
-│  Sequelize Relation Schema   │                          │ OpenCV Image │
-│  ACID Safe Transactions      │                          │ EasyOCR / PT │
-└──────────────────────────────┘                          └──────────────┘
-```
+## 16. Authentication & JWT Flow
+
+1. **Login Request**: The admin enters credentials, and the backend verifies the username and validates the password using `bcryptjs` with 10 hashing rounds.
+2. **Session Signature**: Generates a secure JSON Web Token (JWT) signed with a secure, random environment key, configuring a standard 24-hour expiration.
+3. **Cookie Security**: Transmits the token inside an `HttpOnly`, `Secure` SameSite cookie. This blocks client-side scripts from reading the token, protecting it against Cross-Site Scripting (XSS) attacks.
+4. **Validation Middleware**: Subsequent API requests verify the cookie token. If the token is invalid or expired, the middleware clears the cookie and redirects the user to the login screen.
 
 ---
 
-## 22. Folder Structure Explanation
-```
-PROVEXA/
-│
-├── client/                     # Frontend Vite + React SPA
-│   ├── public/                 # Static public assets (icons, HTML assets)
-│   ├── src/
-│   │   ├── components/         # Shared UI components (Modals, Scanner, Sidebar)
-│   │   ├── pages/              # Primary route screens (Employees, Issues, Reports)
-│   │   ├── index.css           # Core styling and Tailwind imports
-│   │   ├── main.jsx            # Application entrypoint
-│   │   └── App.jsx             # Route registers and global providers
-│   ├── package.json            # Frontend dependency configuration
-│   ├── tailwind.config.js      # Tailwind style parameters
-│   └── vite.config.js          # Vite build parameters
-│
-├── server/                     # Backend Node.js Express Server
-│   ├── config/
-│   │   └── database.js         # SQL Server Sequelize pool & schema migrations
-│   ├── models/                 # Database schema models (Employee, Item, Issue)
-│   ├── routes/                 # API route definitions (Auth, Issues, Reports)
-│   ├── services/               # Core business services (Eligibility, Auth)
-│   ├── public/                 # Static uploads storage for signature images
-│   ├── index.js                # Server entrypoint file
-│   └── package.json            # Backend dependency configuration
-│
-├── ocr_service/                # Python Computer Vision Microservice
-│   ├── main.py                 # FastAPI endpoints and OpenCV OCR pipelines
-│   ├── requirements.txt        # Python dependency definitions
-│   └── start_ocr.bat           # Standalone service startup script
-│
-├── package.json                # Root concurrently development runner
-├── start_provexa.bat           # Master double-click Windows startup script
-└── ocr.bat                     # Windows port verification startup script
-```
+## 17. API Gateway Concept
+
+The Express server acts as a unified secure proxy for the frontend:
+* **Consolidated Endpoints**: Serves all routes under Port 5000, masking the internal ports used by the Python OCR service.
+* **Network Boundary Controls**: The FastAPI service only accepts connections from the local loopback host, protecting it from external network traffic.
+* **Whitelisted Security**: The gateway enforces authentication on all scanning routes, blocking unauthenticated users from accessing the OCR microservice.
 
 ---
 
-## 23. Database Design Concepts
-The database architecture is designed in Third Normal Form (3NF) to ensure data integrity and eliminate transactional redundancies:
-* **Separation of Concerns**: Master tables (such as `Employees`, `Items`, and `ItemCategories`) remain decoupled from transaction records (`IssueRecords`, `ReplacementRequests`, and `VerificationLog`), preventing conflicting data modifications.
-* **Audit Trail Preservation**: Transaction records store snapshot fields (such as `employee_name` and `item_name`) alongside primary foreign keys. This design ensures historical records remain accurate and audit-compliant even if the master records are modified or deactivated in the future.
-* **Unified Audit Tracking**: Features built-in timestamp tracking (`created_at`, `updated_at`) across all tables to support automatic tracking of data entry and updates.
+## 18. Mobile & Tablet Support
+
+PROVEXA is optimized for on-the-go warehouse operations:
+* **Responsive Layout Grid**: Built using responsive Tailwind flex-box and grid systems, adapting automatically to different screen sizes.
+* **Touch-Friendly Controls**: Features larger button click surfaces and simplified navigation tables suited for mobile devices.
+* **Responsive Video Scanner Overlay**: Adjusts the camera overlay and viewport dynamically to match device screen heights and ratios.
 
 ---
 
-## 24. Relational Mapping Concepts
-Sequelize defines relational associations in `server/models/index.js`, linking tables using primary keys:
+## 19. Mobile Camera Permission Setup
 
-```
-   ┌──────────────────┐          ┌──────────────┐          ┌──────────────────┐
-   │    Employee      │1        *│  IssueRecord │*        1│       Item       │
-   │  (PrimaryKey)    ├─────────►├──────────────┤◄────────┤   (PrimaryKey)   │
-   └──────────────────┘          │  employee_id │          └──────────┬───────┘
-                                 │    item_id   │                     │*
-                                 └──────────────┘                     ▼
-                                                           ┌──────────────────┐
-                                                           │   ItemCategory   │1
-                                                           │   (PrimaryKey)   │
-                                                           └──────────────────┘
-```
+Modern mobile browsers enforce strict security rules that block camera access on unsecured connections. To access the camera on mobile devices during local testing, follow these configuration steps:
 
-* **One-to-Many Mappings**: Defines direct associations, such as `ItemCategory.hasMany(Item)` and `Employee.hasMany(IssueRecord)`.
-* **Foreign Key References**: Relational queries pull nested categories and related records automatically using Sequelize's `include` parameters:
-  ```javascript
-  include: [{ model: Item, include: [{ model: ItemCategory }] }]
-  ```
-* **Performance Optimization**: Dynamic table migrations configure mappings without rigid databases constraints (`constraints: false`). This decoupling ensures database migrations execute smoothly without locking interdependent tables.
+### I. Security Rules (HTTPS vs HTTP)
+Browser camera APIs (`navigator.mediaDevices.getUserMedia`) require a secure connection (**HTTPS** or **localhost**). If you access the application using a local IP address (e.g., `http://192.168.1.15:5173`) over standard HTTP, the browser will disable the camera.
+
+### II. Configuring Local IP Camera Access in Chrome (Android)
+To test the camera on Android devices without configuring SSL certificates, bypass the browser security check in Chrome:
+1. Open Chrome on the Android device and navigate to: `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+2. Enable the setting and enter the host laptop's local IP and port in the text box (e.g., `http://192.168.1.15:5173`).
+3. Tap **Relaunch** at the bottom of the screen to apply the changes. The browser will now treat the local address as secure and allow camera access.
+
+### III. Configuring Camera Access in Safari (iOS / iPhone / iPad)
+1. Open the **Settings** app on the iOS device, scroll down, and select **Safari**.
+2. Scroll to the bottom and select **Advanced** -> **Experimental Features** (or **Feature Flags** in iOS 17+).
+3. Search for and enable **Media Recorder** and **getUserMedia** permissions.
+4. When you open the application, tap **Allow** on the camera access pop-up dialog.
 
 ---
 
-## 25. Authentication & JWT Flow
-The authentication system secures user sessions using encrypted JSON Web Tokens (JWT):
+## 20. Local Network / LAN Access Setup
 
-1. **Credentials Verification**: The user submits credentials at `/api/auth/login`. The server verifies the username and validates the password using `bcryptjs` with 10 hashing rounds.
-2. **Token Generation**: Generates a JWT signed with a secure, random environment secret key, configuring a standard 24-hour token expiration.
-3. **Secure Cookie Storage**: The server transmits the signed token to the browser inside an `HttpOnly`, `Secure` SameSite cookie. This prevents client-side scripts from reading the token, protecting it against Cross-Site Scripting (XSS) attacks.
-4. **Request Interception**: The browser attaches the cookie automatically to subsequent API requests. The `AuthMiddleware` parses and validates the token, extracting the admin's session data.
-5. **Session Expiration Handling**: If the token is invalid or expired, the middleware clears the cookie, blocks the request, and triggers a redirection to the login screen.
-
----
-
-## 26. API Gateway Concept
-The Express server acts as a secure **API Gateway**, routing frontend requests to the isolated OCR microservice:
-* **Endpoint Consolidation**: Provides a single unified route surface (`/api/verification/ocr-scan`) for the client. The frontend is not exposed to internal port layouts or external Python endpoints.
-* **Network Isolation**: The FastAPI microservice runs bound to local loopback spaces, restricting external access. The Express gateway acts as a proxy, verifying incoming JWT headers before forwarding the request to the OCR microservice.
-* **CORS Management**: The gateway handles CORS verification, consolidating headers, origins, and cookie permissions into a single entry point.
-
----
-
-## 27. Camera Integration Workflow
-The camera system captures physical ID cards directly inside the browser using standard web APIs:
-* **Media Stream Retrieval**: Captures a live media stream from the default camera using `navigator.mediaDevices.getUserMedia` with optimized video constraints.
-* **Video Rendering**: Projects the live camera feed into an HTML5 `<video>` element styled with a custom scanning overlay guide.
-* **Image Capture**: Draws the current video frame onto a hidden `<canvas>` element on capture, exporting it as an optimized base64 JPEG string:
-  ```javascript
-  const frame = canvas.getContext('2d').drawImage(video, 0, 0, w, h);
-  const rawBase64 = canvas.toDataURL('image/jpeg', 0.85);
-  ```
-* **Memory Management**: Automatically stops active video tracks when the modal closes, releasing system hardware resources.
-
----
-
-## 28. Mobile & Tablet Support
-The interface is optimized for mobile and tablet screens, ensuring smooth performance on the warehouse floor:
-* **Fluid Layout Grid**: Built using responsive Tailwind flex-box and grid systems, automatically adapting between desktop sidebars and vertical mobile layouts.
-* **Touch-Optimized Interaction**: Features larger touch targets, simplified navigation, and accessible mobile layouts optimized for hand-held tablets.
-* **Responsive Video Viewport**: The camera component scales dynamically to fit different mobile viewports, adjusting bounding guides to fit within smaller displays.
-
----
-
-## 29. Local Network Access Setup
 To run PROVEXA across a local area network (LAN), allowing supervisors to issue assets directly on tablets while walking the shop floor:
 
-1. **Vite LAN Binding**:
-   Configure Vite to bind to all active network interfaces by including the `--host` flag in `client/package.json`:
-   ```json
-   "dev": "vite --host"
-   ```
-2. **CORS Network Permissions**:
-   The Express backend on Port 5000 is configured to accept requests from private local network IP ranges (`192.168.x.x`, `10.x.x.x`, `172.16-31.x.x`):
-   ```javascript
-   const corsOptions = {
-       origin: function (origin, callback) {
-           if (!origin) return callback(null, true);
-           if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-               return callback(null, true);
-           }
-           if (/^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(origin)) {
-               return callback(null, true);
-           }
-           callback(new Error('Not allowed by CORS'));
-       }
-   };
-   ```
-3. **Tablet Access**:
-   Once running, devices on the same local network can access the application by pointing their browsers directly to the host laptop's local IP address (e.g., `http://192.168.1.15:5173`).
+### Step 1: Connect to the Same Network
+Ensure the host laptop and the mobile or tablet devices are connected to the **same Wi-Fi network**.
 
----
-
-## 30. OCR Performance Optimization Concepts
-To achieve fast and reliable OCR scans on standard CPUs, the system implements several performance optimizations:
-* **Allowlist Constraint Filtering**: Configures EasyOCR to ignore letters, punctuation, and special characters, restricting searches purely to digits (`allowlist='0123456789'`). This optimization speeds up OCR processing by **over 60%**.
-* **Model Weight Compression**: Quantizes PyTorch weights into 8-bit representations, reducing CPU memory utilization and accelerating matrix calculations.
-* **Mag Ratio Lock**: Disables model upscaling by setting `mag_ratio=1.0`, avoiding unnecessary upscale processing on pre-scaled input images.
-
----
-
-## 31. CPU Optimization Techniques
-The system utilizes advanced software techniques to optimize CPU utilization during text extraction:
-* **Spatial Resolution Capping**: Restricts input image resolutions to a maximum side of 600px, limiting total matrix multiplications during neural network passes.
-* **Adaptive Early-Exit**: Checks character confidence scores on the initial preprocessed CLAHE pass. If the extracted code matches the expected ID with a confidence score of $\ge 0.40$, the system executes an early exit, skipping secondary thresholding passes to save CPU cycles.
-* **Dynamic Frame Bounding**: Uses scanning overlays to guide users, encouraging them to center the ID card and reducing the necessity for complex multi-scale scanning sweeps.
-
----
-
-## 32. PM2 Process Management Explanation
-In production environments, **PM2** manages and maintains the Node.js backend processes:
-* **Process Monitoring and Recovery**: Runs the Express backend in the background, automatically restarting the process if it encounters unhandled exceptions, thread locks, or crashes.
-* **Cluster Expansion**: Supports horizontal process clustering, running multiple app threads across available CPU cores to improve request throughput.
-* **Memory Limits**: Protects against memory leaks by configuring automatic restarts if memory usage exceeds configured limits:
-  ```bash
-  pm2 start index.js --name "provexa-server" --max-memory-restart 500M
-  ```
-
----
-
-## 33. IIS Deployment Architecture
-For production deployments on Windows Server, Internet Information Services (IIS) manages traffic routing:
-* **Hosting via `iisnode`**: Hosts the Express application directly within IIS worker processes, letting IIS manage process lifecycles and scale worker threads.
-* **URL Rewriting Rules**: A custom `web.config` file routes incoming port traffic (e.g., requests to ports 80 or 443) directly to the running `iisnode` entry point:
-  ```xml
-  <configuration>
-    <system.webServer>
-      <handlers>
-        <add name="iisnode" path="index.js" verb="*" modules="iisnode" />
-      </handlers>
-      <rewrite>
-        <rules>
-          <rule name="NodeJS">
-            <match url="/*" />
-            <action type="Rewrite" url="index.js" />
-          </rule>
-        </rules>
-      </rewrite>
-    </system.webServer>
-  </configuration>
-  ```
-* **Application Pool Isolation**: Runs applications inside isolated app pools, preventing potential process errors from affecting other running services.
-
----
-
-## 34. SQL Server Express Deployment Concept
-Setting up SQL Server Express for production:
-* **TCP/IP Port Binding**: Enforces connections through a static TCP port (typically port 1433) in SQL Server Configuration Manager, enabling connection string routing.
-* **Mixed-Mode Security**: Configures the database to support both Windows Authentication and SQL Server authentication modes, using strong SQL user credentials for Sequelize connections.
-* **Resource Optimization**: SQL Server Express limits memory usage to a maximum of 1.4GB, preventing the database engine from monopolizing system memory.
-
----
-
-## 35. Production Deployment Architecture
-```
-                         INCOMING INTERNET / LAN TRAFFIC
-                                        │
-                                        ▼
-                         MICROSOFT IIS (Ports 80 / 443)
-                                        │
-             ┌──────────────────────────┴──────────────────────────┐
-             ▼ Static React Build                                  ▼ REST API Proxy
-     [Static HTML/JS]                                        [iisnode Routing]
-                                                                   │
-                                                                   ▼
-                                                            Express Gateway (Port 5000)
-                                                                   │
-                                           ┌───────────────────────┴───────────────────────┐
-                                           ▼ SQL Queries                                   ▼ Forward Scan
-                                    [SQL Server Express]                             [FastAPI Microservice]
-                                        (Port 1433)                                       (Port 8001)
+### Step 2: Bind Vite to the Local Network
+Configure Vite to listen on the local network by adding the `--host` flag in `client/package.json`:
+```json
+"dev": "vite --host"
 ```
 
-1. **Gateway Layer**: Microsoft IIS receives incoming traffic, serving pre-built static React files directly and routing API requests to the Express server using `iisnode`.
-2. **API Logic Layer**: The Express backend processes application requests, validating authorization cookies and routing queries.
-3. **OCR Processing Service**: The FastAPI microservice runs in the background on Port 8001, executing image recognition tasks.
-4. **Relational Database**: SQL Server Express runs as a local database engine, handling queries securely on Port 1433.
+### Step 3: Find the Host Laptop's Local IP Address
+1. Open a command prompt or terminal on the host laptop.
+2. Run the network configuration command:
+   ```bash
+   ipconfig
+   ```
+3. Locate the **IPv4 Address** under your active network adapter (e.g., `192.168.1.15`).
+
+### Step 4: Access the Application
+Open the browser on the mobile or tablet device and enter the host laptop's IP address and port:
+* **Frontend Web Access**: `http://192.168.1.15:5173`
+* **Backend API Gateway**: `http://192.168.1.15:5000`
 
 ---
 
-## 36. Why SQL Server Was Used
-* **Corporate IT Compliance**: High compatibility with corporate Windows Server systems, meeting security and compliance requirements.
-* **ACID Transaction Reliability**: Robust support for transactions, ensuring data integrity across critical workflows like inventory adjustments and asset handovers.
-* **Enterprise Reporting Compatibility**: Native compatibility with enterprise BI tools, making it easy to sync data with third-party reporting platforms.
+## 21. Production Deployment Architecture
+
+```
+                          INCOMING USER INTERNET / LAN TRAFFIC
+                                           │
+                                           ▼
+                            MICROSOFT IIS (Ports 80 / 443)
+                                           │
+                ┌──────────────────────────┴──────────────────────────┐
+                ▼ Static React Assets                                 ▼ REST API Proxy
+        [Pre-built Static Files]                              [iisnode Redirects]
+                                                                      │
+                                                                      ▼
+                                                              Express Gateway
+                                                                (Port 5000)
+                                                                      │
+                                              ┌───────────────────────┴───────────────────────┐
+                                              ▼ SQL Queries                                   ▼ OCR Scan Tasks
+                                       [SQL Server Express]                             [FastAPI Microservice]
+                                           (Port 1433)                                       (Port 8001)
+```
+
+1. **Incoming Traffic**: Microsoft IIS processes incoming user requests on standard HTTP/HTTPS ports (ports 80 and 443).
+2. **React Routing**: IIS serves the static React application files directly to clients.
+3. **Express API Processing**: IIS proxies backend API requests (`/api/*`) to the Express service using `iisnode`.
+4. **System Services**: The Express service queries SQL Server on Port 1433 and forwards card scanning tasks to the FastAPI service running in the background on Port 8001.
 
 ---
 
-## 37. Why FastAPI Was Used
-* **Asynchronous Execution**: High-performance asynchronous Request-Response loops, managing multiple concurrent API calls without blocking.
-* **Built-in Schema Validation**: Automated data validation and documentation using Pydantic, simplifying integration debugging.
-* **Fast Python Execution**: Significantly faster than traditional Python frameworks like Flask, making it ideal for deep learning microservices.
+## 22. SQL Server + PM2 + IIS Explanation
+
+Deployments on Windows Server use a robust, production-ready process layout:
+* **Internet Information Services (IIS)**: Serves as the web gateway. It hosts the static React client build and routes API calls to the background Node service using the `iisnode` extension.
+* **PM2 Process Manager**: Runs the backend Node service in the background, automatically restarting the process if it encounters unhandled exceptions or crashes.
+* **SQL Server Express**: Runs as a local service listening on Port 1433, providing database transaction safety and secure storage for relational tables.
 
 ---
 
-## 38. Why Node.js Was Used
-* **Asynchronous Event Loop**: High concurrency support, handling multiple API requests efficiently.
-* **Unified Javascript Language**: Developers can write Javascript across both client and server codebases, improving development speed and maintainability.
-* **Rich NPM Ecosystem**: Direct access to useful npm libraries (such as `exceljs`, `sequelize`, and `jsonwebtoken`), accelerating backend development.
+## 23. Deployment Steps on Another Laptop
 
----
+Follow these steps to deploy and run PROVEXA on another laptop:
 
-## 39. Why React Was Used
-* **Component Reusability**: Developers can build modular, self-contained UI components (e.g., scanners, forms, modal dialogs) to keep code organized.
-* **Virtual DOM Updates**: High-performance rendering of dynamic lists and timelines without full page reloads.
-* **Robust Ecosystem Support**: Native compatibility with powerful frontend tools like React Query, React Router, and Tailwind CSS.
+### Step 1: Install Required Software
+Ensure the destination laptop has the following software installed:
+* **Node.js (v20 or higher)**
+* **Python (v3.10 or v3.11)** (Check the option to **"Add Python to PATH"** during installation)
+* **SQL Server Express** and **SQL Server Management Studio (SSMS)**
 
----
+### Step 2: Obtain the Source Code
+You can transfer the project folder using a ZIP archive or clone it directly using Git:
 
-## 40. Why OCR Microservice Was Separated
-* **Resource Isolation**: Isolating CPU-intensive Python OCR tasks prevents heavy image processing from slowing down or crashing the core Express web server.
-* **Simplified Dependency Management**: Separates heavy machine learning dependencies (like PyTorch and OpenCV) from light JavaScript modules, keeping each codebase clean.
-* **Flexible Scalability**: Allows the OCR microservice to be scaled or moved to dedicated hardware with GPU support in the future without modifying core business APIs.
+#### Option A: Extracting from a ZIP Archive
+Copy the `PROVEXA_Source.zip` file to the target machine and extract the contents to a target folder (e.g. `C:\PROVEXA`).
 
----
-
-## 41. Deployment Steps on Another Laptop
-To deploy and run this project on another machine, follow these step-by-step instructions:
-
-### Step 1: Copy or Clone the Codebase
-Transfer the project folder to the new laptop using a USB drive or clone it directly using Git:
+#### Option B: Cloning the Repository
+Open a terminal and clone the repository using Git:
 ```bash
 git clone <repository_url> PROVEXA
 cd PROVEXA
 ```
 
-### Step 2: Install Git & Node.js
-Ensure the target laptop has **Git** and **Node.js (v20 or higher)** installed. Verify their installations using the command line:
-```bash
-node -v
-npm -v
-```
-
-### Step 3: Install Python (for OCR Microservice)
-Install **Python (v3.10 or v3.11)** on the target machine. Make sure to check the option to **"Add Python to PATH"** during installation. Verify the installation:
-```bash
-python --version
-```
-
-### Step 4: Install SQL Server Express & SSMS
-1. Download and run the **SQL Server Express Edition** installer. Select the **Basic Installation** option.
-2. Download and install **SQL Server Management Studio (SSMS)** to manage the database visually.
-3. Configure the database to accept SQL login credentials:
-   * Open SSMS, right-click the database server instance, select **Properties**, go to the **Security** tab, and select **SQL Server and Windows Authentication mode**.
-   * Create a new SQL login named `provexa_user` with password `Provexa@123`. Assign dbcreator permissions, or map the user to the target database.
-
 ---
 
-## 42. SQL Server Backup & Restore Steps
-Ensure database tables are created inside the database before migration begins. If restoring from an existing database backup file (`.bak`), use these steps:
+## 24. SQL Backup & Restore
 
-### 43. How to Create .bak Backup
-To create a backup file of the existing database, open SSMS, connect to the database instance, open a **New Query** window, and execute the following T-SQL command:
+Prepare the database before starting the application. If you have a `.bak` backup file:
+
+### How to Create a `.bak` Backup
+To back up the database on your development machine, run the following command in SSMS:
 ```sql
 BACKUP DATABASE ProvexaDB_New
 TO DISK = 'C:\Backups\ProvexaDB_Backup.bak'
@@ -714,33 +413,36 @@ WITH FORMAT,
 GO
 ```
 
-### 44. How to Restore Database
-To restore the database from a backup file on the new laptop:
-1. Place the backup file (`.bak`) in an accessible directory (e.g., `C:\Backups\ProvexaDB_Backup.bak`).
-2. In SSMS, open a **New Query** window and run the following T-SQL command:
+### How to Restore the Database
+To restore the database on the new machine:
+1. Place the backup file (`.bak`) in a folder (e.g., `C:\Backups\ProvexaDB_Backup.bak`).
+2. Open SSMS on the new laptop, open a new query window, and run the restore script:
 ```sql
--- Ensure the destination database is not in use
 USE master;
+-- Set database to single-user mode to close active connections
 ALTER DATABASE ProvexaDB_New SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
 
--- Restore the database from the backup file
+-- Restore database from the backup file
 RESTORE DATABASE ProvexaDB_New
 FROM DISK = 'C:\Backups\ProvexaDB_Backup.bak'
 WITH REPLACE,
      RECOVERY;
 
--- Set database back to multi-user mode
+-- Return database to multi-user mode
 ALTER DATABASE ProvexaDB_New SET MULTI_USER;
 GO
 ```
+3. Create a SQL Login for the user:
+   * Create a new SQL login named `provexa_user` with password `Provexa@123`. Map the user to the `ProvexaDB_New` database and assign **db_owner** permissions.
 
 ---
 
-## 45. Environment Variable Configuration
-Configure the environment variable files in both server and client folders before starting the application:
+## 25. Environment Variables
 
-### Server Environment Variables (`server/.env`)
-Create a new file named `.env` in the `server` directory and add the following configuration:
+Configure the environment variable configuration files in the respective project directories:
+
+### Server Configuration (`server/.env`)
+Create a new `.env` file in the `server/` directory and configure the database settings:
 ```env
 PORT=5000
 NODE_ENV=development
@@ -753,216 +455,170 @@ SQL_PASSWORD=Provexa@123
 SQL_DIALECT=mssql
 ```
 
-### Client Environment Variables (`client/.env`)
-Create a new file named `.env` in the `client` directory and configure the backend URL point:
+### Client Configuration (`client/.env`)
+Create a new `.env` file in the `client/` directory and configure the backend URL:
 ```env
 VITE_API_URL=http://localhost:5000
 ```
 
 ---
 
-## 46. Installation Steps
-Run the following commands in order to configure the application services:
+## 26. Installation Steps
 
-### 47. Backend Dependency Installation
-Navigate to the server directory and install the required Node.js packages:
+### Step 1: Install Node.js Dependencies
+Install the required Node.js packages for both the backend and frontend:
 ```bash
+# Install backend dependencies
 cd server
 npm install
-```
 
-### 48. Frontend Dependency Installation
-Navigate to the client directory and install the required frontend packages:
-```bash
+# Install frontend dependencies
 cd ../client
 npm install
 ```
 
-### 49. OCR Service Installation
-Set up a Python virtual environment and install the required dependencies:
-1. Open a terminal and navigate to the `ocr_service` directory:
-   ```bash
-   cd ../ocr_service
-   ```
-2. Create a new virtual environment:
-   ```bash
-   python -m venv venv
-   ```
-3. Activate the virtual environment:
-   * **PowerShell**: `venv\Scripts\Activate.ps1`
-   * **CMD**: `venv\Scripts\activate.bat`
-4. Install the required Python libraries:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   *(Note: The initial setup will automatically download PyTorch and the EasyOCR English language model weights on first run, which may take a few minutes).*
-
----
-
-## 50. Running Frontend
-To start the React frontend server in development mode, run the following commands:
+### Step 2: Configure the Python virtual environment
+Set up a Python virtual environment and install the required machine learning dependencies:
 ```bash
-cd client
-npm run dev
+# Navigate to the OCR service directory
+cd ../ocr_service
+
+# Create a new virtual environment
+python -m venv venv
+
+# Activate the virtual environment
+# Windows CMD:
+venv\Scripts\activate.bat
+# Windows PowerShell:
+venv\Scripts\Activate.ps1
+
+# Install requirements
+pip install -r requirements.txt
 ```
-The server will start and display the local network URLs (e.g., `http://localhost:5173`).
+*(Note: Installing the requirements downloads PyTorch and the EasyOCR English language model weights on first run, which may take a few minutes).*
 
 ---
 
-## 51. Running Backend
-To start the Express API backend, open a new terminal window and run:
-```bash
-cd server
-npm run dev
-```
-This boots the server on Port 5000, establishes connection with SQL Server, and automatically runs schema validations.
+## 27. Running the Entire System
 
----
+To run the application, open three separate terminal windows and start the services in order:
 
-## 52. Running OCR Service
-To launch the FastAPI OCR microservice, open a new terminal window and run:
+### Terminal 1: Python OCR Service
+Launch the machine learning API on Port 8001:
 ```bash
 cd ocr_service
 venv\Scripts\python.exe -m uvicorn main:app --host 0.0.0.0 --port 8001
 ```
-Alternatively, double-click the `ocr.bat` file in the root folder to automatically check and clear the port before launching the service.
 
-### Master Launch Script
-To start all three services concurrently with a single action, double-click the `start_provexa.bat` file located in the root project directory.
+### Terminal 2: Express Backend Server
+Launch the REST API gateway on Port 5000:
+```bash
+cd server
+npm run dev
+```
 
----
+### Terminal 3: Vite Frontend Client
+Launch the React development server:
+```bash
+cd client
+npm run dev
+```
 
-## 55. Reverse Proxy Configuration Concept
-When deploying the application in production environments, a reverse proxy consolidates traffic routing under a single domain:
-* **Consolidated Domain Structure**: Serves both frontend assets and backend APIs under a single port (e.g., Port 80 for HTTP or Port 443 for HTTPS).
-* **Eliminating CORS Restraints**: Routing frontend calls and backend endpoints through the same server proxy eliminates the necessity for complex cross-origin sharing rules in production.
-* **SSL Offloading**: The proxy server handles SSL certificate decryption, freeing up application servers from processing SSL overhead.
-
----
-
-## 56. Firewall & Port Configuration
-To ensure smooth communication across the local network, configure the host laptop's firewall to allow traffic through the following ports:
-
-| Port | Protocol | Usage | Firewall Rule |
-| :--- | :--- | :--- | :--- |
-| **5173** | TCP | Vite Frontend Server | Allow incoming connections from private LAN profiles. |
-| **5000** | TCP | Express API Server | Allow incoming connections from private LAN profiles. |
-| **8001** | TCP | FastAPI OCR Service | Keep blocked from external public networks (accessible locally). |
-| **1433** | TCP | SQL Server Database | Allow incoming database connections from authorized systems. |
+### Quick Launcher
+Alternatively, double-click the **`start_provexa.bat`** file in the project's root folder to automatically launch all three services.
 
 ---
 
-## 57. API Endpoints Table
+## 28. API Endpoints
 
-| Method | Endpoint | Description | Auth Required | Request Payload Fields |
+| Method | Endpoint | Description | Authentication | Payload Fields |
 | :--- | :--- | :--- | :--- | :--- |
-| **POST** | `/api/auth/login` | Authenticate admin credentials. | No | `{ email, password }` |
-| **POST** | `/api/auth/logout` | Clear user session cookies. | Yes | None |
-| **GET** | `/api/auth/me` | Fetch active admin session data. | Yes | None |
-| **GET** | `/api/employees` | Paginate employee directories. | Yes | Query: `?page=x&search=y` |
-| **POST** | `/api/employees` | Create a new employee record. | Yes | `{ emp_code, name, department, designation, employee_type, gender, sizes }` |
-| **GET** | `/api/employees/:id/asset-profile` | Fetch employee asset profiles. | Yes | None (URL ID parameter) |
-| **POST** | `/api/issues` | Distribute assets in bulk. | Yes | `{ employee_ids: [], item_payloads: [], issued_date }` |
-| **PUT** | `/api/issues/acknowledge/:id` | Verify single asset handover. | Yes | `{ method, signature, ocr_details }` |
-| **POST** | `/api/issues/:id/renew` | Renew an active asset cycle. | Yes | `{ notes, item_condition }` |
-| **POST** | `/api/issues/:id/return` | Mark an issued asset as returned. | Yes | `{ returned_condition, remarks }` |
-| **POST** | `/api/replacements` | Request additional/exchange items. | Yes | `{ employee, item, allocation_type, reason, quantity, size }` |
-| **PUT** | `/api/replacements/:id/approve` | Approve replacement cost. | Yes | `{ unit_cost, notes }` |
-| **GET** | `/api/reports/export` | Download issue reports (.xlsx). | Yes | Query parameters for filters |
+| **POST** | `/api/auth/login` | Authenticate administrator credentials. | Public | `{ email, password }` |
+| **POST** | `/api/auth/logout` | Clear active admin cookie sessions. | Secure | None |
+| **GET** | `/api/auth/me` | Fetch active user session profiles. | Secure | None |
+| **GET** | `/api/employees` | Search and paginate employee records. | Secure | Query: `?page=x&search=y` |
+| **POST** | `/api/employees` | Create a new employee record. | Secure | `{ emp_code, name, department, designation, employee_type, gender, sizes }` |
+| **GET** | `/api/employees/:id/asset-profile` | Fetch employee asset profiles and quotas. | Secure | None |
+| **POST** | `/api/issues` | Distribute assets in bulk. | Secure | `{ employee_ids: [], item_payloads: [], issued_date }` |
+| **PUT** | `/api/issues/acknowledge/:id` | Confirm single asset handovers. | Secure | `{ method, signature, ocr_details }` |
+| **POST** | `/api/issues/:id/renew` | Renew an active asset cycle. | Secure | `{ notes, item_condition }` |
+| **POST** | `/api/issues/:id/return` | Mark an issued asset as returned. | Secure | `{ returned_condition, remarks }` |
+| **POST** | `/api/replacements` | Request additional/exchange items. | Secure | `{ employee, item, allocation_type, reason, quantity, size }` |
+| **PUT** | `/api/replacements/:id/approve` | Approve replacement cost. | Secure | `{ unit_cost, notes }` |
+| **GET** | `/api/reports/export` | Download issue reports (.xlsx). | Secure | Query parameters for filters |
 
 ---
 
-## 58. Testing Workflow
-PROVEXA provides multiple workflows to verify system components:
-1. **Mock OCR Verification**:
-   The verification system includes fallback fields to complete handovers if the scanner fails or cannot read an ID card due to poor lighting, allowing administrators to verify identity manually.
-2. **API Verification**:
-   FastAPI exposes automated interactive API documentation. Developers can test endpoints directly by opening `http://localhost:8001/docs` in their browsers.
-3. **Database Relational Auditing**:
-   Modify values or check schema changes directly in SSMS by executing verification queries against the target tables:
-   ```sql
-   SELECT * FROM IssueRecords WHERE employee = 'TARGET_EMPLOYEE_UUID';
-   ```
+## 29. Troubleshooting
+
+* **Error: `ConnectionError: Port 1433 not open`**
+  * *Reason*: SQL Server is not accepting TCP/IP connections, or the service is not running.
+  * *Solution*: Open **SQL Server Configuration Manager**, navigate to **Protocols for SQLEXPRESS**, right-click **TCP/IP**, and click **Enable**. Restart the SQL Server service in Windows Services.
+
+* **Error: `EasyOCR download timed out`**
+  * *Reason*: Internet connection timed out while downloading model weights on first run.
+  * *Solution*: Ensure the laptop has an active internet connection on first run to allow PyTorch to download and cache the weight files in the user profile directory (`~/.EasyOCR/`).
+
+* **Error: `Port 8001 already in use`**
+  * *Reason*: Another background instance of the FastAPI service is running.
+  * *Solution*: Double-click the **`ocr.bat`** file in the root folder. The batch script automatically kills any process running on Port 8001 before starting the service.
+
+* **Error: `Audit Logs Disabled / Upload Directory Missing`**
+  * *Reason*: The server lacks permissions to write files to the uploads directory.
+  * *Solution*: Verify that the target folder `server/public/uploads/signatures/` exists on disk and has read/write permissions enabled for the current system user.
 
 ---
 
-## 59. Troubleshooting Section
+## 30. Windows Deployment Notes
 
-### 60. Common Errors & Solutions
-
-* **Error: `ConnectionError: Port 1433 not open` (or Tedious Connection Failures)**
-  * *Reason*: SQL Server is not configured to accept TCP/IP connections, or the SQL Service is stopped.
-  * *Solution*: Open **SQL Server Configuration Manager**, go to **SQL Server Network Configuration**, select **Protocols for SQLEXPRESS**, right-click **TCP/IP** and click **Enable**. Restart the SQL Server service in Windows Services.
-
-* **Error: `EasyOCR model download failed / connection timed out`**
-  * *Reason*: The server is blocked from downloading model weights on first run due to lack of internet access.
-  * *Solution*: Connect the machine to an active internet connection on first run, letting PyTorch download and cache the weight files in the user profile folder (`~/.EasyOCR/`).
-
-* **Error: `Port 8001 is already in use`**
-  * *Reason*: A background instance of the FastAPI microservice is still running in another process.
-  * *Solution*: Run `ocr.bat` directly. The batch script automatically kills existing processes running on port 8001 before starting the service.
-
-* **Error: `CORS Blocked Origin: Not allowed by CORS`**
-  * *Reason*: A device on the LAN is attempting to access the backend API using an IP or domain name that is not registered in the Express CORS whitelist.
-  * *Solution*: Add the host system's IP address or domain suffix directly to the CORS origin filter array in `server/index.js`.
-
----
-
-## 61. Windows Deployment Notes
-* **Execution Policy Configuration**:
-  If PowerShell blocks you from running virtual environment activation scripts, open a PowerShell terminal as Administrator and execute the following command:
+* **Execution Policy Configuration**: If PowerShell blocks virtual environment scripts, open a PowerShell terminal as Administrator and run:
   ```powershell
   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope LocalMachine
   ```
-* **Folder Permissions**:
-  Ensure the active user account has full read/write permissions for the `server/public/` directory, allowing the application to save signature images correctly.
-* **Path Length Configurations**:
-  If Git encounters long path issues on Windows, enable long path support in Git:
+* **Directory Upload Permissions**: Verify the `server/public/` folder allows read and write permissions to let the Express server write signature images.
+* **Enable Git Long Paths**: If Git throws errors regarding deep directories on Windows, run the configuration command:
   ```bash
   git config --global core.longpaths true
   ```
 
 ---
 
-## 62. Production Best Practices
-* **Secrets Rotation**: Change the default `JWT_SECRET` key to a strong, randomly generated hex string in production environment files.
-* **Enforce SSL Encryption**: Configure reverse proxies to redirect Port 80 traffic to Port 443, securing network communication.
-* **Database Maintenance Plan**: Schedule automated database backups (`.bak` files) to run daily using Windows Task Scheduler or SQL Server Agent.
-* **Optimize Logs**: Disable verbose Sequelize debug logs (`logging: false` in database settings) in production to improve server processing performance.
+## 31. Future Enhancements
+
+* **LDAP & Active Directory Support**: Allow administrators to log in using standard corporate Active Directory credentials.
+* **RFID Smart-Badge Integration**: Enable contactless issuing by replacing standard camera scans with fast RFID card reads.
+* **Predictive Inventory Modeling**: Analyze historical asset distribution data to help stores predict inventory requirements before upcoming cycles.
 
 ---
 
-## 63. Security Concepts
-* **Bcrypt Password Hashing**: Avoids storing passwords in plain-text, encrypting credentials using salting with 10 hashing rounds.
-* **HttpOnly Cookies**: Employs secure cookies to prevent cross-site scripting (XSS) scripts from reading authentication tokens.
-* **SQL Injection Prevention**: Enforces parameterized inputs and queries via Sequelize ORM, protecting the database against malicious injection inputs.
-* **Input Validation**: Restricts input fields to expected types and lengths (e.g. employee IDs must be 3-to-7 digit numeric strings).
+## 32. Screenshots
+
+*Below are placeholders to capture the visual interfaces of the running system:*
+
+#### I. Dashboard Interface
+*(Displays active inventory analytics, active handovers, pending replacements, and recent allocation trends).*
+> **[Placeholder for Dashboard Screenshot]**
+
+#### II. OCR Verification Modal
+*(Displays the live camera viewport overlay, captured card preview, and target matching indicators).*
+> **[Placeholder for OCR Scan Modal Screenshot]**
+
+#### III. Employee Profile Screen
+*(Displays active allocations, remaining quotas, historical timeline, and payroll additional cost cards).*
+> **[Placeholder for Employee Profile Screenshot]**
+
+#### IV. Replacement Workflow Drawer
+*(Displays cost calculations, replacement reasons, and verification fields).*
+> **[Placeholder for Replacement Drawer Screenshot]**
+
+#### V. Reports Export Center
+*(Displays parameter selection filters, date pickers, and export action buttons).*
+> **[Placeholder for Reports View Screenshot]**
 
 ---
 
-## 64. Audit Logging Concepts
-PROVEXA preserves a detailed audit history across all operations:
-* **Immutable Logs**: Acknowledged distributions create unique entries in the `VerificationLog` table, saving scanned text, OCR confidence ratings, device metadata, and signature paths.
-* **Deletion Protection**: Restricting standard delete operations preserves transaction histories. The system archives records instead of deleting them, maintaining accurate financial and operational histories.
+## 33. Conclusion
 
----
+**PROVEXA** provides a secure, efficient, and modern approach to enterprise asset management. By integrating computer vision-based badge scanning and touchscreen signature capture, it replaces manual logs with a zero-trust digital audit trail. 
 
-## 65. Enterprise Scalability Concepts
-To scale PROVEXA for larger distributions:
-* **Database Clustering**: Upgrading from SQL Server Express to SQL Server Standard enables active-passive clustering, ensuring database availability.
-* **In-Memory Cache Layers**: Integrating Redis caches session states and frequently queried configurations, reducing database query overhead.
-* **OCR Microservice Scalability**: Moving image processing to dedicated hardware with GPU capabilities allows the system to process larger scanning queues.
-
----
-
-## 66. Future Enhancements
-* **Active Directory / Single Sign-On**: Integrating LDAP/Active Directory or OAuth2 providers lets administrators log in using standard corporate credentials.
-* **RFID and Smart-Badge Handovers**: Adding RFID support allows stores to scan and issue assets instantly using smart employee badges.
-* **Predictive Inventory Engines**: Utilizing machine learning models to analyze historical distribution data helps stores predict and order inventory ahead of upcoming cycles.
-
----
-
-## 68. Conclusion
-**PROVEXA** provides an innovative, secure, and highly reliable approach to enterprise asset management. By integrating computer vision-based ID verification and digital signature capture, it replaces error-prone manual logs with an automated digital audit trail. 
-
-Built on a robust relational database foundation, decoupled microservices, and optimized CPU processing, PROVEXA delivers high performance, scalability, and security—making it a perfect fit for corporate, manufacturing, and industrial deployments.
+Built on a decoupled client-server architecture, transactional database storage, and lightweight CPU processing, PROVEXA is an ideal, presentation-ready solution for final year projects, technical viva sessions, and enterprise-scale deployments.
