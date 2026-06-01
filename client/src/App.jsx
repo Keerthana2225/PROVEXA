@@ -39,7 +39,7 @@ function App() {
   });
 
   if (isLoading) {
-    return <div className="h-screen flex items-center justify-center text-primary text-xl font-medium animate-pulse">Loading Provexa...</div>;
+    return <div className="h-screen flex items-center justify-center text-primary text-xl font-medium animate-pulse">Loading Brakes India...</div>;
   }
 
   return (

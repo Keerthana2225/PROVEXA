@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { LayoutDashboard, Users, Package, FileText, Clock, RefreshCw, BarChart2, LogOut, Zap, ShieldCheck, Menu } from 'lucide-react';
+import { LayoutDashboard, Users, Package, FileText, Clock, RefreshCw, BarChart2, LogOut, ShieldCheck, Menu } from 'lucide-react';
 import api from '../../lib/api';
 import ToastContainer from '../ui/Toast';
 
@@ -48,11 +48,16 @@ export default function Layout() {
             {/* Sidebar */}
             <aside className={`${isCollapsed ? 'w-20' : 'w-64'} bg-white border-r border-slate-100 flex flex-col flex-shrink-0 shadow-sm z-20 transition-all duration-300`}>
                 {/* Logo */}
-                <div className={`h-16 flex items-center ${isCollapsed ? 'justify-center' : 'px-6'} border-b border-slate-100`}>
-                    <div className={`w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center ${isCollapsed ? '' : 'mr-3'}`}>
-                        <Zap className="w-4 h-4 text-white" />
+                <div className={`h-16 flex items-center ${isCollapsed ? 'justify-center' : 'px-4'} border-b border-slate-100`}>
+                    {/* TSF exact S-curve icon */}
+                    <div className={`flex-shrink-0 flex items-center justify-center transition-transform duration-200 hover:scale-110 ${isCollapsed ? '' : 'mr-2.5'}`}>
+                        <img 
+                            src="/tsf-logo.jpg.png" 
+                            alt="TSF Logo" 
+                            className="w-[38px] h-[38px] object-contain mix-blend-multiply [clip-path:inset(0_0_8%_0)]"
+                        />
                     </div>
-                    {!isCollapsed && <span className="text-lg font-bold text-slate-900 tracking-tight transition-all">Provexa</span>}
+                    {!isCollapsed && <span className="text-base font-bold text-slate-900 tracking-tight transition-all truncate">Provexa</span>}
                 </div>
 
                 {/* Navigation */}
